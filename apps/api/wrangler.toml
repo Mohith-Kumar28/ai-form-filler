@@ -1,0 +1,29 @@
+name = "aff-api"
+main = "src/index.ts"
+compatibility_date = "2026-08-01"
+compatibility_flags = ["nodejs_compat"]
+
+# Non-secret config. Secrets (GOOGLE_CLIENT_ID, JWT_SECRET, OPENROUTER_API_KEY,
+# ANTHROPIC_API_KEY, STRIPE_*) are set with `wrangler secret put` and never live here.
+[vars]
+ENVIRONMENT = "development"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "aff-db"
+database_id = "PLACEHOLDER_RUN_WRANGLER_D1_CREATE"
+migrations_dir = "migrations"
+
+# Sliding-window rate-limit counters. KV's native TTL does the expiry for us.
+[[kv_namespaces]]
+binding = "RATE_LIMIT"
+id = "PLACEHOLDER_RUN_WRANGLER_KV_CREATE"
+
+# Uploaded resumes and images. Parsed to text at ingest; the originals stay here so a
+# user can re-download them and so we can re-parse after a parser improvement.
+[[r2_buckets]]
+binding = "UPLOADS"
+bucket_name = "aff-uploads"
+
+[observability]
+enabled = true

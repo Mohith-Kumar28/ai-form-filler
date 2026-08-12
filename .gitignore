@@ -1,0 +1,17 @@
+node_modules/
+dist/
+.output/
+.wxt/
+.wrangler/
+*.tsbuildinfo
+
+# Secrets — never commit. Worker secrets live in `wrangler secret put`.
+.dev.vars
+.env
+.env.*
+!.env.example
+
+.DS_Store
+coverage/
+test-results/
+playwright-report/

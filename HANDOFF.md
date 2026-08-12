@@ -1,0 +1,491 @@
+# AI Form Filler — Engineering Handoff
+
+**Purpose of this document.** Everything needed to continue building this project cold —
+architecture, hard invariants, what exists today, what's left, and the traps. Written so
+another engineer or assistant can pick it up without prior context.
+
+**Status:** Phases 1–2 complete and verified. Phase 3 is next and is the project's proof point.
+
+**Last verified:** all 3 packages typecheck, 54 tests pass, extension builds to a valid MV3
+bundle, Worker boots and serves every implemented route.
+
+---
+
+## 1. What this product is
+
+Fills any web form — job applications, Google Forms, event registrations, ATS portals — from
+a personal knowledge base, in the user's own writing voice, surfaced by a Grammarly-style
+inline affordance.
+
+**The competitive gap.** Every existing tool (Simplify Copilot, JobFill, CareerBoom,
+JobWizard, LazyApply, Teal) is job-application-only and works by mapping a *fixed profile
+schema* onto known ATS field names. None builds a general knowledge base, and none learns
+writing style. This product answers arbitrary questions from an arbitrary corpus.
+
+**Business model.** Hosted SaaS. We hold the provider API keys. Free tier of 50 forms/month,
+Pro upgrade via Stripe. Explicitly **not** bring-your-own-key — BYOK makes the extension
+undistributable to the actual audience.
+
+---
+
+## 2. The two hard invariants
+
+Break either and the product silently becomes uneconomic or unsafe. Neither fails loudly.
+
+### 2.1 The LLM output schema is fixed and global
+
+```
+system: [ STATIC_INSTRUCTIONS ]
+        [ PROFILE_DOC  ← cache_control breakpoint, 1h TTL ]
+tools:  [ SUBMIT_FILLS ]   ← byte-identical for every request, forever
+user:   [ form schema JSON, retrieved answers, page context ]  ← everything variable
+```
+
+**Why.** Vercel AI SDK's `generateObject` runs in tool-calling mode and synthesises a *new
+tool per schema*. Prompt caching hashes `tools → system → messages` in that order, so a
+per-form schema invalidates the cached ~10k-token profile on **every single request**. There
+is no error — just `cache_read_input_tokens: 0` and a bill 10× larger than modelled.
+(Reference: `vercel/ai` issue #5227.)
+
+**The fixed schema:** `{ fills: [{ fieldId, value, confidence, reasoning }] }` — identical for
+every form on earth. Form structure goes in the user message.
+
+**Guard:** integration test asserting `cache_read_input_tokens > 0` on a second identical call.
+
+### 2.2 Quota is enforced server-side, before any provider call
+
+Every free-tier call spends our money. The extension never decides whether a request is
+allowed. Order on `/v1/fill` is `auth → rateLimit (KV) → quota (D1) → handler`, and estimated
+cost is checked against remaining quota *before* the provider call, with actual usage written
+to `fill_log` after.
+
+---
+
+## 3. Architecture
+
+```
+apps/
+  api/                Hono on Cloudflare Workers — D1, KV, R2
+  extension/          WXT + React 19 + Tailwind v4 (MV3)
+packages/
+  shared/             Zod contract imported by both sides
+  form-adapters/       Pure DOM logic, unit-testable without a browser  [NOT YET BUILT]
+```
+
+`packages/shared` is the contract. A schema change breaks the build on both sides rather
+than breaking production. It is deliberately **runtime-agnostic** — no `chrome.*`, no
+Workers globals — so the Worker can import it. The `chrome`-dependent message helper lives
+in `apps/extension/src/lib/messaging.ts` for exactly this reason.
+
+### The API client is generated, never hand-written
+
+```
+packages/shared         Zod schemas — single source of truth
+      ↓
+apps/api/src/openapi/schemas.ts    names them as OpenAPI components
+      ↓
+apps/api/src/routes/*.ts           createRoute() + OpenAPIHono
+      ↓  pnpm --filter @aff/api openapi:emit
+apps/api/openapi.json              committed, so contract drift shows up in review
+      ↓  orval
+apps/extension/src/generated/      typed client + TanStack Query hooks
+```
+
+Adding a server route is the *only* step needed to get a typed hook in the extension.
+Regenerate with `pnpm --filter @aff/extension api:generate`.
+
+**Never hand-edit `src/generated/`** — it is a build artifact, excluded from biome, and
+wiped by `clean: true` on every run. The three things a spec cannot express live in
+`src/lib/http-client.ts`: base URL, bearer auth from `chrome.storage`, and turning the
+`ApiError` envelope into a typed throw.
+
+### Stack decisions and why
+
+| Layer | Choice | Rationale |
+|---|---|---|
+| Extension framework | **WXT 0.20** | 2026 market leader; Vite-based, actively maintained, cross-browser. Plasmo has maintenance concerns; CRXJS development has slowed. |
+| Server state | **TanStack Query + chrome.storage persister** | MV3 service workers are torn down aggressively and the side panel unmounts on close — an in-memory cache is empty on every open. |
+| Backend | **Hono on Workers** | Edge latency, generous free tier, trivial Stripe webhooks. |
+| Database | **D1 + Drizzle** | SQLite at the edge. FTS5 gives BM25 retrieval with no vector store. |
+| Retrieval | **BM25 over D1 FTS5** | No embedding model, no vector DB, no re-index pipeline. A profile that fits in 10k tokens retrieves *worse* with RAG than by just sending it all. |
+| LLM access | **Vercel AI SDK + OpenRouter** | One interface, per-tier model swap without touching call sites. |
+| Auth | **chrome.identity Google OAuth → server JWT** | One click, no password UI. |
+
+### The fill pipeline (phase 3 — not yet built)
+
+```
+[content script] detect form → build FormSchema (fields, labels, kinds, options, context)
+      ↓ chrome.runtime port (NOT sendMessage — see §7.3)
+[service worker] attach JWT → POST /v1/fill
+      ↓
+[Worker] auth → rate limit → quota → tier router → batched LLM calls → FillPlan
+      ↓
+[content script] apply with staggered animation → user reviews/edits → confirm
+      ↓
+[Worker] POST /v1/feedback → accepted answers enter the answer bank
+```
+
+The feedback loop is what makes the product compound: every accepted answer becomes future
+BM25 retrieval context.
+
+### The tier router — the core cost lever
+
+Most fields on a real form are deterministic and must never reach a model.
+
+| Tier | Trigger | Handler | ~Cost/form |
+|---|---|---|---|
+| **0** | Label/autocomplete matches identity pattern (name, email, phone, URL, DOB, address) | Pure lookup from `Identity`. **No LLM.** | **$0** |
+| **1** | Enumerable choice — select/radio with fixed options | Gemini 2.5 Flash Lite ($0.10/$0.40 per MTok) | ~$0.0016 |
+| **2** | Short free text, `maxLength < 300` or single-line | Gemini 2.5 Flash ($0.30/$2.50) | ~$0.006 |
+| **3** | Textarea, or label matches essay heuristics (`why`, `describe`, `tell us`, `cover letter`) | Claude Opus 5 ($5/$25), cached, with answer bank | ~$0.04 |
+
+A 50-form free tier costs roughly **$0.30/user** if most fields land in tiers 0–1. **The
+router matters more than the model choice** — that's the difference between $0.008 and $0.05
+per form.
+
+A user-facing quality slider (`quality: 'auto' | 'high'`) can force-escalate generative
+fields to tier 3. Tier 0 stays tier 0 either way — there is no quality gain from asking a
+model what your own email address is.
+
+**Caching economics caveat:** a 5-minute cache write bills at 1.25×, so a user who fills
+exactly one form and leaves is marginally *more* expensive than no caching. Break-even is two
+requests. The 1h TTL plus job-hunting burst behaviour puts real usage well past that.
+
+---
+
+## 4. What exists today
+
+### Phase 1 — Skeleton ✅
+
+**`packages/shared`** — the contract.
+
+| File | Contents |
+|---|---|
+| `form.ts` | `FieldKind` (12 behaviours, not tags), `FieldSchema`, `FormSchema`. Origin only, never full URLs — query strings leak PII. |
+| `fill.ts` | `FillTier`, `Fill`, `Skip`, `FillUsage`, `FillPlan`, `FillRequest`, `FeedbackRequest`. `REVIEW_CONFIDENCE_THRESHOLD = 0.7`. |
+| `profile.ts` | `Identity`, `EducationEntry`, `ExperienceEntry`, `StyleProfile`, `ProfileSource`, `Profile`. |
+| `account.ts` | `Plan`, `PLAN_LIMITS` (free: 50, pro: 2000), `QuotaState`, `Account`. |
+| `api.ts` | `ApiErrorCode`, `ApiError`, `ApiErrorResponse` class, `HTTP_STATUS_FOR_CODE`. |
+| `messages.ts` | Extension message union, `FillPortRequest`/`FillPortEvent`, `FILL_PORT`. |
+
+**`apps/api`** — Worker.
+
+- `src/auth/google.ts` — access-token introspection. **See §7.1 for the security-critical part.**
+- `src/auth/session.ts` — HS256 JWTs via `jose`, 30-day TTL, issuer/audience pinned.
+- `src/db/schema.ts` — 7 tables (see §5).
+- `src/middleware/error.ts` — single error exit point; unknown throws flattened to `INTERNAL` so stack traces never reach clients.
+- `src/middleware/auth.ts` — populates `userId` + `account`.
+- `src/routes/auth.ts`, `me.ts` — sign-in and account.
+- `src/services/account.ts` — user upsert, UTC quota period math.
+
+**`apps/extension`** — MV3 shell.
+
+- `entrypoints/background.ts` — message router. Every branch returns `true` to keep the async channel open.
+- `lib/api.ts` — single path to the Worker; clears the token on 401 so a dead session can't be retried forever.
+- `lib/auth.ts` — sign-in/out. **Revokes with Google on sign-out** or `getAuthToken` returns the same cached token and the user can never switch accounts.
+- `lib/query.ts` — QueryClient + `chrome.storage` persister. Does not retry 401/402/400.
+- `lib/storage.ts` — typed `chrome.storage.local` wrapper (the API is typed as returning `{}`).
+
+**Verified live:** `/health` 200; `/v1/me` unauthenticated 401; bad token 401; malformed body
+400 with Zod field paths; bogus Google token 401 via real round-trip to Google; valid JWT
+returns a correct `Account` with `limit: 50` and next-month `resetsAt`.
+
+### Phase 2 — Profile ingestion ✅
+
+- `src/profile/compile.ts` — **the deterministic `PROFILE_DOC` compiler.** SHA-256 hash, token estimate. 21 tests specifically protecting the cache invariant.
+- `src/profile/extract.ts` — heuristic identity extraction (email, phone, links) via regex. Deliberately not an LLM: those fields are *structural*, so a model adds latency, cost, and non-determinism to a solved problem.
+- `src/profile/parse.ts` — `unpdf` for PDFs (**verified working in the Workers runtime**), HTML-to-text for URLs, freeform passthrough. 200k char cap, 15 MB PDF cap.
+- `src/services/profile.ts` — recompile-on-mutation, version bump **only when the hash changes**.
+- `src/routes/profile.ts` — GET/PATCH profile, POST/DELETE sources.
+- Side panel — Sources tab (upload/link/paste + list) and Details tab (identity editor).
+
+**Verified live:** identity auto-extraction from raw text; PDF upload through the Worker;
+version stability across no-op and reordered edits; identity merge preserving extracted
+fields; R2 object actually deleted on source deletion; all error paths returning actionable
+messages.
+
+---
+
+## 5. Database schema (D1)
+
+| Table | Purpose | Notes |
+|---|---|---|
+| `users` | Accounts | Unique index on `google_sub` — email changes, subject doesn't. |
+| `profile_sources` | Uploaded/pasted sources | `extracted_text` is what feeds `PROFILE_DOC`; `r2_key` points at the original. |
+| `profile_docs` | Compiled prompt prefix, one row per user | `hash` guards the caching invariant. `structured_json` holds the whole structured Profile. |
+| `answer_bank` | Accepted free-text answers | `was_edited` marks the highest-signal rows. |
+| `answer_bank_fts` | FTS5 virtual table | **Hand-written** (migration 0001) — Drizzle can't express FTS5. External-content index, so the three sync triggers are mandatory. |
+| `fill_log` | One row per fill request | Per-tier counts, token breakdown, `cost_micro_usd`, latency. **This is how you find out whether the free tier is affordable.** |
+| `quota_usage` | Monthly counters keyed `YYYY-MM` | Separate from `fill_log` so the quota check is an indexed point-read. |
+| `subscriptions` | Stripe state | Phase 6. |
+
+Costs are stored in **micro-dollars as integers** — no float rounding anywhere near money.
+
+---
+
+## 6. Remaining work
+
+### Phase 3 — Fill core ⬅ IN PROGRESS
+
+**No overlay in this phase** — trigger from the side panel button. The goal is to prove the
+concept and get real cost numbers before building any presentation layer.
+
+- [x] `packages/form-adapters` scaffold + `FormAdapter` interface
+- [x] `generic.ts` adapter: native inputs, textareas, selects, radio/checkbox groups, `contenteditable`
+- [x] Label resolution chain, with the ancestor-text fallback stopping before `<body>`
+- [x] **React controlled-input write technique** (§7.2), with a regression test that shadows the instance-level `value`
+- [x] `router/classify.ts` — tier classification, specific-before-catch-all label ordering
+- [x] `router/tier0.ts` — deterministic identity resolution, no model call
+- [x] `llm/prompt.ts` — fixed global tool schema + cache breakpoint
+- [x] `llm/generate.ts` — `generateText` (not `generateObject`) over AI SDK + OpenRouter
+- [x] `llm/models.ts` — per-tier model + pricing, cost in integer micro-dollars
+- [x] BM25 retrieval from `answer_bank_fts` for tier 3
+- [x] `POST /v1/fill` with `rateLimit` (KV) + `enforceQuota` (D1) middleware
+- [x] `POST /v1/fill/feedback` → answer bank
+- [x] `fill_log` written on every request, including zero-cost ones
+- [x] Content script: detect forms, build `FormSchema`, hold the `fieldId → Element` map
+- [x] Fill port protocol in the background script (progress events, disconnect handling)
+- [x] Side-panel fill button applying the `FillPlan`, with review and skip summaries
+- [x] Round-trip test: detect a realistic ATS-shaped form → apply a plan → assert the DOM
+- [ ] **Caching integration test — assert `cacheReadTokens > 0` on a repeat call** ⚠️ blocked
+- [ ] Run 20 representative forms, query `fill_log`, **size the free tier from real data** ⚠️ blocked
+
+⚠️ **Both remaining items need a real `OPENROUTER_API_KEY` in `apps/api/.dev.vars`.**
+Everything up to the model call is verified; the caching assertion is the one thing that
+cannot be faked, and it is the assertion the entire cost model rests on. Run it before
+trusting any per-form cost number.
+
+**Verified live:** tier-0-only form fills 3/5 fields at $0 and 1 ms, skipping the two it has
+no data for rather than inventing them; `PROFILE_NOT_READY` 409 before any source exists;
+rate limiter cuts to 429 at 12/min with a `retryAfter`; quota exhaustion returns 402 carrying
+`{used, limit, resetsAt}`; feedback stores 1 of 2 entries (a bare "Yes" filtered as carrying
+no reusable signal); FTS5 triggers populate the index and BM25 ranks against it; the
+round-trip test writes text, select-by-visible-label, radio, checkbox, and textarea into a
+realistic form and asserts the resulting DOM.
+
+**Acceptance:** a real form fills correctly from the side panel; a second identical request
+shows a nonzero cache read; `fill_log` yields a mean cost per form.
+
+### Phase 3 message flow
+
+```
+side panel ──port(FILL_PORT)──> service worker
+                                      │ 1. tabs.sendMessage content/detect
+                                      ▼
+                                content script ──> FormSchema  (element map stays here)
+                                      │ 2. POST /v1/fill  (generated client)
+                                      ▼
+                                   Worker ──> FillPlan
+                                      │ 3. tabs.sendMessage content/apply
+                                      ▼
+                                content script ──> ApplyReport {applied, failed}
+side panel <──progress/complete──────┘
+```
+
+A port rather than `sendMessage`: a tier-3 fill can take 10s+, and an MV3 worker can be
+killed mid-flight — the port's disconnect is the only reliable signal that happened. The
+side panel sends a `tabId`, never a `FormSchema`; it has no access to the page.
+
+### Phase 4 — The magic layer
+
+- [ ] Closed Shadow DOM host + Tailwind scoped inside it
+- [ ] Floating trigger that appears on form detection
+- [ ] **Single rAF-batched positioning scheduler** (§7.4) — never a per-field listener
+- [ ] `IntersectionObserver` + scroll/resize + ~1s polling backstop
+- [ ] Staggered fill animation: travelling highlight, border sweep, ~25ms/char typing capped at 400ms/field
+- [ ] Amber "needs review" state for `confidence < 0.7`; side panel opens on the first one
+- [ ] `prefers-reduced-motion: reduce` → single 150ms fade. Non-negotiable.
+- [ ] Review/edit UI; accepted values POST to `/v1/feedback`
+- [ ] Perf check: <2ms/frame main-thread with 50+ fields
+
+### Phase 5 — Site adapters
+
+- [ ] `google-forms.ts` — no `<form>`, no native inputs. `[role=listitem]`, `[role=radio]`, `[role=listbox]` needing click-open → click-option. Stable DOM.
+- [ ] `ats-standard.ts` — Greenhouse, Lever, Ashby. Mostly standard HTML plus `react-select` (focus input → type → wait for menu → click option; it has no writable native value) and custom file-input wrappers.
+- [ ] `workday.ts` — **stretch, 3–4 days on its own.** Nested shadow DOM, `wd-*` custom elements, multi-step wizards, aggressive re-rendering that discards early writes. Needs recursive `shadowRoot` traversal, `MutationObserver` settle-wait, per-step re-detection. If it slips, everything else still ships.
+- [ ] HTML fixtures per site in `packages/form-adapters/fixtures/`
+
+### Phase 6 — Monetization and launch
+
+- [ ] Stripe Checkout + webhook → plan update
+- [ ] Quota-exhausted UI (402 already carries real numbers)
+- [ ] Upgrade flow in side panel
+- [ ] **Privacy policy** — resumes/transcripts/essays transit our server; Chrome Web Store requires a policy URL and accurate data-use disclosures. Launch blocker.
+- [ ] Web Store listing, screenshots, demo video
+- [ ] Cost dashboard over `fill_log`
+
+### Deferred / future
+
+- [ ] LLM enrichment of education & experience at ingest (heuristics only do identity today)
+- [ ] Style learning from accepted answers → `StyleProfile.exemplars`
+- [ ] Vision model for image sources at ingest
+- [ ] Multi-step wizard state across page navigations
+- [ ] Firefox build (WXT supports it; `chrome.identity` needs swapping)
+- [ ] Cloudflare Vectorize if the answer bank outgrows BM25 (thousands of answers, not hundreds)
+
+---
+
+## 7. Gotchas — read before touching related code
+
+### 7.1 Google token introspection: the `aud` check is load-bearing
+
+`chrome.identity.getAuthToken` returns an OAuth **access token**, not an ID token — there is
+no signature to verify locally. `auth/google.ts` introspects it with Google and **checks
+`aud` against our client ID**.
+
+Without that check, an access token minted for *any* Google OAuth app would authenticate
+here — meaning any extension or website the user has ever granted a Google scope to could
+impersonate them against our API. Do not remove it. The code also cross-checks that
+`tokeninfo.sub === userinfo.sub` so the two responses can't describe different people.
+
+Also: `getAuthToken`'s callback receives a `GetAuthTokenResult` object, not a bare string.
+
+### 7.2 React controlled inputs revert a naive `.value` assignment
+
+React tracks the previous value on the DOM node, so assigning `.value` is undone on the next
+render. The working technique:
+
+```ts
+const setter = Object.getOwnPropertyDescriptor(
+  window.HTMLInputElement.prototype, 'value'
+)!.set!
+setter.call(el, value)
+el.dispatchEvent(new Event('input', { bubbles: true }))
+```
+
+`HTMLTextAreaElement` and `HTMLSelectElement` need their own prototype setters. This needs a
+regression test against a real controlled component — it is easy to reintroduce.
+
+### 7.3 Fill requests need a port, not `sendMessage`
+
+An MV3 service worker can be killed mid-request. A one-shot `sendMessage` gives you no way to
+notice; a `chrome.runtime.connect` port's disconnect event is the retry signal. Progress
+events also need a port.
+
+### 7.4 Overlay positioning is a genuine performance hazard
+
+Grammarly's engineering write-up documents this: recomputing position at 60fps consumes
+**>90% CPU on average hardware** on heavy sites. Rules:
+
+- One shared rAF-batched scheduler. **Never a per-field scroll listener.**
+- `getBoundingClientRect()` only when content or field size changes; scroll events translate
+  the existing container instead.
+- `IntersectionObserver` for visibility; ~1s polling as a backstop for layout changes no
+  event reports.
+- Cull fields outside the viewport.
+- Render into a **closed Shadow DOM** so page CSS can't reach us and ours can't reach the page.
+
+### 7.5 `PROFILE_DOC` must stay byte-stable
+
+Sorted keys, explicit total orderings with tiebreaks, no timestamps, no IDs, no `Set`
+iteration order. `compile.test.ts` has 21 tests enforcing this. **A failure there is a cost
+incident, not a formatting nit.**
+
+Two bugs already caught by these tests: skills dedup retaining first-seen casing (order
+dependent), and a missing tiebreak on equal education dates.
+
+### 7.6 Identity is merged field-by-field; everything else replaces
+
+`PATCH /v1/profile` merges `identity` per-field but replaces arrays wholesale. Without this,
+saving the name field wipes the auto-extracted email — silent data loss the user only
+discovers when a form fills wrong. Clear an identity field by sending `""`.
+
+### 7.7 Deleting a source must delete the R2 object
+
+Otherwise a user who deleted their resume still has it stored with us. That's a privacy
+failure, not just wasted storage. `deleteSource` returns `orphanedR2Key`; the route awaits
+the R2 delete so a failure surfaces as a retryable 5xx.
+
+### 7.8 orval's `useQuery` / `useMutation` flags force themselves onto every operation
+
+In `orval.config.ts`, `override.query.useQuery: true` generates a **query** hook for every
+operation including POST/PATCH/DELETE — which then have no `.mutate`. Setting
+`useMutation: true` does the inverse and turns GETs into mutations. Leave **both unset**;
+orval then picks by HTTP method, which is what you want. Both were hit during the
+conversion, and neither fails at generation time — only later, at the call site.
+
+Also set `override.fetch.includeHttpResponseReturnType: false`, or every response type
+becomes a `{ data, status }` union whose error arms are unreachable (the mutator throws)
+but which every call site must still narrow.
+
+### 7.9 Dependency landmines
+
+- `@vitejs/plugin-react@6` requires **Vite ^8**. Pinned in `apps/extension`. Vite 7 fails with `Package subpath './internal' is not defined`.
+- `@cloudflare/vitest-pool-workers` pins an older wrangler that conflicts with `@cloudflare/workers-types@5`. Removed; add back in phase 3 for Worker integration tests, resolving versions then.
+- `pdf-parse` **cannot** run in a Worker (needs `fs`). Use `unpdf`.
+- `drizzle-kit generate` needs a TTY for rename-vs-recreate prompts. In CI, or when non-interactive, regenerate the init migration instead (safe while pre-release).
+- `exactOptionalPropertyTypes: true` is on. `{ key: undefined }` and `{}` are different types, deliberately — an absent key means "don't change".
+
+---
+
+## 8. Commands
+
+```sh
+pnpm install
+pnpm dev                       # Worker :8787 + extension watcher
+pnpm typecheck                 # all 3 packages
+pnpm test                      # 54 tests
+pnpm lint                      # biome
+pnpm --filter @aff/extension build
+
+cd apps/api
+pnpm db:generate               # after schema.ts changes (needs a TTY)
+pnpm db:migrate:local
+pnpm exec wrangler dev --port 8787 --local
+```
+
+**Smoke test without the extension:**
+
+```sh
+curl -s localhost:8787/health
+curl -s localhost:8787/v1/me                       # 401 UNAUTHENTICATED
+curl -s -X POST localhost:8787/v1/auth/google \
+  -H 'Content-Type: application/json' -d '{"accessToken":"bogus"}'   # 401 INVALID_TOKEN
+```
+
+**Mint a test JWT** (matches `JWT_SECRET` in `.dev.vars`):
+
+```sh
+node --input-type=module -e '
+import { SignJWT } from "./node_modules/jose/dist/webapi/index.js";
+const key = new TextEncoder().encode("local-dev-only-not-a-real-secret");
+console.log(await new SignJWT({}).setProtectedHeader({alg:"HS256"})
+  .setSubject("u_test").setIssuer("aff-api").setAudience("aff-extension")
+  .setIssuedAt().setExpirationTime("1h").sign(key));
+'
+```
+
+---
+
+## 9. Setup blockers for a new machine
+
+1. **Cloudflare resources** — `wrangler d1 create aff-db`, `wrangler kv namespace create RATE_LIMIT`, `wrangler r2 bucket create aff-uploads`; paste the returned IDs into `wrangler.toml`.
+2. **Google OAuth client** — chicken-and-egg: the client must be bound to a *specific extension ID*, which doesn't exist until the extension is built and loaded unpacked. Build → load at `chrome://extensions` → copy the ID → create a **Chrome Extension** OAuth client in Google Cloud Console → put the client ID in **both** `wxt.config.ts` (`manifest.oauth2.client_id`) and `.dev.vars` (`GOOGLE_CLIENT_ID`). Mismatch surfaces as `INVALID_TOKEN`.
+3. **Secrets** — `cp .dev.vars.example .dev.vars`, `openssl rand -base64 48` for `JWT_SECRET`. Production uses `wrangler secret put`.
+4. **`EXTENSION_ORIGIN`** — `chrome-extension://<id>`, or CORS rejects the extension in production.
+
+---
+
+## 10. Open decisions
+
+| Question | Status |
+|---|---|
+| Free tier size (50/month) | **Placeholder.** Size from `fill_log` after phase 3. |
+| Pro price | Undecided. Model from real cost/form first. |
+| Workday in v1 | Scoped as a phase-5 stretch. Defer if it slips. |
+| Education/experience extraction | Heuristics do identity only. LLM enrichment deferred to phase 3+ when the model layer exists. |
+| Style learning | Schema exists (`StyleProfile`); populated from accepted answers later. |
+| Firefox | WXT supports it; `chrome.identity` needs a swap. Not scoped. |
+
+---
+
+## 11. References
+
+- [Grammarly — Making Grammarly Feel Native On Every Website](https://www.grammarly.com/blog/engineering/making-grammarly-feel-native-on-every-website/)
+- [AI SDK: Anthropic caching breaks with generateObject](https://github.com/vercel/ai/issues/5227)
+- [OpenRouter prompt caching](https://openrouter.ai/docs/guides/best-practices/prompt-caching)
+- [Gemini 2.5 Flash pricing](https://openrouter.ai/google/gemini-2.5-flash/pricing)
+- [Vercel AI Gateway downgrades Anthropic's 1h cache](https://www.danielternyak.com/articles/vercel-ai-gateway-downgrades-anthropic-prompt-cache)
+- [Trigger Input Updates with React Controlled Inputs](https://coryrylan.com/blog/trigger-input-updates-with-react-controlled-inputs)
+- [WXT vs Plasmo vs CRXJS 2026](https://dev.to/extensionbooster/plasmo-vs-crxjs-vs-wxt-which-chrome-extension-framework-should-you-use-in-2026-37o4)
+- [Simplify vs LazyApply vs Teal](https://sprad.io/blog/top-5-simplify-alternatives-for-auto-applying-to-jobs-safely-with-ai)
