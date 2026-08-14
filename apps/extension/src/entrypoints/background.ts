@@ -1,5 +1,5 @@
 import type { Request } from '@aff/shared'
-import { submitFeedback } from '../generated/endpoints/fill/fill.js'
+import { improveAnswer, submitFeedback } from '../generated/endpoints/fill/fill.js'
 import { signIn, signOut } from '../lib/auth.js'
 import { registerFillPort, runFillFlow } from '../lib/fill-port.js'
 import { toResult } from '../lib/messaging.js'
@@ -124,11 +124,23 @@ export default defineBackground(() => {
        * hover must never raise an error.
        */
       case 'content/highlight':
+      /**
+       * A field the user has finished with, so the page can take its mark off.
+       *
+       * Falls through with `content/highlight` because both are the same hop for the same
+       * reason — only the content script holds the `fieldId -> Element` map — and both are
+       * advisory: the page may have navigated, and neither should ever raise an error at a
+       * user who has just agreed with an answer.
+       */
+      case 'review/resolved':
         void toResult(async () => {
           const [tab] = await chrome.tabs.query({ active: true, currentWindow: true })
           if (tab?.id !== undefined) {
             await chrome.tabs
-              .sendMessage(tab.id, { type: 'content/highlight', fieldId: request.fieldId })
+              .sendMessage(tab.id, {
+                type: request.type === 'review/resolved' ? 'content/resolved' : 'content/highlight',
+                fieldId: request.fieldId,
+              })
               .catch(() => undefined)
           }
           return null
@@ -142,6 +154,17 @@ export default defineBackground(() => {
           if (tabId) await chrome.sidePanel.open({ tabId })
           return null
         }).then(sendResponse)
+        return true
+
+      /** A rewrite asked for from the page's review slip. See `fill/improve` in messages.ts. */
+      case 'fill/improve':
+        void toResult(() =>
+          improveAnswer({
+            label: request.label,
+            value: request.value,
+            instruction: request.instruction,
+          }),
+        ).then(sendResponse)
         return true
 
       case 'sidepanel/open':

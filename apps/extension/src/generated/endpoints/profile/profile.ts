@@ -29,6 +29,7 @@ import type {
   Profile,
   ProfilePatch,
   ProfileResponse,
+  RenameSourceRequest,
   TextSourceRequest,
   UploadSourceBody
 } from '../../model';
@@ -470,7 +471,79 @@ export function useGetSourceFile<TData = Awaited<ReturnType<typeof getSourceFile
 
 
 
-export const getDeleteSourceUrl = (id: string,) => {
+export const getRenameSourceUrl = (id: string,) => {
+
+
+
+
+  return `/v1/profile/sources/${id}`
+}
+
+/**
+ * Changes the display label only. The extracted text and the stored original are untouched, so this does not recompile the profile.
+ * @summary Rename a source
+ */
+export const renameSource = async (id: string,
+    renameSourceRequest?: RenameSourceRequest, options?: Parameters<typeof httpClient>[1]): Promise<ProfileResponse> => {
+
+  return httpClient<ProfileResponse>(getRenameSourceUrl(id),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(renameSourceRequest)
+  }
+);}
+
+
+
+
+
+export const getRenameSourceMutationOptions = <TError = ErrorType<ApiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof renameSource>>, TError,{id: string;data?: BodyType<RenameSourceRequest>}, TContext>, request?: SecondParameter<typeof httpClient>}
+): UseMutationOptions<Awaited<ReturnType<typeof renameSource>>, TError,{id: string;data?: BodyType<RenameSourceRequest>}, TContext> => {
+
+const mutationKey = ['renameSource'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof renameSource>>, {id: string;data?: BodyType<RenameSourceRequest>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  renameSource(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RenameSourceMutationResult = NonNullable<Awaited<ReturnType<typeof renameSource>>>
+    export type RenameSourceMutationBody = BodyType<RenameSourceRequest> | undefined
+    export type RenameSourceMutationError = ErrorType<ApiError>
+
+    /**
+ * @summary Rename a source
+ */
+export const useRenameSource = <TError = ErrorType<ApiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof renameSource>>, TError,{id: string;data?: BodyType<RenameSourceRequest>}, TContext>, request?: SecondParameter<typeof httpClient>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof renameSource>>,
+        TError,
+        {id: string;data?: BodyType<RenameSourceRequest>},
+        TContext
+      > => {
+      return useMutation(getRenameSourceMutationOptions(options), queryClient);
+    }
+    export const getDeleteSourceUrl = (id: string,) => {
 
 
 

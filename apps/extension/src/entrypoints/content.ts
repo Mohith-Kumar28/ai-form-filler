@@ -1,9 +1,11 @@
 import { type DetectionResult, detectPageForm } from '@aff/form-adapters'
 import type { ApplyReport, ContentRequest, FillPlan, FillPortEvent } from '@aff/shared'
 import { REVIEW_CONFIDENCE_THRESHOLD } from '@aff/shared/constants'
+import { sendMessage } from '../lib/messaging.js'
 import { type AnimatedFill, runFillAnimation } from '../overlay/animate.js'
 import { createFeedbackCapture, displayValueOf } from '../overlay/feedback.js'
 import { isMuted, mountSeal, mute, type SealHandle, watchFocus } from '../overlay/field-seal.js'
+import { getOverlayHost, isOverlayEvent } from '../overlay/host.js'
 import { type FieldMark, mountFieldMark } from '../overlay/markers.js'
 import { positionScheduler } from '../overlay/scheduler.js'
 import { mountSlip, type SlipHandle } from '../overlay/slip.js'
@@ -37,6 +39,7 @@ export default defineContentScript({
     let muted = false
     let filling = false
 
+    const { root } = getOverlayHost()
     const marks = new Map<string, FieldMark>()
     /** The last plan, so a persistent mark can open the answer it belongs to. */
     let lastPlan: FillPlan | null = null
@@ -66,8 +69,16 @@ export default defineContentScript({
       return null
     }
 
+    /**
+     * Whether this element should get a seal.
+     *
+     * Deliberately does **not** consider `filling`. It used to, and the consequence was that
+     * pressing Fill in the slip made the seal ineligible on the very next focus event — so the
+     * slip closed, the seal vanished, and a fill that was running perfectly well looked like a
+     * button that did nothing. Keeping the seal alive during a fill is what `isHeld` is for.
+     */
     function isFillable(element: HTMLElement): boolean {
-      if (muted || filling) return false
+      if (muted) return false
       if (element.closest('[data-aff-ignore]')) return false
 
       const tag = element.tagName
@@ -95,6 +106,19 @@ export default defineContentScript({
       seal?.setExpanded(false)
     }
 
+    /**
+     * Every slip is mounted through here, so none can forget the hover contract.
+     *
+     * The menu keeps itself open while the pointer is over it, which is what makes the move
+     * from the seal to an item survivable, and closes on the same delay when the pointer
+     * leaves either one.
+     */
+    function setSlip(handle: SlipHandle): void {
+      slip = handle
+      handle.element.addEventListener('pointerenter', cancelHover)
+      handle.element.addEventListener('pointerleave', hoverClose)
+    }
+
     function detachSeal(): void {
       if (slip) return
       seal?.destroy()
@@ -102,11 +126,51 @@ export default defineContentScript({
       sealedElement = null
     }
 
+    /**
+     * Hover opens the menu; leaving closes it.
+     *
+     * Both are on a delay, and the delays are the whole design. Opening instantly would fire
+     * on a cursor that was only crossing the field on its way somewhere else, and closing
+     * instantly would dismiss the menu during the diagonal move from the seal down to its
+     * first item — the two failure modes that make every hover menu feel broken. Click still
+     * works, and so does the keyboard shortcut, because hover is not an option for everyone.
+     */
+    const HOVER_OPEN_MS = 180
+    const HOVER_CLOSE_MS = 260
+
+    let hoverTimer: ReturnType<typeof setTimeout> | null = null
+
+    function cancelHover(): void {
+      if (hoverTimer !== null) clearTimeout(hoverTimer)
+      hoverTimer = null
+    }
+
+    function hoverOpen(element: HTMLElement): void {
+      cancelHover()
+      if (slip || filling) return
+      hoverTimer = setTimeout(() => openMenu(element), HOVER_OPEN_MS)
+    }
+
+    function hoverClose(): void {
+      cancelHover()
+      hoverTimer = setTimeout(() => {
+        // Never while the pointer is over the menu itself, and never mid-edit: a review slip
+        // holds a textarea someone may be typing into with the mouse parked anywhere.
+        if (!slip || slip.element.matches(':hover') || slip.element.contains(root.activeElement)) {
+          return
+        }
+        closeSlip()
+      }, HOVER_CLOSE_MS)
+    }
+
     function attachSeal(element: HTMLElement): void {
       if (sealedElement === element && seal) return
       seal?.destroy()
       sealedElement = element
       seal = mountSeal(element, () => openMenu(element))
+
+      seal.element.addEventListener('pointerenter', () => hoverOpen(element))
+      seal.element.addEventListener('pointerleave', hoverClose)
     }
 
     /* ── the slip ──────────────────────────────────────────────────────── */
@@ -134,38 +198,44 @@ export default defineContentScript({
       }
 
       current.setExpanded(true)
-      slip = mountSlip({
-        kind: 'menu',
-        anchor,
-        label: 'Fill',
-        question: field?.label,
-        actions: [
-          { id: 'field', label: 'Fill this field', glyph: 'pen' },
-          {
-            id: 'form',
-            label: total >= MIN_FORM_FIELDS ? `Fill all ${total} fields` : 'Fill the whole form',
-            glyph: 'form',
-            disabled: total === 0,
+      setSlip(
+        mountSlip({
+          kind: 'menu',
+          anchor,
+          label: 'Fill',
+          question: field?.label,
+          actions: [
+            { id: 'field', label: 'Fill this field', glyph: 'pen' },
+            {
+              id: 'form',
+              label: total >= MIN_FORM_FIELDS ? `Fill all ${total} fields` : 'Fill the whole form',
+              glyph: 'form',
+              disabled: total === 0,
+            },
+            { id: 'panel', label: 'Open the panel', glyph: 'panel', quiet: true },
+            { id: 'mute', label: 'Not on this site', glyph: 'mute', quiet: true },
+          ],
+          onSelect: (id) => {
+            closeSlip()
+            // Focus returns to the field first, so the seal it was invoked from survives to
+            // carry the progress ring rather than being torn down by the slip's own blur.
+            element.focus({ preventScroll: true })
+
+            if (id === 'field') requestFill('field', element)
+            else if (id === 'form') requestFill('form')
+            else if (id === 'panel') void chrome.runtime.sendMessage({ type: 'overlay/openPanel' })
+            else if (id === 'mute') {
+              void mute(location.origin)
+              muted = true
+              detachSeal()
+            }
           },
-          { id: 'panel', label: 'Open the panel', glyph: 'panel', quiet: true },
-          { id: 'mute', label: 'Not on this site', glyph: 'mute', quiet: true },
-        ],
-        onSelect: (id) => {
-          closeSlip()
-          if (id === 'field' && fieldId) requestFill('field', fieldId)
-          else if (id === 'form') requestFill('form')
-          else if (id === 'panel') void chrome.runtime.sendMessage({ type: 'overlay/openPanel' })
-          else if (id === 'mute') {
-            void mute(location.origin)
-            muted = true
-            detachSeal()
-          }
-        },
-        onClose: () => {
-          closeSlip()
-          element.focus()
-        },
-      })
+          onClose: () => {
+            closeSlip()
+            element.focus()
+          },
+        }),
+      )
     }
 
     function openReview(fieldId: string): void {
@@ -180,30 +250,42 @@ export default defineContentScript({
       let draft = slipDrafts.get(fieldId) ?? fill.value
 
       seal?.setExpanded(true)
-      slip = mountSlip({
-        kind: 'review',
-        anchor,
-        label: 'Review this answer',
-        question: fill.label || 'This answer',
-        value: draft,
-        concluded: fill.inferred,
-        confidence: fill.confidence,
-        onValueChange: (value) => {
-          draft = value
-          slipDrafts.set(fieldId, value)
-        },
-        onSelect: (id) => {
-          closeSlip()
-          if (id === 'keep') {
-            resolveField(fieldId, fill.value, 'accepted')
-          } else if (id === 'save') {
-            resolveField(fieldId, draft, 'edited')
-          } else if (id === 'clear') {
-            resolveField(fieldId, '', 'cleared')
-          }
-        },
-        onClose: closeSlip,
-      })
+      setSlip(
+        mountSlip({
+          kind: 'review',
+          anchor,
+          label: 'Review this answer',
+          question: fill.label || 'This answer',
+          value: draft,
+          concluded: fill.inferred,
+          confidence: fill.confidence,
+          onValueChange: (value) => {
+            draft = value
+            slipDrafts.set(fieldId, value)
+          },
+          onImprove: async (instruction) => {
+            const result = await sendMessage({
+              type: 'fill/improve',
+              label: fill.label,
+              value: draft,
+              instruction,
+            })
+            if (!result.ok) throw new Error(result.error.message)
+            return result.value.value
+          },
+          onSelect: (id) => {
+            closeSlip()
+            if (id === 'keep') {
+              resolveField(fieldId, fill.value, 'accepted')
+            } else if (id === 'save') {
+              resolveField(fieldId, draft, 'edited')
+            } else if (id === 'clear') {
+              resolveField(fieldId, '', 'cleared')
+            }
+          },
+          onClose: closeSlip,
+        }),
+      )
     }
 
     /**
@@ -259,11 +341,63 @@ export default defineContentScript({
       void Promise.resolve(detection.adapter.applyValue(field, value)).then(settle)
     }
 
-    function requestFill(scope: 'form' | 'field', fieldId?: string): void {
+    /**
+     * Asks the worker to fill, and keeps the seal on screen to report what happens.
+     *
+     * The field id is re-resolved against a fresh detection rather than trusted from when the
+     * seal was mounted. A React form re-renders between focusing a field and clicking a menu
+     * item often enough that the id captured at mount was frequently stale by the time it was
+     * used — and a stale id took the `if (id === 'field' && fieldId)` branch to `false` and did
+     * nothing at all, silently, which is exactly what "the button doesn't work" looked like.
+     */
+    function requestFill(scope: 'form' | 'field', element?: HTMLElement): void {
+      if (filling) return
+
+      detect()
+
+      let fieldId: string | undefined
+      if (scope === 'field') {
+        fieldId = (element && fieldIdFor(element)) ?? undefined
+        if (!fieldId) {
+          showFieldError(element, 'That field moved. Try again, or fill the whole form.')
+          return
+        }
+      }
+
       filling = true
       clearMarks()
       seal?.setProgress(0)
       void chrome.runtime.sendMessage({ type: 'overlay/requestFill', scope, fieldId })
+    }
+
+    /**
+     * Says what went wrong, on the field it went wrong on.
+     *
+     * The old dock owned every failure message. Deleting it left page-initiated fills with no
+     * error surface whatsoever: a fill that failed for any reason — no form found, quota gone,
+     * session expired — simply did nothing visible, which is indistinguishable from a broken
+     * button and was reported as one.
+     */
+    function showFieldError(element: HTMLElement | undefined, message: string): void {
+      const anchor = element ?? sealedElement
+      if (!anchor?.isConnected) return
+
+      closeSlip()
+      const box = anchor.getBoundingClientRect()
+      setSlip(
+        mountSlip({
+          kind: 'menu',
+          anchor: { top: box.top, left: box.left, width: box.width, height: box.height },
+          label: 'Autofill',
+          actions: [{ id: 'retry', label: 'Try again', glyph: 'pen' }],
+          note: { text: message, bad: true },
+          onSelect: (id) => {
+            closeSlip()
+            if (id === 'retry') requestFill('form')
+          },
+          onClose: closeSlip,
+        }),
+      )
     }
 
     /* ── marks ─────────────────────────────────────────────────────────── */
@@ -429,11 +563,32 @@ export default defineContentScript({
 
           /** A review row in the panel is pointing at this field. */
           case 'content/highlight': {
-            marks.get(request.fieldId)?.flash()
-            const field = detection?.elements.get(request.fieldId)
-            if (!marks.has(request.fieldId) && field?.element.isConnected) {
-              field.element.scrollIntoView({ block: 'center', behavior: 'smooth' })
+            const mark = marks.get(request.fieldId)
+            if (mark) {
+              mark.flash()
+            } else {
+              // Same rule as `flash`: never scroll a page that is already showing the field.
+              const field = detection?.elements.get(request.fieldId)
+              const box = field?.element.isConnected ? field.element.getBoundingClientRect() : null
+              if (box && (box.bottom < 8 || box.top > window.innerHeight - 8)) {
+                field?.element.scrollIntoView({ block: 'center', behavior: 'smooth' })
+              }
             }
+            sendResponse(null)
+            return false
+          }
+
+          /**
+           * The panel says this field is settled, so its stamp comes off.
+           *
+           * Accepting an answer writes nothing to the page — the value is already there — so
+           * without this the endorsement stayed on a field the user had explicitly agreed
+           * with, and the only way to clear a stamp was to change the answer.
+           */
+          case 'content/resolved': {
+            marks.get(request.fieldId)?.destroy()
+            marks.delete(request.fieldId)
+            slipDrafts.delete(request.fieldId)
             sendResponse(null)
             return false
           }
@@ -446,6 +601,12 @@ export default defineContentScript({
               filling = false
               seal?.setProgress(null)
               clearMarks()
+              // Say so, on the field they pressed. Swallowing this is what made a quota
+              // failure, an expired session and a genuine bug all look like a dead button.
+              showFieldError(sealedElement ?? undefined, event.error.message)
+            } else if (event.type === 'complete') {
+              filling = false
+              seal?.setProgress(null)
             }
             return false
           }
@@ -472,7 +633,9 @@ export default defineContentScript({
       isFillable,
       onAttach: attachSeal,
       onDetach: detachSeal,
-      isHeld: () => slip !== null,
+      // A running fill holds the seal as firmly as an open slip does: it is the only thing on
+      // the page reporting progress, and losing it mid-fill reads as the fill having died.
+      isHeld: () => slip !== null || filling,
     })
 
     /** Opens the slip on the focused field without reaching for the pointer. */
@@ -487,8 +650,9 @@ export default defineContentScript({
 
     const onPointerDown = (event: PointerEvent) => {
       if (!slip) return
-      const path = event.composedPath()
-      if (path.some((node) => node instanceof Node && slip?.contains(node))) return
+      // Asked of the host element, not the slip: see `isOverlayEvent`. Testing the slip
+      // directly is what silently broke every menu item on every site.
+      if (isOverlayEvent(event)) return
       closeSlip()
     }
 

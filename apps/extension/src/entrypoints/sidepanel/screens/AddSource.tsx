@@ -4,6 +4,8 @@ import {
   addTextSource,
   getGetProfileQueryKey,
   uploadSource,
+  useGetProfile,
+  usePatchProfile,
 } from '../../../generated/endpoints/profile/profile.js'
 import { formatBytes } from '../../../lib/source-file.js'
 import {
@@ -21,12 +23,19 @@ import { useNavigation } from '../navigation.js'
 
 const MAX_UPLOAD_BYTES = 15 * 1024 * 1024
 
-type Mode = 'upload' | 'link' | 'text' | 'voice'
+type Mode = 'fact' | 'upload' | 'link' | 'text' | 'voice'
 
+/**
+ * Fact leads, because it is the cheapest thing anyone can give it.
+ *
+ * A notice period or a visa status takes ten seconds to type and answers a question no résumé
+ * contains, whereas uploading a document is the largest commitment on this screen.
+ */
 const MODES: { key: Mode; label: string; icon: typeof IconDocument }[] = [
+  { key: 'fact', label: 'Fact', icon: IconText },
   { key: 'upload', label: 'File', icon: IconDocument },
   { key: 'link', label: 'Link', icon: IconLink },
-  { key: 'text', label: 'Text', icon: IconText },
+  { key: 'text', label: 'Note', icon: IconText },
   { key: 'voice', label: 'Voice', icon: IconAudio },
 ]
 
@@ -39,7 +48,7 @@ const MODES: { key: Mode; label: string; icon: typeof IconDocument }[] = [
  */
 export function AddSource() {
   const nav = useNavigation()
-  const [mode, setMode] = useState<Mode>('upload')
+  const [mode, setMode] = useState<Mode>('fact')
   const queryClient = useQueryClient()
 
   /** Every path ends the same way: refresh the profile, return to the list. */
@@ -83,6 +92,7 @@ export function AddSource() {
         </div>
       </div>
 
+      {mode === 'fact' && <FactMode onDone={settle} />}
       {mode === 'upload' && <UploadMode onDone={settle} />}
       {mode === 'link' && <LinkMode onDone={settle} />}
       {mode === 'text' && <TextMode onDone={settle} />}
@@ -105,7 +115,7 @@ function Submit({
   return (
     <ScreenFooter>
       {error != null && (
-        <p className="mb-2 text-[11.5px] leading-snug text-endorse" role="alert">
+        <p className="mb-2 text-[11.5px] leading-snug text-alert" role="alert">
           {(error as Error).message}
         </p>
       )}
@@ -113,6 +123,83 @@ function Submit({
         {pending ? 'Saving…' : label}
       </Button>
     </ScreenFooter>
+  )
+}
+
+/**
+ * One name, one value.
+ *
+ * Written straight into the profile's own key/value store rather than ingested as a document:
+ * a fact is already structured, so there is nothing to extract, nothing to embed, and it
+ * answers directly with no model call at the point of use.
+ */
+function FactMode({ onDone }: { onDone: () => Promise<void> }) {
+  const queryClient = useQueryClient()
+  const profile = useGetProfile()
+  const [name, setName] = useState('')
+  const [value, setValue] = useState('')
+
+  const existing = profile.data?.custom ?? {}
+  const duplicate = name.trim() !== '' && name.trim() in existing
+
+  const save = usePatchProfile({
+    mutation: {
+      onSuccess: async (updated) => {
+        queryClient.setQueryData(getGetProfileQueryKey(), updated)
+        await onDone()
+      },
+    },
+  })
+
+  return (
+    <form
+      className="flex min-h-0 flex-1 flex-col"
+      onSubmit={(event) => {
+        event.preventDefault()
+        save.mutate({ data: { custom: { ...existing, [name.trim()]: value.trim() } } })
+      }}
+    >
+      <ScreenBody className="flex flex-col gap-4 p-4">
+        <Field
+          label="Name"
+          hint="What a form would call it."
+          error={duplicate ? 'You already have a fact by that name.' : undefined}
+        >
+          {({ id, describedBy }) => (
+            <Input
+              id={id}
+              aria-describedby={describedBy}
+              value={name}
+              onChange={(event) => setName(event.currentTarget.value)}
+              placeholder="Notice period"
+            />
+          )}
+        </Field>
+
+        <Field label="Value">
+          {({ id, describedBy }) => (
+            <Input
+              id={id}
+              aria-describedby={describedBy}
+              value={value}
+              onChange={(event) => setValue(event.currentTarget.value)}
+              placeholder="6 weeks from signing"
+            />
+          )}
+        </Field>
+
+        <p className="text-[11.5px] leading-relaxed text-ink3">
+          Facts are answered directly, word for word, with no guessing involved.
+        </p>
+      </ScreenBody>
+
+      <Submit
+        pending={save.isPending}
+        disabled={!name.trim() || !value.trim() || duplicate}
+        error={save.error}
+        label="Save fact"
+      />
+    </form>
   )
 }
 
@@ -399,7 +486,7 @@ function VoiceMode({ onDone }: { onDone: () => Promise<void> }) {
           </p>
 
           <Button
-            variant={recording ? 'endorse' : 'struck'}
+            variant={recording ? 'danger' : 'struck'}
             onClick={
               recording
                 ? () => {
@@ -416,7 +503,7 @@ function VoiceMode({ onDone }: { onDone: () => Promise<void> }) {
         </div>
 
         {denied && (
-          <p className="text-[11.5px] leading-snug text-endorse" role="alert">
+          <p className="text-[11.5px] leading-snug text-alert" role="alert">
             {denied}
           </p>
         )}

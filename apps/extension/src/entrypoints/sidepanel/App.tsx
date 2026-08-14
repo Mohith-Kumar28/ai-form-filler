@@ -9,14 +9,13 @@ import { useActivePage } from '../../lib/use-active-page.js'
 import { useFill } from '../../lib/use-fill.js'
 import { Screen, ScreenBody, ScreenHeader, SkeletonRow } from './components.js'
 import { NavigationProvider, useNavigation } from './navigation.js'
-import { AboutYou } from './screens/AboutYou.js'
 import { AddSource } from './screens/AddSource.js'
 import { Filling } from './screens/Filling.js'
 import { Home } from './screens/Home.js'
-import { Knowledge } from './screens/Knowledge.js'
 import { Profile } from './screens/Profile.js'
 import { Review } from './screens/Review.js'
 import { SourceDetail } from './screens/SourceDetail.js'
+import { Sources } from './screens/Sources.js'
 import { Welcome } from './screens/Welcome.js'
 
 function useSignedIn() {
@@ -104,7 +103,7 @@ function Stack() {
       <Screen>
         <ScreenHeader title="Form Filler" />
         <ScreenBody className="flex items-center justify-center px-6">
-          <p className="text-center text-[12.5px] leading-relaxed text-endorse" role="alert">
+          <p className="text-center text-[12.5px] leading-relaxed text-alert" role="alert">
             {account.error?.message ?? 'Could not load your account.'}
           </p>
         </ScreenBody>
@@ -118,21 +117,8 @@ function Stack() {
     case 'profile':
       return <Profile account={account.data} />
 
-    case 'aboutYou':
-      return profile.data ? (
-        <AboutYou profile={profile.data} />
-      ) : (
-        <Screen>
-          <ScreenHeader title="About you" />
-          <ScreenBody aria-busy>
-            <SkeletonRow />
-            <SkeletonRow />
-          </ScreenBody>
-        </Screen>
-      )
-
-    case 'knowledge':
-      return <Knowledge profile={profile.data} />
+    case 'sources':
+      return <Sources profile={profile.data} />
 
     case 'addSource':
       return <AddSource />

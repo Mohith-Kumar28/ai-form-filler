@@ -9,11 +9,11 @@ import {
 } from 'react'
 
 /**
- * A nine-screen stack, not a router.
+ * An eight-screen stack, not a router.
  *
  * `@tanstack/react-router` was a dependency of this package and imported nowhere; adopting it
  * would buy URL parsing, route trees and code splitting for a surface with no URLs, no deep
- * links and nine screens. What is actually needed is a push/pop stack whose transition this
+ * links and eight screens. What is actually needed is a push/pop stack whose transition this
  * file can author directly, which is about sixty lines.
  *
  * The old panel had no navigation at all — screens appeared by state precedence inside one
@@ -25,11 +25,10 @@ export type Screen =
   | { name: 'home' }
   | { name: 'filling' }
   | { name: 'review' }
-  | { name: 'knowledge' }
+  | { name: 'sources' }
   | { name: 'addSource' }
   | { name: 'sourceDetail'; sourceId: string }
   | { name: 'profile' }
-  | { name: 'aboutYou' }
 
 export type ScreenName = Screen['name']
 

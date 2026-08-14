@@ -105,8 +105,20 @@ export function mountFieldMark(element: HTMLElement, onReview?: () => void): Fie
       if (PERSISTENT.includes(state)) ensureTab(state as 'endorsed' | 'unsure')
       else removeTab()
     },
+    /**
+     * Pulse the outline, and scroll only if the field is genuinely out of sight.
+     *
+     * This used to scroll unconditionally, on every highlight message. With two marked fields
+     * — one near the top of a long form, one near the bottom — the page walked between them
+     * indefinitely: each smooth scroll moved the pointer over a different row in the panel,
+     * which highlighted the other field, which scrolled back. Scrolling a page that is already
+     * showing the thing you are pointing at is never the right answer anyway.
+     */
     flash: () => {
-      element.scrollIntoView({ block: 'center', behavior: 'smooth' })
+      const box = element.getBoundingClientRect()
+      const offscreen = box.bottom < 8 || box.top > window.innerHeight - 8
+      if (offscreen) element.scrollIntoView({ block: 'center', behavior: 'smooth' })
+
       mark.removeAttribute('data-flash')
       // Reading offsetWidth restarts the animation; without it a second hover on the same row
       // does nothing at all.

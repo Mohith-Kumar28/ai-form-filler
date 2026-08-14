@@ -3,14 +3,13 @@ import { type ReactNode, StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import './gallery.css'
 import { NavigationProvider } from '../src/entrypoints/sidepanel/navigation.js'
-import { AboutYou } from '../src/entrypoints/sidepanel/screens/AboutYou.js'
 import { AddSource } from '../src/entrypoints/sidepanel/screens/AddSource.js'
 import { Filling } from '../src/entrypoints/sidepanel/screens/Filling.js'
 import { Home } from '../src/entrypoints/sidepanel/screens/Home.js'
-import { Knowledge } from '../src/entrypoints/sidepanel/screens/Knowledge.js'
 import { Profile } from '../src/entrypoints/sidepanel/screens/Profile.js'
 import { Review } from '../src/entrypoints/sidepanel/screens/Review.js'
 import { SourceDetail } from '../src/entrypoints/sidepanel/screens/SourceDetail.js'
+import { Sources } from '../src/entrypoints/sidepanel/screens/Sources.js'
 import { Welcome } from '../src/entrypoints/sidepanel/screens/Welcome.js'
 import { cssName, DARK, LIGHT, TOKEN_NAMES } from '../src/lib/tokens.js'
 import './stub-chrome.js'
@@ -136,12 +135,12 @@ function Gallery() {
             <Review plan={PLAN} report={REPORT} tabId={1} onDone={() => undefined} />
           </Frame>
 
-          <Frame label="Knowledge" note="mixed states, one failed">
-            <Knowledge profile={PROFILE} />
+          <Frame label="Sources" note="about you, facts, documents">
+            <Sources profile={PROFILE} />
           </Frame>
 
-          <Frame label="Knowledge" note="empty">
-            <Knowledge profile={EMPTY_PROFILE} />
+          <Frame label="Sources" note="empty">
+            <Sources profile={EMPTY_PROFILE} />
           </Frame>
 
           <Frame label="Add source" note="file mode">
@@ -154,10 +153,6 @@ function Gallery() {
 
           <Frame label="Profile">
             <Profile account={ACCOUNT} />
-          </Frame>
-
-          <Frame label="About you">
-            <AboutYou profile={PROFILE} />
           </Frame>
         </div>
       </div>

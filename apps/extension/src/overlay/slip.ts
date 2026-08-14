@@ -14,6 +14,15 @@ import type { Rect } from './scheduler.js'
 
 const MARGIN = 8
 
+/**
+ * How the product signs its work on someone else's page.
+ *
+ * Deliberately one word and set in the label register rather than the manifest's full
+ * "AI Form Filler", which is a description of the category and not a name. Change it here and
+ * it changes on every slip; nothing else reads it.
+ */
+const WORDMARK = 'Autofill'
+
 export interface SlipAction {
   id: string
   label: string
@@ -52,7 +61,23 @@ interface ReviewSlip extends SlipOptions {
   concluded: boolean
   confidence: number
   onValueChange: (value: string) => void
+  /**
+   * Rewrites in a named style, in place.
+   *
+   * The slip offers the same four styles the panel's review row does, so correcting a
+   * concluded answer never requires leaving the form — which is the entire reason the review
+   * lives on the page as well as in the panel. Rejecting means the request failed and the
+   * original text stands.
+   */
+  onImprove: (instruction: string) => Promise<string>
 }
+
+export const REWRITE_STYLES = [
+  { key: 'professional', label: 'More formal' },
+  { key: 'simpler', label: 'Simpler' },
+  { key: 'shorter', label: 'Shorter' },
+  { key: 'detailed', label: 'More detail' },
+] as const
 
 export type SlipSpec = MenuSlip | ReviewSlip
 
@@ -103,12 +128,21 @@ export function mountSlip(spec: SlipSpec): SlipHandle {
   slip.setAttribute('role', spec.kind === 'menu' ? 'menu' : 'dialog')
   slip.setAttribute('aria-label', spec.label)
 
+  /**
+   * The masthead.
+   *
+   * A credential names its issuer, and this popover is the only place the product signs its
+   * own work on a page it does not own — so the seal and the wordmark sit at the top of every
+   * slip, and the question being answered gets its own band beneath rather than sharing one.
+   */
+  const masthead = `<div class="slip-head">${GLYPH.seal}<span class="slip-wordmark">${escapeHtml(
+    WORDMARK,
+  )}</span></div>`
+
   if (spec.kind === 'menu') {
     slip.innerHTML = `
-      <div class="slip-head">
-        <div class="slip-label">${escapeHtml(spec.label)}</div>
-        ${spec.question ? `<div class="slip-question">${escapeHtml(spec.question)}</div>` : ''}
-      </div>
+      ${masthead}
+      ${spec.question ? `<div class="slip-question">${escapeHtml(spec.question)}</div>` : ''}
       ${spec.actions
         .map(
           (action) => `
@@ -135,19 +169,24 @@ export function mountSlip(spec: SlipSpec): SlipHandle {
       ? 'Concluded'
       : `Unsure · ${Math.round(spec.confidence * 100)}%`
 
+    /*
+      Keep / Rewrite / Clear — the same three words the panel's review row uses.
+
+      This used to offer Keep / Save / Clear, so one decision had two vocabularies depending on
+      which surface you happened to be looking at, and the middle option meant something
+      different on each. Save is not a peer of the other two: it only exists once the text has
+      actually been changed, and it appears in its place then.
+    */
     slip.innerHTML = `
       <div class="slip-head">
+        ${GLYPH.seal}<span class="slip-wordmark">${escapeHtml(WORDMARK)}</span>
         <span class="${stampClass}">${GLYPH.stamp}<span>${escapeHtml(stampText)}</span></span>
-        <div class="slip-question">${escapeHtml(spec.question)}</div>
       </div>
+      <div class="slip-question">${escapeHtml(spec.question)}</div>
       <div class="slip-body">
         <textarea class="slip-value" aria-label="Answer">${escapeHtml(spec.value)}</textarea>
       </div>
-      <div class="slip-actions">
-        <button type="button" class="slip-btn slip-btn-plate" data-id="keep">Keep</button>
-        <button type="button" class="slip-btn" data-id="save">Save</button>
-        <button type="button" class="slip-btn slip-btn-bad" data-id="clear">Clear</button>
-      </div>
+      <div class="slip-actions" data-actions></div>
     `
   }
 
@@ -166,15 +205,64 @@ export function mountSlip(spec: SlipSpec): SlipHandle {
   slip.style.setProperty('--origin-y', placed.originY)
   slip.style.visibility = 'visible'
 
-  const items = [...slip.querySelectorAll<HTMLElement>('.slip-item:not(:disabled), .slip-btn')]
   const textarea = slip.querySelector<HTMLTextAreaElement>('.slip-value')
+  const actions = slip.querySelector<HTMLElement>('[data-actions]')
+
+  /**
+   * The review slip's action row, which is a small state machine rather than three fixed
+   * buttons: the offer changes once the text has been touched, and again while a rewrite is in
+   * flight. Rendering only this row keeps the slip's position and the caret where they were.
+   */
+  let mode: 'idle' | 'rewriting' | 'busy' = 'idle'
+  let error: string | null = null
+
+  const renderActions = () => {
+    if (spec.kind !== 'review' || !actions || !textarea) return
+    const dirty = textarea.value !== spec.value
+
+    if (mode === 'busy') {
+      actions.className = 'slip-busy'
+      actions.textContent = 'Rewriting…'
+      return
+    }
+
+    if (mode === 'rewriting') {
+      actions.className = 'slip-chips'
+      actions.innerHTML = `${REWRITE_STYLES.map(
+        (style) =>
+          `<button type="button" class="slip-chip" data-id="style:${style.key}">${escapeHtml(
+            style.label,
+          )}</button>`,
+      ).join('')}<button type="button" class="slip-chip" data-id="cancel-rewrite">Back</button>`
+      return
+    }
+
+    actions.className = 'slip-actions'
+    actions.innerHTML = dirty
+      ? `<button type="button" class="slip-btn slip-btn-plate" data-id="save">Save to the page</button>
+         <button type="button" class="slip-btn" data-id="undo">Undo</button>`
+      : `<button type="button" class="slip-btn slip-btn-plate" data-id="keep">Keep</button>
+         <button type="button" class="slip-btn" data-id="rewrite">${GLYPH.pen}Rewrite</button>
+         <button type="button" class="slip-btn slip-btn-bad" data-id="clear">Clear</button>`
+
+    if (error) {
+      const note = document.createElement('div')
+      note.className = 'slip-note slip-note-bad'
+      note.textContent = error
+      actions.after(note)
+    }
+  }
 
   if (spec.kind === 'review' && textarea) {
-    textarea.addEventListener('input', () => spec.onValueChange(textarea.value))
+    textarea.addEventListener('input', () => {
+      spec.onValueChange(textarea.value)
+      renderActions()
+    })
+    renderActions()
     textarea.focus()
     textarea.setSelectionRange(textarea.value.length, textarea.value.length)
   } else {
-    items[0]?.focus()
+    slip.querySelector<HTMLElement>('.slip-item:not(:disabled)')?.focus()
   }
 
   slip.addEventListener('click', (event) => {
@@ -182,7 +270,51 @@ export function mountSlip(spec: SlipSpec): SlipHandle {
     if (!target || target.hasAttribute('disabled')) return
     event.preventDefault()
     event.stopPropagation()
-    spec.onSelect(target.dataset.id ?? '')
+
+    const id = target.dataset.id ?? ''
+
+    // Rewriting is handled inside the slip: it changes the text in place and hands control
+    // back, rather than resolving the field and closing.
+    if (spec.kind === 'review' && textarea) {
+      if (id === 'rewrite') {
+        mode = 'rewriting'
+        error = null
+        renderActions()
+        return
+      }
+      if (id === 'cancel-rewrite') {
+        mode = 'idle'
+        renderActions()
+        return
+      }
+      if (id === 'undo') {
+        textarea.value = spec.value
+        spec.onValueChange(spec.value)
+        renderActions()
+        return
+      }
+      if (id.startsWith('style:')) {
+        mode = 'busy'
+        error = null
+        renderActions()
+        void spec
+          .onImprove(id.slice('style:'.length))
+          .then((next) => {
+            textarea.value = next
+            spec.onValueChange(next)
+          })
+          .catch((cause: Error) => {
+            error = cause.message || 'Could not rewrite that. The original is unchanged.'
+          })
+          .finally(() => {
+            mode = 'idle'
+            renderActions()
+          })
+        return
+      }
+    }
+
+    spec.onSelect(id)
   })
 
   const onKey = (event: KeyboardEvent) => {
@@ -193,8 +325,16 @@ export function mountSlip(spec: SlipSpec): SlipHandle {
       return
     }
 
+    // Re-queried on every keypress rather than captured once: the review slip rewrites its
+    // own action row, so a list built at mount goes stale the moment anyone presses Rewrite.
+    const focusables = () => [
+      ...slip.querySelectorAll<HTMLElement>(
+        '.slip-value, .slip-item:not([disabled]), .slip-btn:not([disabled]), .slip-chip:not([disabled])',
+      ),
+    ]
+
     if (event.key === 'Tab') {
-      const focusable = textarea ? [textarea, ...items] : items
+      const focusable = focusables()
       if (focusable.length === 0) return
       const index = focusable.indexOf(root.activeElement as HTMLElement)
       const next = event.shiftKey ? index - 1 : index + 1
@@ -209,6 +349,8 @@ export function mountSlip(spec: SlipSpec): SlipHandle {
     if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp') return
 
     event.preventDefault()
+    const items = focusables()
+    if (items.length === 0) return
     const index = items.indexOf(root.activeElement as HTMLElement)
     const next = event.key === 'ArrowDown' ? index + 1 : index - 1
     items[(next + items.length) % items.length]?.focus()

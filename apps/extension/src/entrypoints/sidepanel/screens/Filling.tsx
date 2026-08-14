@@ -39,8 +39,7 @@ export function Filling({
       <ScreenHeader title="Filling" onBack={onCancel} />
 
       <ScreenBody className="px-4 py-5">
-        <p className="doc-label">In progress</p>
-        <p className="mt-1.5 text-[14px] font-semibold tracking-[-0.01em] text-ink">
+        <p className="text-[15px] font-semibold tracking-[-0.015em] text-ink">
           {fieldCount > 0 ? `${fieldCount} fields on this page` : 'Working through the form'}
         </p>
 
@@ -83,7 +82,7 @@ export function Filling({
         {failed ? (
           <p
             role="alert"
-            className="mt-4 flex items-start gap-1.5 text-[12.5px] leading-snug text-endorse"
+            className="mt-4 flex items-start gap-1.5 text-[12.5px] leading-snug text-alert"
           >
             <IconAlert className="mt-px size-3.5 shrink-0" />
             <span>{state.error?.message ?? 'Something went wrong.'}</span>
@@ -115,7 +114,7 @@ function Ticking() {
   return (
     <span className="relative flex size-3.5 items-center justify-center" aria-hidden>
       <span className="absolute size-3.5 rounded-full border border-query opacity-40" />
-      <span className="size-1.5 animate-pulse rounded-full bg-query" />
+      <span className="impress size-1.5 rounded-full bg-query" />
     </span>
   )
 }

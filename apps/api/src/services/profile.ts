@@ -319,6 +319,37 @@ export async function addSource(db: Db, userId: string, source: NewSource): Prom
  * *must* act on it: leaving the object behind means a user who deleted their resume still
  * has it stored with us. That is a privacy failure, not just wasted storage.
  */
+/**
+ * Renames a source.
+ *
+ * The label is the only thing about a source a person can sensibly change after the fact — the
+ * extracted text belongs to the file, and the file itself is what it is. `Document (3).pdf` is
+ * unrecognisable in a list a month later, and until now the only way to fix that was to delete
+ * the source and upload it again, which also destroyed everything remembered from it.
+ *
+ * Deliberately does **not** recompile: the label is a display name for the list, and does not
+ * appear in the compiled prompt prefix, so a rename is not worth the extraction cost.
+ */
+export async function renameSource(
+  db: Db,
+  userId: string,
+  sourceId: string,
+  label: string,
+): Promise<Profile> {
+  const updated = await db
+    .update(profileSources)
+    .set({ label })
+    // Scoped by userId as well as id, for the same reason delete is.
+    .where(and(eq(profileSources.id, sourceId), eq(profileSources.userId, userId)))
+    .returning({ id: profileSources.id })
+
+  if (!updated[0]) {
+    throw new ApiErrorResponse('INVALID_REQUEST', 'No such source')
+  }
+
+  return getProfile(db, userId)
+}
+
 export async function deleteSource(
   db: Db,
   userId: string,

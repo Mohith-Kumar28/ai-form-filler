@@ -16,8 +16,9 @@
  *   endorsed  a judgement call — the vermilion stamp, and the only true accent here
  *   queried   answered but uncertain — petrol, the second ink of the guilloche
  *
- * Errors and rejection share the endorsement vermilion on purpose: on a real document a
- * refusal is also a red stamp. Nothing else may use it.
+ * Faults are a fourth ink, `alert`, and deliberately not vermilion. Sharing one red between
+ * "this was concluded, check it" and "this failed" made the product's single load-bearing
+ * distinction indistinguishable from an upload error at a glance.
  */
 
 export interface Scheme {
@@ -44,13 +45,32 @@ export interface Scheme {
   ink2: string
   /** Labels and measures. Still >= 4.5:1 on `stock` — this scale has no decorative tier. */
   ink3: string
-  /** The endorsement stamp: inference, destructive actions, errors. The one accent. */
+  /**
+   * The endorsement stamp, and nothing else: an answer this tool concluded rather than read.
+   *
+   * It used to carry errors and destructive actions too, which meant the product's one
+   * load-bearing distinction shared an ink with "something broke" — a failed upload and a
+   * guessed salary expectation spoke in the same voice. Faults now have `alert`.
+   */
   endorse: string
   /** The stamp's ink bleeding into the paper — backgrounds only, never text. */
   endorseWash: string
+  /** Faults: errors, refusals, and anything that destroys. The caution stamp, not the inspector's. */
+  alert: string
+  alertWash: string
   /** The second ink: uncertainty, focus, and the field being written right now. */
   query: string
   queryWash: string
+  /**
+   * Elevation, in two layers: the contact shadow and the cast one.
+   *
+   * Ink-hued rather than pure black, because a shadow belongs to the material that casts it —
+   * and considerably heavier in dark, where a black shadow on a near-black ground does nothing
+   * at all. Only three things in this system float: the overflow menu, the on-page slip, and
+   * the seal. Nothing else may take these.
+   */
+  shadowNear: string
+  shadowFar: string
 }
 
 export const LIGHT: Scheme = {
@@ -64,8 +84,12 @@ export const LIGHT: Scheme = {
   ink3: 'oklch(46% 0.024 178)',
   endorse: 'oklch(48% 0.19 30)',
   endorseWash: 'oklch(94% 0.04 30)',
+  alert: 'oklch(47% 0.13 62)',
+  alertWash: 'oklch(94% 0.045 70)',
   query: 'oklch(45% 0.1 195)',
   queryWash: 'oklch(94% 0.03 195)',
+  shadowNear: 'oklch(20% 0.03 190 / 0.14)',
+  shadowFar: 'oklch(20% 0.03 190 / 0.26)',
 }
 
 /**
@@ -80,14 +104,18 @@ export const DARK: Scheme = {
   leaf: 'oklch(22.5% 0.026 190)',
   guilloche: 'oklch(34% 0.03 190)',
   guillocheSoft: 'oklch(27% 0.024 190)',
-  engine: 'oklch(44% 0.04 190)',
+  engine: 'oklch(62% 0.055 190)',
   ink: 'oklch(95% 0.012 180)',
   ink2: 'oklch(76% 0.02 180)',
   ink3: 'oklch(64% 0.022 180)',
   endorse: 'oklch(72% 0.17 32)',
   endorseWash: 'oklch(30% 0.07 32)',
+  alert: 'oklch(79% 0.14 72)',
+  alertWash: 'oklch(30% 0.06 66)',
   query: 'oklch(74% 0.11 195)',
   queryWash: 'oklch(28% 0.05 195)',
+  shadowNear: 'oklch(0% 0 0 / 0.4)',
+  shadowFar: 'oklch(0% 0 0 / 0.6)',
 }
 
 /** Tailwind reads `--color-<name>`; the overlay reads `--aff-<name>`. Same values, same order. */
@@ -102,8 +130,12 @@ export const TOKEN_NAMES: (keyof Scheme)[] = [
   'ink3',
   'endorse',
   'endorseWash',
+  'alert',
+  'alertWash',
   'query',
   'queryWash',
+  'shadowNear',
+  'shadowFar',
 ]
 
 /** camelCase in TS, kebab-case in CSS. `guillocheSoft` -> `guilloche-soft`. */
@@ -126,9 +158,9 @@ export const EASE = 'cubic-bezier(0.2, 0, 0, 1)'
  * The engine-turned rosette, as a real Lissajous curve rather than a stock texture.
  *
  * Guilloche is the one ornament on a credential that is not ornament: it exists because it is
- * expensive to reproduce. Here it earns its place in exactly three positions — the header's
- * security band, the ground of an unissued (empty) document, and the field of an endorsement —
- * and nowhere else. Used as wallpaper it would be the gimmick this direction risks.
+ * expensive to reproduce. It earns its place in exactly two positions — the first-run ground
+ * and the empty-state ground — and nowhere else. Used as wallpaper it would be the gimmick
+ * this direction risks.
  */
 export function guillocheDataUri(stroke: string, opacity = 0.9, size = 104): string {
   const cx = size / 2

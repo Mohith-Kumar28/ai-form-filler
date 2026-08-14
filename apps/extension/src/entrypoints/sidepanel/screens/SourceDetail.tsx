@@ -97,7 +97,7 @@ function Preview({ source }: { source: ProfileSourcesItem }) {
   if (error) {
     return (
       <div className="border-b border-guilloche px-4 py-4">
-        <p className="text-[12.5px] leading-snug text-endorse" role="alert">
+        <p className="text-[12.5px] leading-snug text-alert" role="alert">
           {error}
         </p>
       </div>
@@ -232,7 +232,7 @@ export function SourceDetail({
         </div>
 
         {source.status === 'failed' && source.error && (
-          <p role="alert" className="px-4 py-3 text-[12px] leading-snug text-endorse">
+          <p role="alert" className="px-4 py-3 text-[12px] leading-snug text-alert">
             {source.error}
           </p>
         )}
@@ -260,7 +260,7 @@ export function SourceDetail({
 
       <ScreenFooter>
         <Button
-          variant="endorse"
+          variant="danger"
           block
           onClick={() => {
             setRemoveError(null)

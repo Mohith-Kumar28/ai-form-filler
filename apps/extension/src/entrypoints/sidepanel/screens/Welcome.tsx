@@ -68,7 +68,7 @@ export function Welcome() {
         </Button>
 
         {signIn.isError && (
-          <p className="mt-2.5 text-[12px] leading-snug text-endorse" role="alert">
+          <p className="mt-2.5 text-[12px] leading-snug text-alert" role="alert">
             {signIn.error.message}
           </p>
         )}

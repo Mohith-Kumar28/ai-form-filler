@@ -38,6 +38,24 @@ export type Request =
    * `value` clears the field, which is what rejecting an answer does.
    */
   | { type: 'review/write'; fieldId: string; value: string }
+  /**
+   * A field has been dealt with, so the page can take its mark off.
+   *
+   * Separate from `review/write` because accepting an answer writes nothing — the page already
+   * holds the value. Without this message, agreeing with a concluded answer in the panel left
+   * its endorsement stamp on the field forever, and the only thing that could clear a stamp was
+   * changing the answer you had just said was right.
+   */
+  | { type: 'review/resolved'; fieldId: string }
+  /**
+   * Rewrite one answer in a named style, from the page.
+   *
+   * The content script cannot call the API itself: `fetch` from a content script carries the
+   * host page's origin, and the Worker's CORS allowlist is the extension's. Routing through
+   * the worker is what lets the on-page review offer the same rewrite the panel does instead
+   * of sending the user away from the form to get it.
+   */
+  | { type: 'fill/improve'; label: string; value: string; instruction: string }
   | { type: 'sidepanel/open'; tabId: number }
 
 /**
@@ -45,7 +63,11 @@ export type Request =
  * where the value is really serialised, and a union containing `void` is ambiguous about
  * whether the field is absent or undefined.
  */
-export type ResponseFor<R extends Request> = R extends { type: 'auth/signIn' } ? Account : null
+export type ResponseFor<R extends Request> = R extends { type: 'auth/signIn' }
+  ? Account
+  : R extends { type: 'fill/improve' }
+    ? { value: string }
+    : null
 
 /** Discriminated result so callers never have to guess whether a throw or a value came back. */
 export type Result<T> = { ok: true; value: T } | { ok: false; error: ApiError }
@@ -62,6 +84,8 @@ export type ContentRequest =
   | { type: 'content/write'; fieldId: string; value: string }
   /** Scroll to a field and flash it, from a hovered review row. */
   | { type: 'content/highlight'; fieldId: string }
+  /** Take the mark off a field the user has finished with. */
+  | { type: 'content/resolved'; fieldId: string }
 
 /** What the content script reports after writing values into the page. */
 export interface ApplyReport {
@@ -74,7 +98,7 @@ export type ContentResponseFor<R extends ContentRequest> = R extends { type: 'co
   ? FormSchema | null
   : R extends { type: 'content/write' }
     ? boolean
-    : R extends { type: 'content/highlight' }
+    : R extends { type: 'content/highlight' | 'content/resolved' }
       ? null
       : ApplyReport
 

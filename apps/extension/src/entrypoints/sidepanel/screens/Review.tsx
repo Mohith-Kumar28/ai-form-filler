@@ -2,7 +2,7 @@ import type { ApplyReport, FillPlan } from '@aff/shared'
 import { REVIEW_CONFIDENCE_THRESHOLD } from '@aff/shared/constants'
 import { useState } from 'react'
 import { useImproveAnswer } from '../../../generated/endpoints/fill/fill.js'
-import { formatCost, formatDuration, plural } from '../../../lib/format.js'
+import { plural } from '../../../lib/format.js'
 import { sendMessage } from '../../../lib/messaging.js'
 import {
   setError,
@@ -52,8 +52,10 @@ function needsCheck(fill: Fill): boolean {
  */
 function Endorsement({ fill }: { fill: Fill }) {
   if (fill.inferred) {
+    // The vermilion here is the endorsement stamp and nothing else. Faults elsewhere on this
+    // screen speak in the caution ink, so a guessed answer never reads as something broken.
     return (
-      <span className="endorse-in inline-flex shrink-0 items-center gap-1 rounded-doc border border-endorse px-1.5 py-0.5 text-endorse">
+      <span className="endorse-in inline-flex shrink-0 items-center gap-1 rounded-doc border border-endorse bg-endorse-wash px-1.5 py-0.5 text-endorse">
         <IconStamp className="size-3" />
         <span className="mrz text-[9.5px] font-medium uppercase tracking-[0.1em]">Concluded</span>
       </span>
@@ -72,8 +74,19 @@ function Endorsement({ fill }: { fill: Fill }) {
   return null
 }
 
-/** Scrolls the field into view on the page and flashes it, so the row and the form are one thing. */
+/**
+ * Points at a field on the page, from the row that is about it.
+ *
+ * Deduplicated against the last field asked for. Pointer movement inside a row fires
+ * `mouseenter` again whenever the list reflows under a stationary cursor, and each of those
+ * used to be another scroll request — with a marked field near the top of a long form and
+ * another near the bottom, the page walked between them without stopping.
+ */
+let lastHighlighted: string | null = null
+
 function highlight(fieldId: string): void {
+  if (lastHighlighted === fieldId) return
+  lastHighlighted = fieldId
   void sendMessage({ type: 'content/highlight', fieldId })
 }
 
@@ -100,11 +113,14 @@ function AnswerEntry({
   const dirty = value !== fill.value
   const settled = verdict !== 'open'
 
+  /*
+    Hover only. `onFocus` bubbles from the textarea inside the row, so every keystroke that
+    moved focus re-pointed the page at this field.
+  */
   return (
     <li
       className="border-b border-guilloche px-4 py-3.5"
       onMouseEnter={() => highlight(fill.fieldId)}
-      onFocus={() => highlight(fill.fieldId)}
     >
       <div className="flex items-start justify-between gap-2">
         <p className="doc-label min-w-0 flex-1 normal-case tracking-[0.04em] text-ink2">
@@ -114,7 +130,7 @@ function AnswerEntry({
       </div>
 
       {notAccepted && (
-        <p className="mt-1.5 flex items-start gap-1.5 text-[11.5px] leading-snug text-endorse">
+        <p className="mt-1.5 flex items-start gap-1.5 text-[11.5px] leading-snug text-alert">
           <IconAlert className="mt-px size-3.5 shrink-0" />
           <span>The page would not take this one. Nothing was written.</span>
         </p>
@@ -185,13 +201,13 @@ function AnswerEntry({
       )}
 
       {improve.isError && (
-        <p className="mt-1.5 text-[11.5px] text-endorse" role="alert">
+        <p className="mt-1.5 text-[11.5px] text-alert" role="alert">
           {improve.error.message}
         </p>
       )}
 
       {writeError && (
-        <p className="mt-1.5 text-[11.5px] text-endorse" role="alert">
+        <p className="mt-1.5 text-[11.5px] text-alert" role="alert">
           {writeError}
         </p>
       )}
@@ -300,6 +316,16 @@ export function Review({
     setVerdict(tabId, fill.fieldId, verdict)
 
     /*
+      Take the stamp off the field, whatever the verdict was.
+
+      `review/write` already clears the mark for an edit or a clear, but accepting writes
+      nothing — so agreeing with a concluded answer used to leave its endorsement on the field
+      indefinitely, and the only way to remove a stamp was to change the answer you had just
+      said was right.
+    */
+    void sendMessage({ type: 'review/resolved', fieldId: fill.fieldId })
+
+    /*
       Only a rewrite or a confirmation teaches. Clearing says the answer was wrong without
       saying what is right, and feeding "this was wrong" into the same index later answers are
       retrieved from would make them worse rather than better.
@@ -335,14 +361,20 @@ export function Review({
       />
 
       <ScreenBody className="flex flex-col">
+        {/*
+          What happened to the form, and nothing else.
+
+          The per-fill cost in cents used to end this line. That is our unit economics, not the
+          reader's: this is hosted, not bring-your-own-key, so a number they cannot act on and
+          are not billed for only invites them to price their own job application. Latency goes
+          with it — they watched it happen.
+        */}
         <p className="mrz border-b border-guilloche px-4 py-2 text-[10.5px] text-ink3">
           {written} written
           {notAccepted.size > 0 && (
-            <span className="text-endorse"> · {notAccepted.size} refused</span>
+            <span className="text-alert"> · {notAccepted.size} refused</span>
           )}
           {plan.skipped.length > 0 && ` · ${plan.skipped.length} blank`}
-          {` · ${formatDuration(plan.usage.latencyMs)}`}
-          {plan.usage.costMicroUsd > 0 && ` · ${formatCost(plan.usage.costMicroUsd)}`}
         </p>
 
         {checkable.length === 0 && settledFills.length === 0 ? (

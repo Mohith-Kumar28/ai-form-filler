@@ -19,9 +19,8 @@ const rectOf = (element: HTMLElement) => {
 }
 
 // Two seals: one inside a wide field, one pushed outside a narrow one.
-const sealWide = mountSeal(field('last'), () => undefined)
-const sealNarrow = mountSeal(field('phone'), () => undefined)
-
+mountSeal(field('last'), () => undefined)
+mountSeal(field('phone'), () => undefined)
 
 mountSlip({
   kind: 'menu',
@@ -48,6 +47,7 @@ mountSlip({
   concluded: true,
   confidence: 0.58,
   onValueChange: () => undefined,
+  onImprove: () => Promise.resolve('Rewritten answer.'),
   onSelect: () => undefined,
   onClose: () => undefined,
 })
@@ -59,8 +59,6 @@ for (const [id, state] of [
 ] as const) {
   mountFieldMark(field(id), () => undefined).setState(state)
 }
-
-
 
 /**
  * Pump a few frames before anyone screenshots this.
@@ -92,8 +90,7 @@ for (const delay of [0, 120, 400]) {
 
 if (new URLSearchParams(location.search).has('probe')) {
   const log: string[] = []
-  const snap = (t: number) =>
-    log.push(`${t}: ${sealWide.element.style.transform || '(none)'}`)
+  const snap = (t: number) => log.push(`${t}: ${sealWide.element.style.transform || '(none)'}`)
   requestAnimationFrame(() => snap(-1))
   for (const t of [0, 50, 200, 500, 1100, 2000]) setTimeout(() => snap(t), t)
   setTimeout(() => {

@@ -41,8 +41,7 @@ function PageEntry({ page }: { page: ActivePage }) {
   if (page.status === 'checking') {
     return (
       <div>
-        <p className="doc-label">This page</p>
-        <div className="awaiting mt-2 h-4 w-2/3 rounded-doc" />
+        <div className="awaiting h-4 w-2/3 rounded-doc" />
         <div className="awaiting mt-2 h-3 w-1/3 rounded-doc" />
       </div>
     )
@@ -51,8 +50,7 @@ function PageEntry({ page }: { page: ActivePage }) {
   if (page.status === 'unavailable' || page.fieldCount === 0) {
     return (
       <div>
-        <p className="doc-label">This page</p>
-        <p className="mt-1.5 truncate text-[14px] font-semibold tracking-[-0.01em] text-ink">
+        <p className="truncate text-[15px] font-semibold tracking-[-0.015em] text-ink">
           {page.origin ?? 'Nothing to fill here'}
         </p>
         <p className="mt-1 text-[12px] leading-snug text-ink2">
@@ -66,8 +64,7 @@ function PageEntry({ page }: { page: ActivePage }) {
 
   return (
     <div>
-      <p className="doc-label">This page</p>
-      <p className="mt-1.5 truncate text-[14px] font-semibold tracking-[-0.01em] text-ink">
+      <p className="truncate text-[15px] font-semibold tracking-[-0.015em] text-ink">
         {page.origin}
       </p>
       <p className="mrz mt-1 text-[12px] text-ink2">
@@ -139,12 +136,18 @@ export function Home({
             )}
 
             {/*
-              Quota is a Profile concern, and it only interrupts here when it is about to stop
-              being one. Ten is roughly a week of applying at the pace this audience works at.
+              A warning at the threshold, not a counter.
+
+              The persistent "N forms left" band was the thing this redesign removed; printing
+              a register row here every time the number is under ten put it back in a smaller
+              typeface. Three is close enough to the end to be worth interrupting for, and it
+              reads as a sentence rather than a measure.
             */}
-            {!blockedReason && left <= 10 && (
-              <p className="mrz mt-2 text-[11.5px] text-ink3">
-                {left} {plural(left, 'form')} left until {formatResetDate(resetsAt)}
+            {!blockedReason && left <= 3 && (
+              <p className="mt-2 text-[12px] leading-snug text-ink2">
+                {left === 0
+                  ? 'That was your last form this month.'
+                  : `${left} ${plural(left, 'form')} left this month.`}
               </p>
             )}
           </div>
@@ -157,7 +160,7 @@ export function Home({
             ready count, because a source still being read cannot answer anything yet.
           */}
           <Row
-            title="What it knows"
+            title="Sources"
             detail={
               sources.length === 0
                 ? 'Add a résumé, a link, or a few pasted lines'
@@ -165,7 +168,7 @@ export function Home({
                   ? `${readyCount} ${plural(readyCount, 'source')} it can answer from`
                   : `${readyCount} of ${sources.length} ready to answer from`
             }
-            onClick={() => nav.push({ name: 'knowledge' })}
+            onClick={() => nav.push({ name: 'sources' })}
           />
           {hasLastFill && (
             <Row

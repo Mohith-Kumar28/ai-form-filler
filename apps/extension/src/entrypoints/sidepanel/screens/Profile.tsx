@@ -30,7 +30,6 @@ export function Profile({ account }: { account: Account }) {
 
   const { used, limit, plan, resetsAt } = account.quota
   const left = Math.max(0, limit - used)
-  const ratio = limit === 0 ? 0 : Math.min(1, used / limit)
   const exhausted = used >= limit
 
   const signOut = useMutation({
@@ -70,30 +69,18 @@ export function Profile({ account }: { account: Account }) {
         </div>
 
         <section className="border-b border-guilloche pb-3.5 pt-4">
-          <h2 className="doc-label px-4">This month</h2>
-
-          <p className="mt-2 px-4 text-[14px] text-ink">
-            <span className={`mrz font-medium ${exhausted ? 'text-endorse' : 'text-ink'}`}>
+          <p className="px-4 text-[15px] text-ink">
+            <span className={`mrz font-medium ${exhausted ? 'text-alert' : 'text-ink'}`}>
               {left}
             </span>{' '}
-            of <span className="mrz">{limit}</span> {plural(limit, 'form')} left
+            of <span className="mrz">{limit}</span> {plural(limit, 'form')} left this month
           </p>
 
           {/*
-            A measure, not a progress bar: the quantity is the content here, and at 400px a
-            two-pixel rule reads faster than a percentage anyone has to convert in their head.
+            No bar. It restated a quantity the register directly beneath it already prints as
+            `USED 13 / 50`, which is a soft graphic standing in for a number the document
+            spells out twice.
           */}
-          <div className="mt-2.5 px-4">
-            <div className="h-[2px] w-full bg-guilloche">
-              <div
-                className={`h-full transition-[width] duration-500 ${
-                  exhausted ? 'bg-endorse' : 'bg-ink'
-                }`}
-                style={{ width: `${Math.max(ratio * 100, used > 0 ? 2 : 0)}%` }}
-              />
-            </div>
-          </div>
-
           <div className="mt-2.5 divide-y divide-guilloche-soft">
             <Entry label="Used">
               <span className="mrz">
@@ -106,11 +93,6 @@ export function Profile({ account }: { account: Account }) {
         </section>
 
         <RowGroup>
-          <Row
-            title="About you"
-            detail="Name, contact, and the facts you have typed in yourself"
-            onClick={() => nav.push({ name: 'aboutYou' })}
-          />
           {/*
             Not tinted vermilion: signing out is reversible, and the endorsement ink means
             inference, error, or destruction. Spending it here would devalue it where it counts.
@@ -124,7 +106,7 @@ export function Profile({ account }: { account: Account }) {
         </RowGroup>
 
         {signOut.isError && (
-          <p role="alert" className="px-4 py-3 text-[12px] text-endorse">
+          <p role="alert" className="px-4 py-3 text-[12px] text-alert">
             {signOut.error.message}
           </p>
         )}

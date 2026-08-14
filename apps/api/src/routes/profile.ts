@@ -27,6 +27,7 @@ import {
   deleteSource,
   getProfile,
   getSourceFile,
+  renameSource,
   updateStructured,
 } from '../services/profile.js'
 import { addContent, addFile, addUrl, deleteDocument } from '../services/supermemory.js'
@@ -354,6 +355,41 @@ profileRoutes.openapi(getSourceFileRoute, async (c) => {
       'Cache-Control': 'private, max-age=3600',
     },
   }) as never
+})
+
+const renameSourceRoute = createRoute({
+  method: 'patch',
+  path: '/sources/{id}',
+  tags: ['profile'],
+  summary: 'Rename a source',
+  description:
+    'Changes the display label only. The extracted text and the stored original are untouched, so this does not recompile the profile.',
+  operationId: 'renameSource',
+  security: bearerAuth,
+  request: {
+    params: z.object({ id: z.string() }),
+    body: {
+      content: {
+        'application/json': {
+          schema: z.object({ label: z.string().min(1).max(120) }).openapi('RenameSourceRequest'),
+        },
+      },
+    },
+  },
+  responses: {
+    200: {
+      description: 'Source renamed',
+      content: { 'application/json': { schema: ProfileResponse } },
+    },
+    ...errorResponses,
+  },
+})
+
+profileRoutes.openapi(renameSourceRoute, async (c) => {
+  const { id } = c.req.valid('param')
+  const { label } = c.req.valid('json')
+  const profile = await renameSource(drizzle(c.env.DB), c.get('userId'), id, label.trim())
+  return c.json({ profile }, 200)
 })
 
 const deleteSourceRoute = createRoute({

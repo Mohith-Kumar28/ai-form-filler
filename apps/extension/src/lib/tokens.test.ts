@@ -96,7 +96,9 @@ describe('detectPageScheme', () => {
   })
 
   it('falls back to the OS only when the page declares nothing', () => {
-    expect(detectPageScheme(fakeWindow(['rgba(0, 0, 0, 0)', 'rgba(0, 0, 0, 0)'], true))).toBe('dark')
+    expect(detectPageScheme(fakeWindow(['rgba(0, 0, 0, 0)', 'rgba(0, 0, 0, 0)'], true))).toBe(
+      'dark',
+    )
     expect(detectPageScheme(fakeWindow(['rgba(0, 0, 0, 0)', 'rgba(0, 0, 0, 0)'], false))).toBe(
       'light',
     )

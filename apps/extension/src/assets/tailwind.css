@@ -54,13 +54,23 @@
   --color-ink2: oklch(38% 0.03 178);
   --color-ink3: oklch(46% 0.024 178);
 
-  /* The endorsement stamp: inference, errors, destruction. Nothing else. */
+  /* The endorsement stamp — an answer it concluded rather than read. Nothing else. */
   --color-endorse: oklch(48% 0.19 30);
   --color-endorse-wash: oklch(94% 0.04 30);
+
+  /* Faults: errors, refusals, destruction. Kept off the stamp so the one distinction the
+     product exists to make never shares an ink with "something broke". */
+  --color-alert: oklch(47% 0.13 62);
+  --color-alert-wash: oklch(94% 0.045 70);
 
   /* The second ink: uncertainty, focus, and whatever is happening right now. */
   --color-query: oklch(45% 0.1 195);
   --color-query-wash: oklch(94% 0.03 195);
+
+  /* Elevation, ink-hued rather than black. Only the overflow menu, the on-page slip and the
+     seal float; nothing else may take these. */
+  --color-shadow-near: oklch(20% 0.03 190 / 0.14);
+  --color-shadow-far: oklch(20% 0.03 190 / 0.26);
 
   --radius-doc: 2px;
 
@@ -79,7 +89,7 @@
     --color-leaf: oklch(22.5% 0.026 190);
     --color-guilloche: oklch(34% 0.03 190);
     --color-guilloche-soft: oklch(27% 0.024 190);
-    --color-engine: oklch(44% 0.04 190);
+    --color-engine: oklch(62% 0.055 190);
 
     --color-ink: oklch(95% 0.012 180);
     --color-ink2: oklch(76% 0.02 180);
@@ -88,8 +98,15 @@
     --color-endorse: oklch(72% 0.17 32);
     --color-endorse-wash: oklch(30% 0.07 32);
 
+    --color-alert: oklch(79% 0.14 72);
+    --color-alert-wash: oklch(30% 0.06 66);
+
     --color-query: oklch(74% 0.11 195);
     --color-query-wash: oklch(28% 0.05 195);
+
+    /* Much heavier here: a black shadow on a near-black ground separates nothing. */
+    --color-shadow-near: oklch(0% 0 0 / 0.4);
+    --color-shadow-far: oklch(0% 0 0 / 0.6);
   }
 }
 
@@ -185,6 +202,29 @@ body {
   animation-delay: calc(var(--i, 0) * 22ms);
 }
 
+/*
+  The impression.
+
+  Tailwind's `animate-pulse` was standing in for this, which is a generic opacity fade on a
+  two-second loop — the spinner this world refuses, wearing a different shape. A seal being
+  pressed swells and settles; that is the beat the fill screen keeps.
+*/
+@keyframes impress {
+  0%,
+  100% {
+    scale: 0.72;
+    opacity: 0.55;
+  }
+  45% {
+    scale: 1;
+    opacity: 1;
+  }
+}
+
+.impress {
+  animation: impress 1400ms cubic-bezier(0.2, 0, 0, 1) infinite;
+}
+
 @keyframes shimmer {
   to {
     background-position-x: -200%;
@@ -207,7 +247,8 @@ body {
   .strike,
   .endorse-in,
   .settle,
-  .awaiting {
+  .awaiting,
+  .impress {
     animation: none;
   }
 
@@ -237,7 +278,8 @@ body {
 *:focus-visible {
   outline: 2px solid var(--color-query);
   outline-offset: 1px;
-  border-radius: 1px;
+  /* The ring follows the control it outlines. There is one radius in this system. */
+  border-radius: var(--radius-doc);
 }
 
 /*
@@ -307,7 +349,8 @@ html[data-nav="back"]::view-transition-old(screen) {
   background: var(--color-guilloche);
   border: 3px solid transparent;
   background-clip: content-box;
-  border-radius: 6px;
+  /* Not a pill. A document with a 2px corner everywhere does not grow one here. */
+  border-radius: var(--radius-doc);
 }
 
 ::-webkit-scrollbar-thumb:hover {

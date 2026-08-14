@@ -57,17 +57,19 @@ ${overlayVariables(':host')}
   display: flex;
   align-items: center;
   justify-content: center;
-  border: 1px solid var(--aff-guilloche);
+  /* Ink, not hairline. At hairline weight this read as a watermark on a white form —
+     invisible on the one affordance the whole on-page layer depends on being found. */
+  border: 1px solid var(--aff-ink);
   border-radius: 50%;
   background: var(--aff-leaf);
-  color: var(--aff-ink2);
+  color: var(--aff-ink);
   cursor: pointer;
   pointer-events: auto;
   padding: 0;
   transition: color 140ms var(--aff-ease), border-color 140ms var(--aff-ease),
     background-color 140ms var(--aff-ease);
   animation: seal-in 140ms var(--aff-ease) both;
-  box-shadow: 0 1px 3px oklch(0% 0 0 / 0.12);
+  box-shadow: 0 1px 4px var(--aff-shadow-near);
 }
 
 /* Hover only darkens. It never expands: a widget that grows under an unintended
@@ -124,7 +126,7 @@ ${overlayVariables(':host')}
   line-height: 1.45;
   pointer-events: auto;
   overflow: hidden;
-  box-shadow: 0 8px 28px -8px oklch(0% 0 0 / 0.3), 0 1px 3px oklch(0% 0 0 / 0.14);
+  box-shadow: 0 8px 28px -8px var(--aff-shadow-far), 0 1px 3px var(--aff-shadow-near);
   animation: slip-in 160ms var(--aff-ease) both;
   transform-origin: var(--origin-x, 100%) var(--origin-y, 0%);
 }
@@ -134,23 +136,38 @@ ${overlayVariables(':host')}
   to   { opacity: 1; scale: 1; }
 }
 
+/* ── The masthead ─────────────────────────────────────────────────────────
+   A document names its issuer. This one is the only place the product signs
+   its own work on somebody else's page, so it carries the seal and the
+   wordmark and then gets out of the way.                                    */
 .slip-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 11px;
+  border-bottom: 1px solid var(--aff-guilloche);
+  background: var(--aff-stock);
+}
+
+.slip-head svg { width: 13px; height: 13px; flex: none; color: var(--aff-ink); }
+
+.slip-head .slip-stamp { margin-left: auto; }
+
+.slip-wordmark {
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--aff-ink);
+}
+
+/* The question being answered, set as the document's field caption. */
+.slip-question {
   padding: 8px 11px 7px;
   border-bottom: 1px solid var(--aff-guilloche-soft);
-}
-
-.slip-label {
-  font-size: 9.5px;
-  font-weight: 600;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--aff-ink3);
-}
-
-.slip-question {
-  margin-top: 3px;
   font-size: 12px;
-  color: var(--aff-ink);
+  line-height: 1.35;
+  color: var(--aff-ink2);
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
@@ -162,7 +179,7 @@ ${overlayVariables(':host')}
   align-items: center;
   gap: 8px;
   width: 100%;
-  padding: 8px 11px;
+  padding: 9px 11px;
   border: 0;
   border-bottom: 1px solid var(--aff-guilloche-soft);
   background: transparent;
@@ -178,7 +195,7 @@ ${overlayVariables(':host')}
 .slip-item:hover:not(:disabled),
 .slip-item[data-active="true"] { background: var(--aff-guilloche-soft); }
 .slip-item:disabled { color: var(--aff-ink3); cursor: default; }
-.slip-item svg { width: 14px; height: 14px; flex: none; color: var(--aff-ink3); }
+.slip-item svg { width: 14px; height: 14px; flex: none; color: var(--aff-ink2); }
 .slip-item-quiet { color: var(--aff-ink2); font-size: 12px; }
 .slip-item:focus-visible { outline: 2px solid var(--aff-query); outline-offset: -2px; }
 
@@ -190,7 +207,7 @@ ${overlayVariables(':host')}
   border-top: 1px solid var(--aff-guilloche-soft);
 }
 
-.slip-note-bad { color: var(--aff-endorse); }
+.slip-note-bad { color: var(--aff-alert); }
 
 /* The review slip's editable answer. */
 .slip-body { padding: 9px 11px; }
@@ -212,7 +229,29 @@ ${overlayVariables(':host')}
 
 .slip-value:focus-visible { outline: 2px solid var(--aff-query); outline-offset: -1px; }
 
-.slip-actions { display: flex; gap: 6px; padding: 0 11px 10px; }
+.slip-actions { display: flex; gap: 6px; padding: 9px 11px 10px; }
+.slip-actions svg { width: 12px; height: 12px; margin-right: 4px; }
+
+/* The four rewriting styles, offered in place rather than by sending anyone to the panel. */
+.slip-chips { display: flex; flex-wrap: wrap; gap: 5px; padding: 9px 11px 10px; }
+
+.slip-chip {
+  padding: 4px 8px;
+  border: 1px solid var(--aff-guilloche);
+  border-radius: var(--aff-radius);
+  background: transparent;
+  color: var(--aff-ink2);
+  font: inherit;
+  font-size: 11.5px;
+  cursor: pointer;
+  transition: border-color 120ms var(--aff-ease), color 120ms var(--aff-ease);
+}
+
+.slip-chip:hover:not(:disabled) { border-color: var(--aff-ink); color: var(--aff-ink); }
+.slip-chip:disabled { opacity: 0.5; cursor: default; }
+.slip-chip:focus-visible { outline: 2px solid var(--aff-query); outline-offset: 1px; }
+
+.slip-busy { padding: 0 11px 10px; font-size: 11.5px; color: var(--aff-ink3); }
 
 .slip-btn {
   flex: 1;
@@ -228,9 +267,24 @@ ${overlayVariables(':host')}
 }
 
 .slip-btn:hover { border-color: var(--aff-ink); }
-.slip-btn-plate { background: var(--aff-ink); border-color: var(--aff-ink); color: var(--aff-leaf); }
+.slip-btn-plate {
+  position: relative;
+  background: var(--aff-ink);
+  border-color: var(--aff-ink);
+  color: var(--aff-leaf);
+}
+
+/* The same inset keyline the panel's primary carries, so one plate reads across both surfaces. */
+.slip-btn-plate::after {
+  content: "";
+  position: absolute;
+  inset: 2px;
+  border: 1px solid color-mix(in oklch, var(--aff-leaf) 30%, transparent);
+  border-radius: 1px;
+  pointer-events: none;
+}
 .slip-btn-plate:hover { opacity: 0.9; }
-.slip-btn-bad { color: var(--aff-endorse); border-color: var(--aff-endorse); }
+.slip-btn-bad { color: var(--aff-alert); border-color: var(--aff-alert); }
 .slip-btn:focus-visible { outline: 2px solid var(--aff-query); outline-offset: 1px; }
 
 /* The stamp on the review slip's header. */
@@ -273,7 +327,7 @@ ${overlayVariables(':host')}
 }
 
 .mark[data-state="printed"] { --mark-color: var(--aff-ink); }
-.mark[data-state="failed"]  { --mark-color: var(--aff-ink3); }
+.mark[data-state="failed"]  { --mark-color: var(--aff-alert); }
 
 /* Concluded, or answered with low confidence. Persists. */
 .mark[data-state="endorsed"] { --mark-color: var(--aff-endorse); opacity: 1; }
@@ -378,6 +432,19 @@ export function getOverlayHost(): OverlayHost {
 
 export function prefersReducedMotion(): boolean {
   return window.matchMedia('(prefers-reduced-motion: reduce)').matches
+}
+
+/**
+ * Whether an event that reached the page originated inside our own UI.
+ *
+ * A **closed** shadow root is opaque to `composedPath()` for any listener outside it — the
+ * deepest node such a listener can see is the host element. Asking `slipElement.contains(node)`
+ * against that path therefore answered `false` for clicks on our own menu, so the outside-click
+ * dismissal fired on `pointerdown` and tore the slip down before its `click` handler could
+ * run. Every menu item did nothing, on every site, and nothing threw.
+ */
+export function isOverlayEvent(event: Event): boolean {
+  return event.composedPath().some((node) => node instanceof HTMLElement && node.id === HOST_ID)
 }
 
 /** Inline SVG, matching the panel's authored set: 16px grid, 1.5px stroke, mitred joins. */

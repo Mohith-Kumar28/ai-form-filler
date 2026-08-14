@@ -1,0 +1,490 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-08-14T00:00:00.000Z",
+  "title": "Design System: AI Form Filler",
+  "extensions": {
+    "colorMeta": {
+      "stock": {
+        "role": "neutral",
+        "displayName": "Safety Stock",
+        "canonical": "oklch(96.5% 0.009 168)",
+        "darkCounterpart": "oklch(18% 0.022 190)",
+        "tonalRamp": [
+          "oklch(18% 0.022 190)",
+          "oklch(28% 0.02 175)",
+          "oklch(40% 0.018 170)",
+          "oklch(52% 0.016 168)",
+          "oklch(64% 0.014 168)",
+          "oklch(78% 0.012 168)",
+          "oklch(90% 0.01 168)",
+          "oklch(96.5% 0.009 168)"
+        ]
+      },
+      "leaf": {
+        "role": "neutral",
+        "displayName": "Leaf",
+        "canonical": "oklch(99.2% 0.004 168)",
+        "darkCounterpart": "oklch(22.5% 0.026 190)",
+        "tonalRamp": [
+          "oklch(20% 0.004 168)",
+          "oklch(32% 0.004 168)",
+          "oklch(44% 0.004 168)",
+          "oklch(56% 0.004 168)",
+          "oklch(68% 0.004 168)",
+          "oklch(80% 0.004 168)",
+          "oklch(92% 0.004 168)",
+          "oklch(99.2% 0.004 168)"
+        ]
+      },
+      "guilloche": {
+        "role": "neutral",
+        "displayName": "Guilloche Hairline",
+        "canonical": "oklch(87% 0.022 168)",
+        "darkCounterpart": "oklch(34% 0.03 190)",
+        "tonalRamp": [
+          "oklch(20% 0.022 168)",
+          "oklch(31% 0.022 168)",
+          "oklch(42% 0.022 168)",
+          "oklch(53% 0.022 168)",
+          "oklch(64% 0.022 168)",
+          "oklch(76% 0.022 168)",
+          "oklch(87% 0.022 168)",
+          "oklch(95% 0.018 168)"
+        ]
+      },
+      "guilloche-soft": {
+        "role": "neutral",
+        "displayName": "Soft Rule",
+        "canonical": "oklch(93% 0.014 168)",
+        "darkCounterpart": "oklch(27% 0.024 190)",
+        "tonalRamp": [
+          "oklch(20% 0.014 168)",
+          "oklch(31% 0.014 168)",
+          "oklch(43% 0.014 168)",
+          "oklch(55% 0.014 168)",
+          "oklch(67% 0.014 168)",
+          "oklch(79% 0.014 168)",
+          "oklch(88% 0.014 168)",
+          "oklch(93% 0.014 168)"
+        ]
+      },
+      "engine": {
+        "role": "neutral",
+        "displayName": "Engine-Turned Ground",
+        "canonical": "oklch(84% 0.026 168)",
+        "darkCounterpart": "oklch(62% 0.055 190)",
+        "note": "A token of its own, not a shade of guilloche: a field of 0.65px curves and a 1px rule need different distances from the stock to read at the same weight.",
+        "tonalRamp": [
+          "oklch(20% 0.026 168)",
+          "oklch(31% 0.026 168)",
+          "oklch(42% 0.026 168)",
+          "oklch(53% 0.026 168)",
+          "oklch(64% 0.026 168)",
+          "oklch(74% 0.026 168)",
+          "oklch(84% 0.026 168)",
+          "oklch(94% 0.02 168)"
+        ]
+      },
+      "ink": {
+        "role": "neutral",
+        "displayName": "Intaglio Ink",
+        "canonical": "oklch(23% 0.035 178)",
+        "darkCounterpart": "oklch(95% 0.012 180)",
+        "tonalRamp": [
+          "oklch(15% 0.035 178)",
+          "oklch(23% 0.035 178)",
+          "oklch(34% 0.033 178)",
+          "oklch(46% 0.03 178)",
+          "oklch(58% 0.026 178)",
+          "oklch(70% 0.022 178)",
+          "oklch(83% 0.016 178)",
+          "oklch(95% 0.012 180)"
+        ]
+      },
+      "ink2": {
+        "role": "neutral",
+        "displayName": "Second Ink",
+        "canonical": "oklch(38% 0.03 178)",
+        "darkCounterpart": "oklch(76% 0.02 180)",
+        "tonalRamp": [
+          "oklch(15% 0.03 178)",
+          "oklch(26% 0.03 178)",
+          "oklch(38% 0.03 178)",
+          "oklch(49% 0.028 178)",
+          "oklch(60% 0.026 178)",
+          "oklch(71% 0.022 178)",
+          "oklch(83% 0.018 178)",
+          "oklch(94% 0.012 178)"
+        ]
+      },
+      "ink3": {
+        "role": "neutral",
+        "displayName": "Measure Ink",
+        "canonical": "oklch(46% 0.024 178)",
+        "darkCounterpart": "oklch(64% 0.022 180)",
+        "note": "The lowest text tier and still >= 4.5:1 on stock. This scale has no decorative tier.",
+        "tonalRamp": [
+          "oklch(15% 0.024 178)",
+          "oklch(26% 0.024 178)",
+          "oklch(37% 0.024 178)",
+          "oklch(46% 0.024 178)",
+          "oklch(58% 0.024 178)",
+          "oklch(70% 0.022 178)",
+          "oklch(82% 0.018 178)",
+          "oklch(94% 0.012 178)"
+        ]
+      },
+      "endorse": {
+        "role": "primary",
+        "displayName": "Endorsement Vermilion",
+        "canonical": "oklch(48% 0.19 30)",
+        "darkCounterpart": "oklch(72% 0.17 32)",
+        "note": "Inference and nothing else. Never an error, never a delete, never decoration.",
+        "tonalRamp": [
+          "oklch(20% 0.1 30)",
+          "oklch(30% 0.14 30)",
+          "oklch(39% 0.17 30)",
+          "oklch(48% 0.19 30)",
+          "oklch(58% 0.19 30)",
+          "oklch(68% 0.18 31)",
+          "oklch(80% 0.13 32)",
+          "oklch(94% 0.04 30)"
+        ]
+      },
+      "endorse-wash": {
+        "role": "primary",
+        "displayName": "Stamp Wash",
+        "canonical": "oklch(94% 0.04 30)",
+        "darkCounterpart": "oklch(30% 0.07 32)",
+        "tonalRamp": [
+          "oklch(20% 0.04 30)",
+          "oklch(30% 0.05 30)",
+          "oklch(42% 0.05 30)",
+          "oklch(54% 0.05 30)",
+          "oklch(66% 0.05 30)",
+          "oklch(78% 0.045 30)",
+          "oklch(88% 0.042 30)",
+          "oklch(94% 0.04 30)"
+        ]
+      },
+      "alert": {
+        "role": "tertiary",
+        "displayName": "Caution Amber",
+        "canonical": "oklch(47% 0.13 62)",
+        "darkCounterpart": "oklch(79% 0.14 72)",
+        "note": "Faults, refusals and destruction. Kept off the stamp so a failed upload never speaks in the same voice as a concluded answer.",
+        "tonalRamp": [
+          "oklch(20% 0.07 62)",
+          "oklch(30% 0.1 62)",
+          "oklch(38% 0.12 62)",
+          "oklch(47% 0.13 62)",
+          "oklch(58% 0.14 65)",
+          "oklch(69% 0.14 68)",
+          "oklch(79% 0.14 72)",
+          "oklch(94% 0.045 70)"
+        ]
+      },
+      "alert-wash": {
+        "role": "tertiary",
+        "displayName": "Caution Wash",
+        "canonical": "oklch(94% 0.045 70)",
+        "darkCounterpart": "oklch(30% 0.06 66)",
+        "tonalRamp": [
+          "oklch(20% 0.045 70)",
+          "oklch(30% 0.05 70)",
+          "oklch(42% 0.055 70)",
+          "oklch(54% 0.055 70)",
+          "oklch(66% 0.055 70)",
+          "oklch(78% 0.05 70)",
+          "oklch(88% 0.048 70)",
+          "oklch(94% 0.045 70)"
+        ]
+      },
+      "query": {
+        "role": "secondary",
+        "displayName": "Query Petrol",
+        "canonical": "oklch(45% 0.1 195)",
+        "darkCounterpart": "oklch(74% 0.11 195)",
+        "note": "The second ink: uncertainty, focus, and the field being written right now.",
+        "tonalRamp": [
+          "oklch(20% 0.05 195)",
+          "oklch(29% 0.07 195)",
+          "oklch(37% 0.09 195)",
+          "oklch(45% 0.1 195)",
+          "oklch(56% 0.105 195)",
+          "oklch(66% 0.11 195)",
+          "oklch(74% 0.11 195)",
+          "oklch(94% 0.03 195)"
+        ]
+      },
+      "query-wash": {
+        "role": "secondary",
+        "displayName": "Query Wash",
+        "canonical": "oklch(94% 0.03 195)",
+        "darkCounterpart": "oklch(28% 0.05 195)",
+        "tonalRamp": [
+          "oklch(20% 0.03 195)",
+          "oklch(30% 0.04 195)",
+          "oklch(42% 0.04 195)",
+          "oklch(54% 0.04 195)",
+          "oklch(66% 0.038 195)",
+          "oklch(78% 0.035 195)",
+          "oklch(88% 0.032 195)",
+          "oklch(94% 0.03 195)"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "title": {
+        "displayName": "Title",
+        "purpose": "Screen headers and confirm-sheet headings. There is no display tier; the panel is 400px and never the main event."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Row titles, inputs, buttons. The document's default."
+      },
+      "prose": {
+        "displayName": "Prose",
+        "purpose": "Explanatory paragraphs and empty-state bodies, held to 30ch when centred."
+      },
+      "caption": {
+        "displayName": "Caption",
+        "purpose": "Row details, hints, field errors, slip notes."
+      },
+      "label": {
+        "displayName": "Label Register",
+        "purpose": "Field labels and section titles via .doc-label — Archivo's width axis at 80%, tracked caps. Never running prose."
+      },
+      "mrz": {
+        "displayName": "Machine-Readable Zone",
+        "purpose": "Counts, quotas, confidence, sizes, timings, costs. Quantities compared against each other. Never a category label."
+      },
+      "stamp": {
+        "displayName": "Stamp",
+        "purpose": "CONCLUDED / UNSURE stamps and the on-page endorsement tab. The smallest type in the build and load-bearing."
+      }
+    },
+    "shadows": [
+      {
+        "name": "menu-lift",
+        "value": "0 6px 20px -6px oklch(0% 0 0 / 0.28), 0 1px 2px oklch(0% 0 0 / 0.12)",
+        "purpose": "The overflow menu, the only floating surface inside the panel."
+      },
+      {
+        "name": "slip-lift",
+        "value": "0 8px 28px -8px oklch(0% 0 0 / 0.3), 0 1px 3px oklch(0% 0 0 / 0.14)",
+        "purpose": "The on-page endorsement slip, floating over a site we do not control."
+      },
+      {
+        "name": "seal-lift",
+        "value": "0 1px 4px oklch(0% 0 0 / 0.2)",
+        "purpose": "The 18px field seal, so it survives any host page background."
+      },
+      {
+        "name": "mark-ring",
+        "value": "0 0 0 2px var(--mark-color)",
+        "purpose": "A field outline drawn as spread shadow so it never affects layout or intercepts a click."
+      }
+    ],
+    "motion": [
+      {
+        "name": "ease-doc",
+        "value": "cubic-bezier(0.2, 0, 0, 1)",
+        "purpose": "The only easing in the system, on both surfaces."
+      },
+      {
+        "name": "hover",
+        "value": "120-160ms",
+        "purpose": "Colour and border transitions; the seal's entrance."
+      },
+      {
+        "name": "leaf",
+        "value": "200ms",
+        "purpose": "A screen pushing or popping via View Transitions."
+      },
+      {
+        "name": "strike",
+        "value": "260ms",
+        "purpose": "The plate landing — a primary action or a screen arriving. Rows settle at 240ms with a 22ms stagger, capped at 8."
+      },
+      {
+        "name": "endorse-in",
+        "value": "320ms",
+        "purpose": "The stamp being pressed: in at -4deg / 1.18 scale, settling at -1.5deg / 1. The on-page tab uses the same duration from -6deg / 1.3 to square."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "panel",
+        "value": "400px",
+        "note": "Fixed by the Chrome side panel. There are no breakpoints; the only responsive behaviour is vertical."
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Plate Button",
+      "kind": "button",
+      "refersTo": "button-plate",
+      "description": "The primary action, struck as a plate. The inset keyline is what makes it a plate rather than a filled rectangle.",
+      "html": "<button class=\"ds-btn-plate\">Fill this form</button>",
+      "css": ".ds-btn-plate { position: relative; display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 8px 14px; border: 1px solid var(--color-ink, oklch(23% 0.035 178)); border-radius: 2px; background: var(--color-ink, oklch(23% 0.035 178)); color: var(--color-stock, oklch(96.5% 0.009 168)); font-family: Archivo, ui-sans-serif, system-ui, sans-serif; font-size: 13px; font-weight: 500; cursor: pointer; transition: opacity 150ms cubic-bezier(0.2,0,0,1), transform 150ms cubic-bezier(0.2,0,0,1); } .ds-btn-plate::before { content: \"\"; position: absolute; inset: 3px; border: 1px solid color-mix(in oklch, var(--color-stock, oklch(96.5% 0.009 168)) 30%, transparent); border-radius: 1px; pointer-events: none; } .ds-btn-plate:hover { opacity: 0.9; } .ds-btn-plate:active { transform: translateY(1px); } .ds-btn-plate:focus-visible { outline: 2px solid var(--color-query, oklch(45% 0.1 195)); outline-offset: 1px; } .ds-btn-plate:disabled { background: transparent; color: var(--color-ink3, oklch(46% 0.024 178)); border-color: var(--color-guilloche, oklch(87% 0.022 168)); transform: none; cursor: default; } .ds-btn-plate:disabled::before { border-color: transparent; }"
+    },
+    {
+      "name": "Struck Button",
+      "kind": "button",
+      "refersTo": "button-struck",
+      "description": "The default action: an ink hairline frame, nothing filled in.",
+      "html": "<button class=\"ds-btn-struck\">Review answers</button>",
+      "css": ".ds-btn-struck { display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 8px 14px; border: 1px solid var(--color-ink, oklch(23% 0.035 178)); border-radius: 2px; background: transparent; color: var(--color-ink, oklch(23% 0.035 178)); font-family: Archivo, ui-sans-serif, system-ui, sans-serif; font-size: 13px; font-weight: 500; cursor: pointer; transition: background-color 150ms cubic-bezier(0.2,0,0,1), transform 150ms cubic-bezier(0.2,0,0,1); } .ds-btn-struck:hover { background: color-mix(in oklch, var(--color-ink, oklch(23% 0.035 178)) 8%, transparent); } .ds-btn-struck:active { transform: translateY(1px); } .ds-btn-struck:focus-visible { outline: 2px solid var(--color-query, oklch(45% 0.1 195)); outline-offset: 1px; }"
+    },
+    {
+      "name": "Danger Button",
+      "kind": "button",
+      "refersTo": "button-danger",
+      "description": "Destruction, in the caution ink. Never the plate treatment and never vermilion.",
+      "html": "<button class=\"ds-btn-danger\">Remove source</button>",
+      "css": ".ds-btn-danger { display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 8px 14px; border: 1px solid var(--color-alert, oklch(47% 0.13 62)); border-radius: 2px; background: transparent; color: var(--color-alert, oklch(47% 0.13 62)); font-family: Archivo, ui-sans-serif, system-ui, sans-serif; font-size: 13px; font-weight: 500; cursor: pointer; transition: background-color 150ms cubic-bezier(0.2,0,0,1), transform 150ms cubic-bezier(0.2,0,0,1); } .ds-btn-danger:hover { background: var(--color-alert-wash, oklch(94% 0.045 70)); } .ds-btn-danger:active { transform: translateY(1px); } .ds-btn-danger:focus-visible { outline: 2px solid var(--color-query, oklch(45% 0.1 195)); outline-offset: 1px; }"
+    },
+    {
+      "name": "Field",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "Label above the control in the condensed tracked-caps register, never inside it as a placeholder.",
+      "html": "<div class=\"ds-field\"><label class=\"ds-field-label\" for=\"ds-f1\">Preferred name</label><input class=\"ds-input\" id=\"ds-f1\" placeholder=\"As it should appear\" /></div>",
+      "css": ".ds-field { display: flex; flex-direction: column; gap: 6px; font-family: Archivo, ui-sans-serif, system-ui, sans-serif; } .ds-field-label { font-stretch: 80%; font-weight: 600; font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--color-ink3, oklch(46% 0.024 178)); } .ds-input { width: 100%; padding: 6px 10px; border: 1px solid var(--color-guilloche, oklch(87% 0.022 168)); border-radius: 2px; background: var(--color-leaf, oklch(99.2% 0.004 168)); color: var(--color-ink, oklch(23% 0.035 178)); font: inherit; font-size: 13px; transition: border-color 150ms cubic-bezier(0.2,0,0,1); } .ds-input::placeholder { color: var(--color-ink3, oklch(46% 0.024 178)); } .ds-input:focus { border-color: var(--color-query, oklch(45% 0.1 195)); } .ds-input:focus-visible { outline: 2px solid var(--color-query, oklch(45% 0.1 195)); outline-offset: 1px; }"
+    },
+    {
+      "name": "Register Row Group",
+      "kind": "card",
+      "refersTo": "row",
+      "description": "The container primitive. Hairlines above and below, soft rules between; no box, no radius, no shadow.",
+      "html": "<div class=\"ds-rowgroup\"><button class=\"ds-row\" type=\"button\"><span class=\"ds-row-main\"><span class=\"ds-row-title\">Resume 2026.pdf</span><span class=\"ds-row-detail\">PDF · added 3 days ago</span></span><span class=\"ds-row-measure\">248 KB</span><svg class=\"ds-row-chev\" viewBox=\"0 0 16 16\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.5\" stroke-linecap=\"butt\" stroke-linejoin=\"miter\"><path d=\"M6 3.5 10.5 8 6 12.5\"/></svg></button><button class=\"ds-row\" type=\"button\"><span class=\"ds-row-main\"><span class=\"ds-row-title\">portfolio.example.com</span><span class=\"ds-row-detail\">Link · 12 facts</span></span><svg class=\"ds-row-chev\" viewBox=\"0 0 16 16\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.5\" stroke-linecap=\"butt\" stroke-linejoin=\"miter\"><path d=\"M6 3.5 10.5 8 6 12.5\"/></svg></button></div>",
+      "css": ".ds-rowgroup { border-top: 1px solid var(--color-guilloche, oklch(87% 0.022 168)); border-bottom: 1px solid var(--color-guilloche, oklch(87% 0.022 168)); font-family: Archivo, ui-sans-serif, system-ui, sans-serif; } .ds-rowgroup > .ds-row + .ds-row { border-top: 1px solid var(--color-guilloche-soft, oklch(93% 0.014 168)); } .ds-row { display: flex; width: 100%; align-items: flex-start; gap: 10px; padding: 12px 16px; border: 0; background: transparent; text-align: left; cursor: pointer; transition: background-color 150ms cubic-bezier(0.2,0,0,1); } .ds-row:hover { background: var(--color-guilloche-soft, oklch(93% 0.014 168)); } .ds-row:focus-visible { outline: 2px solid var(--color-query, oklch(45% 0.1 195)); outline-offset: -2px; } .ds-row-main { min-width: 0; flex: 1; } .ds-row-title { display: block; font-size: 13px; color: var(--color-ink, oklch(23% 0.035 178)); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .ds-row-detail { display: block; margin-top: 2px; font-size: 11.5px; color: var(--color-ink3, oklch(46% 0.024 178)); } .ds-row-measure { flex: none; font-family: \"Chivo Mono\", ui-monospace, Menlo, monospace; font-variant-numeric: tabular-nums; letter-spacing: -0.01em; font-size: 11.5px; color: var(--color-ink3, oklch(46% 0.024 178)); } .ds-row-chev { width: 16px; height: 16px; flex: none; color: var(--color-ink3, oklch(46% 0.024 178)); }"
+    },
+    {
+      "name": "Endorsement Stamp",
+      "kind": "chip",
+      "refersTo": "stamp-endorsed",
+      "description": "The signature mark: an answer this tool concluded rather than read. It arrives over-scaled and off-angle and settles, the way a stamp is pressed onto paper.",
+      "html": "<span class=\"ds-stamp\"><svg viewBox=\"0 0 16 16\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.5\" stroke-linecap=\"butt\" stroke-linejoin=\"miter\" aria-hidden=\"true\"><path d=\"M5.25 2.25h5.5v3.5l1.5 3.25h-8.5l1.5-3.25z\"/><path d=\"M2.5 11.5h11M2.5 13.75h11\"/></svg><span class=\"ds-stamp-text\">Concluded</span></span>",
+      "css": ".ds-stamp { display: inline-flex; align-items: center; gap: 4px; padding: 2px 6px; border: 1px solid var(--color-endorse, oklch(48% 0.19 30)); border-radius: 2px; background: var(--color-endorse-wash, oklch(94% 0.04 30)); color: var(--color-endorse, oklch(48% 0.19 30)); animation: ds-endorse-in 320ms cubic-bezier(0.2,0,0,1) both; } .ds-stamp svg { width: 12px; height: 12px; } .ds-stamp-text { font-family: \"Chivo Mono\", ui-monospace, Menlo, monospace; font-size: 9.5px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; } @keyframes ds-endorse-in { 0% { opacity: 0; transform: rotate(-4deg) scale(1.18); } 60% { opacity: 1; } 100% { opacity: 1; transform: rotate(-1.5deg) scale(1); } } @media (prefers-reduced-motion: reduce) { .ds-stamp { animation: none; } }"
+    },
+    {
+      "name": "Unsure Stamp",
+      "kind": "chip",
+      "refersTo": "stamp-unsure",
+      "description": "Answered, but with low confidence. Same geometry as the endorsement, in the second ink, with no wash and a confidence figure.",
+      "html": "<span class=\"ds-stamp-unsure\"><span class=\"ds-stamp-text\">Unsure</span><span class=\"ds-stamp-text\">62%</span></span>",
+      "css": ".ds-stamp-unsure { display: inline-flex; align-items: center; gap: 4px; padding: 2px 6px; border: 1px solid var(--color-query, oklch(45% 0.1 195)); border-radius: 2px; background: transparent; color: var(--color-query, oklch(45% 0.1 195)); } .ds-stamp-unsure .ds-stamp-text { font-family: \"Chivo Mono\", ui-monospace, Menlo, monospace; font-size: 9.5px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; }"
+    },
+    {
+      "name": "Field Seal",
+      "kind": "custom",
+      "refersTo": "seal",
+      "description": "The on-page affordance: an 18px circular seal anchored inside the focused field. No dock, no pill, no persistent launcher. Hover darkens; it never expands.",
+      "html": "<button class=\"ds-seal\" aria-label=\"Fill this field\"><svg viewBox=\"0 0 16 16\" fill=\"none\" stroke=\"currentColor\" aria-hidden=\"true\"><circle cx=\"8\" cy=\"8\" r=\"6.75\" stroke-width=\"1.5\"/><path d=\"M8 2.6 9.9 6.1 13.4 8 9.9 9.9 8 13.4 6.1 9.9 2.6 8 6.1 6.1z\" stroke-width=\"1\"/><circle cx=\"8\" cy=\"8\" r=\"1.6\" stroke-width=\"1\"/></svg></button>",
+      "css": ".ds-seal { display: flex; align-items: center; justify-content: center; width: 18px; height: 18px; padding: 0; border: 1px solid var(--color-ink, oklch(23% 0.035 178)); border-radius: 50%; background: var(--color-leaf, oklch(99.2% 0.004 168)); color: var(--color-ink, oklch(23% 0.035 178)); box-shadow: 0 1px 4px oklch(0% 0 0 / 0.2); cursor: pointer; transition: color 140ms cubic-bezier(0.2,0,0,1), background-color 140ms cubic-bezier(0.2,0,0,1); } .ds-seal svg { width: 12px; height: 12px; display: block; } .ds-seal:hover, .ds-seal[aria-expanded=\"true\"] { background: var(--color-ink, oklch(23% 0.035 178)); color: var(--color-leaf, oklch(99.2% 0.004 168)); } .ds-seal:focus-visible { outline: 2px solid var(--color-query, oklch(45% 0.1 195)); outline-offset: 1px; }"
+    },
+    {
+      "name": "Awaiting Row",
+      "kind": "custom",
+      "refersTo": "row",
+      "description": "Unissued stock: the shape of the row that is coming, never a spinner in its place.",
+      "html": "<div class=\"ds-awaiting-row\"><div class=\"ds-awaiting ds-awaiting-icon\"></div><div class=\"ds-awaiting-main\"><div class=\"ds-awaiting ds-awaiting-a\"></div><div class=\"ds-awaiting ds-awaiting-b\"></div></div></div>",
+      "css": ".ds-awaiting-row { display: flex; align-items: center; gap: 10px; padding: 12px 16px; } .ds-awaiting { background: linear-gradient(100deg, var(--color-guilloche-soft, oklch(93% 0.014 168)) 30%, var(--color-leaf, oklch(99.2% 0.004 168)) 50%, var(--color-guilloche-soft, oklch(93% 0.014 168)) 70%); background-size: 200% 100%; border-radius: 2px; animation: ds-shimmer 1.6s linear infinite; } .ds-awaiting-icon { width: 16px; height: 16px; flex: none; } .ds-awaiting-main { min-width: 0; flex: 1; } .ds-awaiting-a { height: 12px; width: 40%; } .ds-awaiting-b { height: 10px; width: 25%; margin-top: 6px; } @keyframes ds-shimmer { to { background-position-x: -200%; } } @media (prefers-reduced-motion: reduce) { .ds-awaiting { animation: none; background: var(--color-guilloche-soft, oklch(93% 0.014 168)); } }"
+    },
+    {
+      "name": "Overflow Menu",
+      "kind": "nav",
+      "refersTo": "button-quiet",
+      "description": "The one floating surface inside the panel, and one of only three shadows in the system.",
+      "html": "<div class=\"ds-menu\"><button class=\"ds-menu-item\" role=\"menuitem\">Re-read source</button><button class=\"ds-menu-item ds-menu-item-danger\" role=\"menuitem\">Remove</button></div>",
+      "css": ".ds-menu { min-width: 9.5rem; overflow: hidden; border: 1px solid var(--color-guilloche, oklch(87% 0.022 168)); border-radius: 2px; background: var(--color-leaf, oklch(99.2% 0.004 168)); box-shadow: 0 6px 20px -6px oklch(0% 0 0 / 0.28), 0 1px 2px oklch(0% 0 0 / 0.12); font-family: Archivo, ui-sans-serif, system-ui, sans-serif; animation: ds-strike 260ms cubic-bezier(0.2,0,0,1) both; } .ds-menu-item { display: block; width: 100%; padding: 8px 12px; border: 0; background: transparent; text-align: left; font: inherit; font-size: 12.5px; color: var(--color-ink, oklch(23% 0.035 178)); cursor: pointer; transition: background-color 150ms cubic-bezier(0.2,0,0,1); } .ds-menu-item:hover { background: var(--color-guilloche-soft, oklch(93% 0.014 168)); } .ds-menu-item-danger { color: var(--color-alert, oklch(47% 0.13 62)); } .ds-menu-item:focus-visible { outline: 2px solid var(--color-query, oklch(45% 0.1 195)); outline-offset: -2px; } @keyframes ds-strike { from { opacity: 0; transform: translateY(3px); } to { opacity: 1; transform: none; } } @media (prefers-reduced-motion: reduce) { .ds-menu { animation: none; } }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Credential Document",
+    "overview": "A credential exists to vouch for a person to a stranger who has to decide whether to trust it. It does that with a grammar for degrees of certainty that is structural, not decorative: the printed fields are what the issuer read, and an endorsement is something applied afterwards, in a second ink, by a second hand. This product has exactly that problem — a stated fact and a judgement call must be told apart at a glance, at 400px, in both schemes — so the world is not a metaphor laid over the interface, it is the interface's actual mechanism.\n\nThe surface is dense, ruled and flat. Content is delimited by hairlines rather than boxed in cards; text sits on a safety-tint stock that is deliberately neither cream nor white; every vertical measure is a multiple of 4px, because a document is set on a ruled bed. Two registers of one typeface do the work of two families: Archivo at 80% width for tracked condensed caps on every field label, Archivo at normal width for prose, and Chivo Mono for quantities that must align. The dark scheme is not an inversion but a second physical scene — a passport page under a desk lamp with the room dark — which is why its hairlines and its engine-turned ground sit at different distances from the ground than the light scheme's do.\n\nTwo directions were refused by name in the direction contract and remain refused: the AI-panel card grid on near-black with a violet glow, and the white minimal app shell that is its predictable opposite. There is one accent, vermilion, and it has one meaning. There is no other ornament except the guilloche, which appears twice in the entire build.",
+    "keyCharacteristics": [
+      "Ruled registers, never cards; hairlines carry all structure.",
+      "Fourteen tokens per scheme, both schemes authored, neither derived from the other.",
+      "One accent (vermilion) with one meaning: inference. Faults speak amber, uncertainty speaks petrol.",
+      "2px radius on struck controls, full circle for seals, nothing in between.",
+      "4px vertical rhythm; 13px body on a 400px column.",
+      "Authored 16px icons, one 1.5px stroke, butt caps and mitre joins, no library."
+    ],
+    "rules": [
+      {
+        "name": "The One Stamp Rule",
+        "body": "Vermilion means inference and nothing else. A failed upload, a refusal and a destructive action all speak in `alert`; uncertainty speaks in `query`. The moment an error borrows the stamp's ink, the one distinction this product exists to make becomes indistinguishable from \"something broke\".",
+        "section": "colors"
+      },
+      {
+        "name": "The Unmarked Fact Rule",
+        "body": "A stated answer gets no mark at all — no badge, no tint, no chip. The absence *is* the notation: the document's own ink is what a printed field looks like. Adding a \"verified\" mark to stated answers would flatten the very contrast the stamp creates.",
+        "section": "colors"
+      },
+      {
+        "name": "The Two Scenes Rule",
+        "body": "Dark is authored, not derived. Never generate the dark value by inverting or lightening a light one; both schemes are measured against their own ground, which is why `engine` sits 12 points from stock in light and 44 in dark.",
+        "section": "colors"
+      },
+      {
+        "name": "The Two Registers Rule",
+        "body": "Condensed tracked caps title a field; they never set running prose. Prose never takes the width axis. Anything that is neither — a heading pretending to be a label, an all-caps sentence — is outside the system.",
+        "section": "typography"
+      },
+      {
+        "name": "The Measurement-Only Mono Rule",
+        "body": "Chivo Mono carries counts, quotas, confidence, sizes, timings and costs — quantities compared against each other. It is never a category label. The one sanctioned exception is the stamp text, where mono is doing the work of a struck impression, not of a category.",
+        "section": "typography"
+      },
+      {
+        "name": "The No-Card Rule",
+        "body": "A credential's contents are a ruled register. Content already delimited by the rule above it does not get a box, a shadow or a radius around it. If something needs separating, add a hairline.",
+        "section": "layout"
+      },
+      {
+        "name": "The Floating-Only Rule",
+        "body": "A shadow means \"this is not part of the document underneath\". Headers, footers, rows, inputs, buttons and sheets are flat forever. A confirm sheet earns separation with a 35% ink scrim and a top hairline, not a shadow.",
+        "section": "elevation"
+      },
+      {
+        "name": "The Two-Grounds Rule",
+        "body": "The guilloche covers area in exactly two places in the shipped build: the first-run ground and the empty-state ground. Everywhere else it is flattened to a hairline. Used as wallpaper it becomes the gimmick this direction exists to avoid.",
+        "section": "shapes"
+      },
+      {
+        "name": "The Cleared Centre Rule",
+        "body": "Where the guilloche sits behind copy, it is masked out under the copy (`radial-gradient(circle at 50% 45%, transparent 34%, black 76%)`), never concentrated there. A decorative ground that costs legibility has stopped being structure.",
+        "section": "shapes"
+      }
+    ],
+    "dos": [
+      "Do add new colours to `src/lib/tokens.ts` and nowhere else. `tokens.test.ts` fails the build if `tailwind.css` diverges, and the overlay reads the same module.",
+      "Do author both schemes by eye against their own ground. Fourteen tokens, two real palettes.",
+      "Do reserve vermilion for inference, amber for faults and destruction, petrol for uncertainty and focus.",
+      "Do leave a stated answer unmarked.",
+      "Do set every vertical measure on the 4px rhythm and separate content with hairlines.",
+      "Do use the label register (condensed tracked caps) for field labels and section titles, and the mono only for quantities.",
+      "Do draw new glyphs on the 16px grid with a 1.5px stroke, butt caps and mitre joins.",
+      "Do position overlay elements with `translate` and animate them with `scale` / `rotate`.",
+      "Do let the panel follow the OS scheme and the overlay follow the host page's own background (`detectPageScheme`) — it is a guest on a site we do not control.",
+      "Do keep a concluded or uncertain mark on the field until the person acts on it."
+    ],
+    "donts": [
+      "Don't put a card, a box or a shadow around content a hairline already delimits.",
+      "Don't use vermilion for an error, a warning, a delete, or a generic \"AI\" flourish.",
+      "Don't introduce a radius between 2px and a full circle, or apply a radius to a container.",
+      "Don't tile the guilloche as wallpaper, or place it behind copy without masking the centre clear.",
+      "Don't fade a disabled primary to a translucent plate; draw the empty frame.",
+      "Don't put a label inside a control as a placeholder.",
+      "Don't set running prose in the condensed tracked-caps register, or use mono for a category name.",
+      "Don't add an icon library, or mix a 2px rounded-stroke glyph into a surface ruled with 1px hairlines.",
+      "Don't replace the screen push/pop with a cross-fade, or reach for an animation runtime — View Transitions is available by construction here.",
+      "Don't cross-fade or animate anything for someone who asked the OS for reduced motion, and don't take persistent information away from them either.",
+      "Don't put a persistent dock, pill or launcher on the host page. The seal exists only while a field is focused."
+    ]
+  }
+}

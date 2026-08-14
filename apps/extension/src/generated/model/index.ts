@@ -42,6 +42,7 @@ export * from './profileResponse';
 export * from './profileSourcesItem';
 export * from './profileSourcesItemKind';
 export * from './profileSourcesItemStatus';
+export * from './renameSourceRequest';
 export * from './signInRequest';
 export * from './signInResponse';
 export * from './submitFeedback200';

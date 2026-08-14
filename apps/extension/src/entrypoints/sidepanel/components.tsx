@@ -85,7 +85,7 @@ export function ScreenFooter({ children }: { children: ReactNode }) {
 
 /* ── Struck controls ─────────────────────────────────────────────────────── */
 
-type Variant = 'plate' | 'struck' | 'quiet' | 'endorse'
+type Variant = 'plate' | 'struck' | 'quiet' | 'danger'
 
 /**
  * A disabled plate stops being a plate.
@@ -107,11 +107,21 @@ const VARIANTS: Record<Variant, string> = {
     as a fully struck plate. A button offering an action that cannot be taken is worse than no
     button, and this one looked identical to the live control beside it.
   */
-  plate: `bg-ink text-stock border border-ink hover:opacity-90 active:translate-y-px ${DISABLED_PLATE}`,
+  /*
+    The keyline is what makes this a plate rather than a button.
+
+    A struck panel on a printed document carries a hairline rule set in from its own edge —
+    the plate's border and the impression's border are two different lines. Without it this
+    was a filled rectangle indistinguishable from every secondary control in the build, which
+    is exactly what the direction contract promised it would not be.
+  */
+  plate: `relative bg-ink text-stock border border-ink hover:opacity-90 active:translate-y-px ${DISABLED_PLATE} before:pointer-events-none before:absolute before:inset-[3px] before:rounded-[1px] before:border before:border-stock/30 before:content-[''] disabled:before:border-transparent`,
   struck: `border border-ink text-ink hover:bg-ink/8 active:translate-y-px ${DISABLED_PLATE}`,
   quiet:
     'border border-transparent text-ink2 hover:bg-guilloche-soft hover:text-ink disabled:text-ink3',
-  endorse: `border border-endorse text-endorse hover:bg-endorse-wash active:translate-y-px ${DISABLED_PLATE}`,
+  // Faults and destruction, in the caution ink — never the endorsement stamp's vermilion,
+  // which means one thing only: this answer was concluded rather than read.
+  danger: `border border-alert text-alert hover:bg-alert-wash active:translate-y-px ${DISABLED_PLATE}`,
 }
 
 export function Button({
@@ -175,7 +185,7 @@ export function Row({
   onClick?: () => void
   /** Replaces the disclosure chevron — an overflow menu, say. */
   trailing?: ReactNode
-  tone?: 'default' | 'endorse'
+  tone?: 'default' | 'danger'
   /** Staggers the settle animation. Capped by the caller at 8 or the list flickers. */
   index?: number
 }) {
@@ -184,7 +194,7 @@ export function Row({
       {icon && (
         <span
           className={`mt-px flex size-4 shrink-0 items-center justify-center ${
-            tone === 'endorse' ? 'text-endorse' : 'text-ink3'
+            tone === 'danger' ? 'text-alert' : 'text-ink3'
           }`}
         >
           {icon}
@@ -263,11 +273,7 @@ export function Field({
         </p>
       )}
       {error && (
-        <p
-          id={errorId}
-          role="alert"
-          className="flex items-start gap-1.5 text-[11.5px] text-endorse"
-        >
+        <p id={errorId} role="alert" className="flex items-start gap-1.5 text-[11.5px] text-alert">
           <IconAlert className="mt-px size-3.5 shrink-0" />
           <span>{error}</span>
         </p>
@@ -352,6 +358,9 @@ export function EmptyState({
         aria-hidden
         className="pointer-events-none absolute inset-0"
         style={{
+          // Full strength, and legibility comes from the mask below rather than from fading
+          // the ink. Halving the opacity here quietly cancelled a raise to the `engine` token
+          // and left the dark ground pixel-identical to the build it was meant to fix.
           backgroundImage: guillocheDataUri('currentColor'),
           backgroundRepeat: 'repeat',
           color: 'var(--color-engine)',
@@ -379,7 +388,7 @@ export function ErrorNote({ children }: { children: ReactNode }) {
   return (
     <p
       role="alert"
-      className="flex items-start gap-1.5 px-4 py-2.5 text-[12px] leading-snug text-endorse"
+      className="flex items-start gap-1.5 px-4 py-2.5 text-[12px] leading-snug text-alert"
     >
       <IconAlert className="mt-px size-3.5 shrink-0" />
       <span className="min-w-0">{children}</span>
@@ -392,7 +401,7 @@ export function ErrorNote({ children }: { children: ReactNode }) {
 export interface MenuItem {
   label: string
   onSelect: () => void
-  tone?: 'default' | 'endorse'
+  tone?: 'default' | 'danger'
 }
 
 export function OverflowMenu({ items, label }: { items: MenuItem[]; label: string }) {
@@ -433,7 +442,7 @@ export function OverflowMenu({ items, label }: { items: MenuItem[]; label: strin
         // eslint-disable-next-line jsx-a11y/no-noninteractive-element-to-interactive-role
         <div
           role="menu"
-          className="strike absolute right-0 top-full z-10 mt-1 min-w-[9.5rem] overflow-hidden rounded-doc border border-guilloche bg-leaf shadow-[0_6px_20px_-6px_oklch(0%_0_0/0.28),0_1px_2px_oklch(0%_0_0/0.12)]"
+          className="strike absolute right-0 top-full z-10 mt-1 min-w-[9.5rem] overflow-hidden rounded-doc border border-guilloche bg-leaf shadow-[0_6px_20px_-6px_var(--color-shadow-far),0_1px_2px_var(--color-shadow-near)]"
         >
           {items.map((item) => (
             <button
@@ -445,7 +454,7 @@ export function OverflowMenu({ items, label }: { items: MenuItem[]; label: strin
                 item.onSelect()
               }}
               className={`block w-full px-3 py-2 text-left text-[12.5px] transition-colors hover:bg-guilloche-soft ${
-                item.tone === 'endorse' ? 'text-endorse' : 'text-ink'
+                item.tone === 'danger' ? 'text-alert' : 'text-ink'
               }`}
             >
               {item.label}
@@ -539,7 +548,7 @@ export function ConfirmSheet({
         <h2 className="text-[13.5px] font-semibold text-ink">{title}</h2>
         <div className="mt-1.5 text-[12.5px] leading-relaxed text-ink2">{body}</div>
         {error && (
-          <p role="alert" className="mt-2.5 text-[12px] leading-snug text-endorse">
+          <p role="alert" className="mt-2.5 text-[12px] leading-snug text-alert">
             {error}
           </p>
         )}
@@ -547,7 +556,7 @@ export function ConfirmSheet({
           <Button variant="quiet" block onClick={onCancel} disabled={pending} data-autofocus>
             Cancel
           </Button>
-          <Button variant="endorse" block onClick={onConfirm} loading={pending}>
+          <Button variant="danger" block onClick={onConfirm} loading={pending}>
             {pending ? 'Removing…' : confirmLabel}
           </Button>
         </div>
