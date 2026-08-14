@@ -42,27 +42,47 @@ async function askContentScript<R extends ContentRequest>(
  */
 export async function runFillFlow(
   tabId: number,
-  options: { overwriteExisting: boolean },
+  options: { overwriteExisting: boolean; onlyFieldId?: string },
   emit: (event: FillPortEvent) => void,
   isCancelled: () => boolean = () => false,
 ): Promise<void> {
   try {
     emit({ type: 'progress', stage: 'detecting', done: 0, total: 1 })
 
-    const form = await askContentScript<{ type: 'content/detect' }>(tabId, {
+    const detected = await askContentScript<{ type: 'content/detect' }>(tabId, {
       type: 'content/detect',
     })
 
-    if (!form) {
+    if (!detected) {
       throw new ApiErrorResponse('INVALID_REQUEST', 'No fillable form found on this page.')
     }
     if (isCancelled()) return
+
+    /**
+     * A single field still carries the whole page's context.
+     *
+     * `pageContext` and the surrounding field labels are what let the model tell "Name" on a
+     * conference signup from "Name" on a reference form, so narrowing to one field means
+     * narrowing `fields`, never the schema around it.
+     */
+    const form = options.onlyFieldId
+      ? {
+          ...detected,
+          fields: detected.fields.filter((field) => field.id === options.onlyFieldId),
+        }
+      : detected
+
+    if (form.fields.length === 0) {
+      throw new ApiErrorResponse('INVALID_REQUEST', 'That field is no longer on the page.')
+    }
 
     emit({ type: 'progress', stage: 'generating', done: 0, total: form.fields.length })
 
     const plan = (await fillForm({
       form,
       overwriteExisting: options.overwriteExisting,
+      // Denominated in forms, so one input must not cost one of fifty. See `enforceQuota`.
+      scope: options.onlyFieldId ? 'field' : 'form',
     })) as FillPlan
 
     if (isCancelled()) return
@@ -120,7 +140,10 @@ export function registerFillPort(): void {
       void (async () => {
         await runFillFlow(
           request.tabId,
-          { overwriteExisting: request.overwriteExisting },
+          {
+            overwriteExisting: request.overwriteExisting,
+            ...(request.onlyFieldId ? { onlyFieldId: request.onlyFieldId } : {}),
+          },
           emit,
           () => cancelled,
         )

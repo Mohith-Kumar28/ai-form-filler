@@ -1,0 +1,10 @@
+@import "../src/assets/tailwind.css";
+
+/*
+  Tailwind v4 detects content relative to the stylesheet's own project, and this build's root is
+  `gallery/` — so without this the gallery ships the tokens but almost none of the utilities,
+  and every screen renders as unstyled markup that still *looks* deliberate at a glance. That is
+  a worse failure than not rendering at all, because it produces a screenshot worth reviewing
+  that is not the design.
+*/
+@source "../src";

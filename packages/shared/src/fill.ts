@@ -99,6 +99,17 @@ export const FillRequest = z.object({
   form: FormSchema,
   /** Refill fields that already have a value. */
   overwriteExisting: z.boolean().default(false),
+  /**
+   * What the caller is asking for, which decides whether this spends quota.
+   *
+   * The allowance is denominated in *forms* — fifty a month on the free plan — so filling one
+   * focused input from the page seal must not cost the same as filling a thirty-field
+   * application. Field-scoped fills are still rate limited; they are simply not counted.
+   *
+   * Defaulted rather than required so an older extension build keeps working against a newer
+   * Worker, and keeps being charged the way it always was.
+   */
+  scope: z.enum(['form', 'field']).default('form'),
 })
 export type FillRequest = z.infer<typeof FillRequest>
 

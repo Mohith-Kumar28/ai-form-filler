@@ -1,75 +1,95 @@
 @import "tailwindcss";
 
 /*
-  THESIS: A laboratory notebook, not a dashboard. Refuses the card grid — the arrangement
-  every AI panel ships — for ruled, numbered entries with visible provenance.
-  OWN-WORLD: Deep slate ground with a raised page; hairline rules as the only container;
-  entry numbers in the margin; annotation-red marks inference, verified-green marks what was
-  stated. The grid is an alignment armature, not a drawn texture.
-  STORY: The user sees what the notebook knows, where each entry came from, and — at a
-  glance — which answers it observed versus which it concluded.
-  FIRST VIEWPORT: Identity and quota band; entries beneath with real presence; the fill
-  action anchored bottom as the one solid field on the page.
-  FORM: Laboratory notebook. Position 4 of 7 on the grounded list. Seed key b24f3290.
-  FINISH: unreviewed and undocumented is unfinished; this build ends with the finish review,
-  the verdict, and DESIGN.md
+  Values here are mirrored from src/lib/tokens.ts, which is the authority for both this file
+  and the page overlay's inlined CSS string. `src/lib/tokens.test.ts` fails if they diverge —
+  the previous build kept two hand-maintained palettes and they had already drifted.
+
+  biome.json turns `noUnknownTypeSelector` off for CSS. The rule's selector list predates the
+  View Transitions API and `::-webkit-scrollbar`, both of which are shipped and used below, so
+  in this project it only ever fires as a false positive. It stays on everywhere else.
 */
 
+/*
+  Bundled rather than system.
+
+  The side panel is an extension-origin page, so there is no CSP obstacle and no network
+  request. Archivo carries a width axis from 62% to 125%, which is what lets a document's two
+  registers — tracked condensed caps for a field label, normal width for prose — come from one
+  90KB file instead of two families.
+
+  Chivo Mono is the machine-readable zone, and it is Archivo's sibling from the same foundry —
+  so the register that carries the numbers and the one that carries the prose are demonstrably
+  one system rather than two faces that happen to sit together.
+*/
+@font-face {
+  font-family: "Archivo";
+  src: url("/fonts/archivo-var.woff2") format("woff2-variations");
+  font-weight: 400 700;
+  font-stretch: 62% 125%;
+  font-style: normal;
+  font-display: block;
+}
+
+@font-face {
+  font-family: "Chivo Mono";
+  src: url("/fonts/chivo-mono-var.woff2") format("woff2-variations");
+  font-weight: 400 600;
+  font-style: normal;
+  font-display: block;
+}
+
 @theme {
-  /* Light: a cool bench-lit page, deliberately not cream. */
-  --color-ground: oklch(96.5% 0.005 240);
-  --color-page: oklch(100% 0 0);
-  --color-rule: oklch(88% 0.012 240);
-  --color-rule-soft: oklch(93% 0.008 240);
-  --color-ink: oklch(22% 0.02 255);
-  --color-muted: oklch(44% 0.018 255);
-  --color-faint: oklch(52% 0.016 255);
+  /* The safety-tint stock a credential is printed on. Deliberately neither cream nor white. */
+  --color-stock: oklch(96.5% 0.009 168);
+  --color-leaf: oklch(99.2% 0.004 168);
+  --color-guilloche: oklch(87% 0.022 168);
+  --color-guilloche-soft: oklch(93% 0.014 168);
+  /* The engine-turned ground only. Needs a different distance from `stock` than a hairline
+     does: 0.65px curves and a 1px rule do not survive the same contrast. */
+  --color-engine: oklch(84% 0.026 168);
 
-  /* Annotation red: the correction pen. Reserved for inference and errors. */
-  --color-annot: oklch(52% 0.2 25);
-  --color-annot-wash: oklch(95% 0.035 25);
-  /* Verified green: recorded as stated. */
-  --color-verified: oklch(46% 0.14 155);
-  /*
-    Amber: answered, but not confidently. The middle of the three score states.
-    Deliberately distinct from annotation red, which means "this was concluded, not read" —
-    a merely uncertain answer and an inferred one need different amounts of alarm.
-    Lightness is tuned for >=4.5:1 on the page background, like every other text token here.
-  */
-  --color-amber: oklch(52% 0.13 75);
-  /* Ink blue: the pen itself — actions and focus. */
-  --color-pen: oklch(48% 0.19 262);
-  --color-pen-wash: oklch(95% 0.035 262);
+  /* Intaglio ink. Every tier clears 4.5:1 on `stock`; there is no decorative text colour. */
+  --color-ink: oklch(23% 0.035 178);
+  --color-ink2: oklch(38% 0.03 178);
+  --color-ink3: oklch(46% 0.024 178);
 
-  --radius-sharp: 3px;
+  /* The endorsement stamp: inference, errors, destruction. Nothing else. */
+  --color-endorse: oklch(48% 0.19 30);
+  --color-endorse-wash: oklch(94% 0.04 30);
+
+  /* The second ink: uncertainty, focus, and whatever is happening right now. */
+  --color-query: oklch(45% 0.1 195);
+  --color-query-wash: oklch(94% 0.03 195);
+
+  --radius-doc: 2px;
+
+  --font-sans: "Archivo", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "Chivo Mono", ui-monospace, "SF Mono", Menlo, monospace;
 }
 
 @media (prefers-color-scheme: dark) {
   @theme {
     /*
-      A real step between ground and page, so bands read as raised surfaces rather than
-      as slightly different shades of the same murk. The previous values sat 3.5% apart
-      and the whole panel flattened into one grey field.
+      Not an inversion — a different scene. PRODUCT.md puts this person on a laptop, late,
+      during a job hunt; in that light the ink becomes the ground and the printing comes up
+      pale off it, the way a passport page looks under a desk lamp with the room dark.
     */
-    --color-ground: oklch(17% 0.014 255);
-    --color-page: oklch(22.5% 0.018 255);
-    --color-rule: oklch(34% 0.02 255);
-    --color-rule-soft: oklch(27% 0.016 255);
+    --color-stock: oklch(18% 0.022 190);
+    --color-leaf: oklch(22.5% 0.026 190);
+    --color-guilloche: oklch(34% 0.03 190);
+    --color-guilloche-soft: oklch(27% 0.024 190);
+    --color-engine: oklch(44% 0.04 190);
 
-    /*
-      Raised across the board. `faint` was oklch(56%) on a 20% ground — under 4.5:1, which
-      is why the source metadata was unreadable rather than merely quiet.
-    */
-    --color-ink: oklch(96% 0.008 255);
-    --color-muted: oklch(78% 0.014 255);
-    --color-faint: oklch(65% 0.016 255);
+    --color-ink: oklch(95% 0.012 180);
+    --color-ink2: oklch(76% 0.02 180);
+    --color-ink3: oklch(64% 0.022 180);
 
-    --color-annot: oklch(74% 0.17 28);
-    --color-annot-wash: oklch(28% 0.06 28);
-    --color-verified: oklch(76% 0.16 155);
-    --color-amber: oklch(78% 0.14 80);
-    --color-pen: oklch(76% 0.15 258);
-    --color-pen-wash: oklch(28% 0.06 258);
+    --color-endorse: oklch(72% 0.17 32);
+    --color-endorse-wash: oklch(30% 0.07 32);
+
+    --color-query: oklch(74% 0.11 195);
+    --color-query-wash: oklch(28% 0.05 195);
   }
 }
 
@@ -80,34 +100,56 @@ body,
 }
 
 body {
-  background: var(--color-ground);
+  background: var(--color-stock);
   color: var(--color-ink);
-  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-family: var(--font-sans);
   font-size: 13px;
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
 }
 
 /*
-  The grid is an *alignment* armature, not a drawn texture.
+  The document's label register.
 
-  Rendering it as visible ruling turned 600px of empty panel into a wall of boxes that
-  dominated every piece of real content — the exact gimmick risk this direction carried.
-  It survives as the 4px spacing module every rule and inset is a multiple of, which is
-  what a construction grid is actually for.
+  Condensed, tracked caps is how every field on a credential is titled — it is the width axis
+  doing the work, not a second typeface. Reserved for field labels and section titles; running
+  prose never takes it.
 */
-
-/* Measured quantities only. Never a category label — that is mono as costume. */
-.measure {
-  font-family: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, monospace;
-  font-variant-numeric: tabular-nums;
-  letter-spacing: -0.02em;
+.doc-label {
+  font-stretch: 80%;
+  font-weight: 600;
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--color-ink3);
 }
 
-@keyframes entry-in {
+/*
+  The machine-readable zone.
+
+  Counts, quotas, confidence, sizes, timings, costs — quantities that are compared against
+  each other and therefore need to align. Never a category label: mono as a costume for
+  "technical" is the thing this replaces.
+*/
+.mrz {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+}
+
+/*
+  One authored moment, in two parts.
+
+  `strike` is the plate landing — a primary action, a screen arriving. `endorse-in` is the
+  stamp being applied: it comes in over-scaled and slightly off-angle and settles, because
+  that is what pressing a stamp onto paper looks like and it is the one thing in this
+  interface that must not be missed.
+*/
+@keyframes strike {
   from {
     opacity: 0;
-    transform: translateY(4px);
+    transform: translateY(3px);
   }
   to {
     opacity: 1;
@@ -115,37 +157,164 @@ body {
   }
 }
 
-/* One authored moment: entries settle in sequence, the way rows get written. */
-.entry-in {
-  animation: entry-in 280ms cubic-bezier(0.2, 0, 0, 1) both;
+.strike {
+  animation: strike 260ms cubic-bezier(0.2, 0, 0, 1) both;
 }
 
-@keyframes rule-draw {
-  from {
-    transform: scaleX(0);
+@keyframes endorse-in {
+  0% {
+    opacity: 0;
+    transform: rotate(-4deg) scale(1.18);
   }
+  60% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 1;
+    transform: rotate(-1.5deg) scale(1);
+  }
+}
+
+.endorse-in {
+  animation: endorse-in 320ms cubic-bezier(0.2, 0, 0, 1) both;
+}
+
+/* Rows settle in sequence, the way a document is set line by line. Capped by the caller. */
+.settle {
+  animation: strike 240ms cubic-bezier(0.2, 0, 0, 1) both;
+  animation-delay: calc(var(--i, 0) * 22ms);
+}
+
+@keyframes shimmer {
   to {
-    transform: scaleX(1);
+    background-position-x: -200%;
   }
 }
 
-.rule-draw {
-  transform-origin: left;
-  animation: rule-draw 460ms cubic-bezier(0.2, 0, 0, 1) both;
+/* Unissued stock waiting for its printing. Sized to the row it stands in, never a spinner. */
+.awaiting {
+  background: linear-gradient(
+    100deg,
+    var(--color-guilloche-soft) 30%,
+    var(--color-leaf) 50%,
+    var(--color-guilloche-soft) 70%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.6s linear infinite;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .entry-in,
-  .rule-draw {
+  .strike,
+  .endorse-in,
+  .settle,
+  .awaiting {
     animation: none;
+  }
+
+  .awaiting {
+    background: var(--color-guilloche-soft);
+  }
+
+  /*
+    The one `!important` in the project, and it is load-bearing: the browser applies its own
+    default cross-fade to every view-transition pseudo-element from the UA sheet, and an author
+    declaration of equal specificity does not beat it. Without this, screens keep cross-fading
+    for someone who asked the OS for no motion.
+  */
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    /* biome-ignore lint/complexity/noImportantStyles: beats the UA view-transition default */
+    animation: none !important;
   }
 }
 
 ::selection {
-  background: var(--color-pen-wash);
+  background: var(--color-query-wash);
+  color: var(--color-ink);
 }
 
 *:focus-visible {
-  outline: 2px solid var(--color-pen);
+  outline: 2px solid var(--color-query);
   outline-offset: 1px;
+  border-radius: 1px;
+}
+
+/*
+  Screens push and pop as leaves of one document rather than cross-fading.
+
+  This is Chrome-only by construction — it is a Chrome extension — so the View Transitions
+  API is simply available, and it costs nothing next to a 40KB animation runtime.
+*/
+@keyframes leaf-in-forward {
+  from {
+    opacity: 0;
+    transform: translateX(12px);
+  }
+}
+
+@keyframes leaf-out-forward {
+  to {
+    opacity: 0;
+    transform: translateX(-8px);
+  }
+}
+
+@keyframes leaf-in-back {
+  from {
+    opacity: 0;
+    transform: translateX(-12px);
+  }
+}
+
+@keyframes leaf-out-back {
+  to {
+    opacity: 0;
+    transform: translateX(8px);
+  }
+}
+
+::view-transition-old(screen),
+::view-transition-new(screen) {
+  animation-duration: 200ms;
+  animation-timing-function: cubic-bezier(0.2, 0, 0, 1);
+  mix-blend-mode: normal;
+}
+
+html[data-nav="forward"]::view-transition-new(screen) {
+  animation-name: leaf-in-forward;
+}
+
+html[data-nav="forward"]::view-transition-old(screen) {
+  animation-name: leaf-out-forward;
+}
+
+html[data-nav="back"]::view-transition-new(screen) {
+  animation-name: leaf-in-back;
+}
+
+html[data-nav="back"]::view-transition-old(screen) {
+  animation-name: leaf-out-back;
+}
+
+/* The panel is a document, not a scrolling web page: no rubber-band, no bounce chrome. */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-guilloche);
+  border: 3px solid transparent;
+  background-clip: content-box;
+  border-radius: 6px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-ink3);
+  background-clip: content-box;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
 }

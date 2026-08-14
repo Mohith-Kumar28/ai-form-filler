@@ -115,6 +115,19 @@ class PositionScheduler {
         box.right > 0 &&
         box.left < window.innerWidth
 
+      /**
+       * The first measurement seeds visibility from geometry; the observer only maintains it
+       * afterwards.
+       *
+       * Without this, `visible` stayed `false` until an IntersectionObserver callback landed —
+       * so the first `onMove` reported hidden and returned before writing a position, and the
+       * cull rule above then skipped the target entirely. Anything mounted on an element the
+       * observer had not yet spoken about sat unpositioned at the overlay origin, which is the
+       * top-left corner of the page. Transient markers hid it; a seal anchored to the focused
+       * field does not.
+       */
+      if (tracked.lastRect === null) tracked.visible = inViewport
+
       measurements.push({ tracked, rect, visible: tracked.visible && inViewport })
     }
 

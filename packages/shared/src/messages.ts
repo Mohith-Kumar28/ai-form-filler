@@ -11,12 +11,26 @@ import type { FormSchema } from './form.js'
 export type Request =
   | { type: 'auth/signIn' }
   | { type: 'auth/signOut' }
-  /** Sent by the page overlay's dock — the one-click path. */
-  | { type: 'overlay/requestFill' }
-  /** The dock's Review action, opening the panel on the judgement calls. */
+  /**
+   * Sent by the page's field chip.
+   *
+   * `scope: 'field'` fills only the field the chip is attached to. It is a separate scope
+   * rather than a one-element form because the quota is denominated in *forms*: spending one
+   * of fifty monthly fills on a single input would make the chip's cheapest action feel like
+   * its most expensive one. See `enforceQuota` in the Worker.
+   */
+  | { type: 'overlay/requestFill'; scope: 'form' | 'field'; fieldId?: string }
+  /** The chip's Review action, opening the panel on the judgement calls. */
   | { type: 'overlay/openPanel' }
   | { type: 'form/detected'; form: FormSchema }
   | { type: 'feedback/submit'; payload: FeedbackRequest }
+  /**
+   * Scroll a field into view on the page and flash it.
+   *
+   * Sent while a review row is hovered, so the list in the panel and the form on the page
+   * read as one surface rather than two lists of the same questions.
+   */
+  | { type: 'content/highlight'; fieldId: string }
   /**
    * Write one reviewed answer back into the page.
    *
@@ -46,6 +60,8 @@ export type ContentRequest =
   | { type: 'content/apply'; plan: FillPlan }
   /** A single field, corrected or cleared from the review. No animation, no plan. */
   | { type: 'content/write'; fieldId: string; value: string }
+  /** Scroll to a field and flash it, from a hovered review row. */
+  | { type: 'content/highlight'; fieldId: string }
 
 /** What the content script reports after writing values into the page. */
 export interface ApplyReport {
@@ -58,7 +74,9 @@ export type ContentResponseFor<R extends ContentRequest> = R extends { type: 'co
   ? FormSchema | null
   : R extends { type: 'content/write' }
     ? boolean
-    : ApplyReport
+    : R extends { type: 'content/highlight' }
+      ? null
+      : ApplyReport
 
 export { FILL_PORT } from './constants.js'
 
@@ -70,19 +88,29 @@ export { FILL_PORT } from './constants.js'
  * one context that can use it.
  */
 export type FillPortRequest =
-  | { type: 'start'; tabId: number; overwriteExisting: boolean }
+  | {
+      type: 'start'
+      tabId: number
+      overwriteExisting: boolean
+      /** Absent means the whole form. A single field is filled without spending quota. */
+      onlyFieldId?: string
+    }
   | { type: 'cancel' }
 
 /**
  * Service worker -> extension, over the fill port.
  *
- * `progress` exists because a large form can take 10s+ at tier 3, and a spinner with no
- * movement reads as a hang. The worker emits one per tier as it completes.
+ * `progress` exists because a large form can take 10s+ at tier 3, and a static indicator reads
+ * as a hang.
+ *
+ * There is deliberately no `routing` stage. Classification and generation happen inside one
+ * HTTP call, so the client cannot honestly tell them apart; it was declared here for a year
+ * and never emitted, which meant the page dock rendered a step that could not resolve.
  */
 export type FillPortEvent =
   | {
       type: 'progress'
-      stage: 'detecting' | 'routing' | 'generating' | 'applying'
+      stage: 'detecting' | 'generating' | 'applying'
       done: number
       total: number
     }

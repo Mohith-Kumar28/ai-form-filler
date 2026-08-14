@@ -36,22 +36,28 @@ export default defineBackground(() => {
       // token, so the extra message hop bought nothing.
 
       /**
-       * One-click fill from the page dock.
+       * A fill asked for from the page — either the focused field, or the whole form.
        *
-       * The side panel is deliberately **not** opened here. The dock now reports progress,
-       * counts, and errors on the page itself, so forcing the panel open covered the form
-       * with a surface showing nothing the user asked for. The panel opens only when they
-       * choose Review.
+       * The side panel is deliberately **not** opened. The page shows its own progress on the
+       * seal and marks each field as it lands, so forcing the panel open would cover the form
+       * with a surface showing nothing that was asked for. The panel opens only on request.
        */
       case 'overlay/requestFill':
         void toResult(async () => {
           const tabId = _sender.tab?.id
           if (!tabId) throw new Error('No tab to fill')
 
-          await runFillFlow(tabId, { overwriteExisting: false }, (event) => {
+          const options = {
+            overwriteExisting: false,
+            ...(request.scope === 'field' && request.fieldId
+              ? { onlyFieldId: request.fieldId }
+              : {}),
+          }
+
+          await runFillFlow(tabId, options, (event) => {
             // Two receivers, two channels. `runtime.sendMessage` reaches an open side panel;
-            // `tabs.sendMessage` reaches the content script's dock, which is what actually
-            // shows progress on the page. Neither having a listener is a normal state.
+            // `tabs.sendMessage` reaches the content script. Neither having a listener is a
+            // normal state.
             void chrome.runtime.sendMessage({ type: 'fill/event', event }).catch(() => undefined)
             void chrome.tabs
               .sendMessage(tabId, { type: 'fill/event', event })
@@ -110,7 +116,26 @@ export default defineBackground(() => {
         }).then(sendResponse)
         return true
 
-      /** The dock's Review action — opens the panel where the judgement calls are listed. */
+      /**
+       * A review row in the panel is pointing at a field on the page.
+       *
+       * Same hop as `review/write`, and for the same reason: only the content script holds the
+       * `fieldId -> Element` map. Failures are swallowed — the page may have navigated, and a
+       * hover must never raise an error.
+       */
+      case 'content/highlight':
+        void toResult(async () => {
+          const [tab] = await chrome.tabs.query({ active: true, currentWindow: true })
+          if (tab?.id !== undefined) {
+            await chrome.tabs
+              .sendMessage(tab.id, { type: 'content/highlight', fieldId: request.fieldId })
+              .catch(() => undefined)
+          }
+          return null
+        }).then(sendResponse)
+        return true
+
+      /** The seal's Open the panel action. */
       case 'overlay/openPanel':
         void toResult(async () => {
           const tabId = _sender.tab?.id

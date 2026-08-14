@@ -9,10 +9,11 @@ import {
 import { useQueryClient } from '@tanstack/react-query'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { getGetAccountQueryKey } from '../generated/endpoints/account/account.js'
+import { clearDraft } from './review-store.js'
 
 /**
- * Extracted with `Extract` rather than a bare conditional: `FillPortEvent extends {...}`
- * tests the whole union at once and resolves to `never`, so `stage` would silently become
+ * Extracted with `Extract` rather than a bare conditional: `FillPortEvent extends {...}` tests
+ * the whole union at once and resolves to `never`, so `stage` would silently become
  * `undefined`. `Extract` distributes over the union and picks the progress arm.
  */
 type FillStage = Extract<FillPortEvent, { type: 'progress' }>['stage']
@@ -20,17 +21,22 @@ type FillStage = Extract<FillPortEvent, { type: 'progress' }>['stage']
 export interface FillState {
   status: 'idle' | 'running' | 'done' | 'error'
   stage?: FillStage
+  /** Per-stage counters, so "Filling the form" can show 7/12 rather than a bare label. */
+  stageDone?: number
+  stageTotal?: number
   plan?: FillPlan
   report?: ApplyReport
   error?: ApiError
+  /** Which tab this result belongs to. Keys the review draft and guards cross-tab bleed. */
+  tabId?: number
 }
 
 /**
  * Drives a fill over the port protocol.
  *
- * Not a TanStack mutation: this is a long-lived streaming exchange with progress events,
- * which `useMutation` has no way to express. The generated `fillForm` client is still used —
- * inside the service worker, where the port handler lives.
+ * Not a TanStack mutation: this is a long-lived streaming exchange with progress events, which
+ * `useMutation` has no way to express. The generated `fillForm` client is still used — inside
+ * the service worker, where the port handler lives.
  */
 export function useFill() {
   const [state, setState] = useState<FillState>({ status: 'idle' })
@@ -43,12 +49,14 @@ export function useFill() {
   }, [])
 
   /**
-   * Adopt a fill the panel did not start.
+   * Adopt a fill this panel did not start.
    *
-   * The page dock runs fills through the background directly, so without this the panel's
-   * state stays `idle` and its Review button leads to nothing — which is exactly what it
-   * did. The background broadcasts every event on the runtime channel; listening here is
-   * what makes the panel a real destination rather than a promise.
+   * The page chip runs fills through the background directly, so without this the panel's
+   * state stays `idle` and a review opened from the page leads nowhere.
+   *
+   * Progress events are no longer filtered while `done`. They used to be, because the review's
+   * edits lived in `ReviewPanel`'s component state and any unmount silently reverted them;
+   * they now live in `review-store`, keyed by tab, and survive the screen going away.
    */
   useEffect(() => {
     const onRuntimeMessage = (message: { type?: string; event?: FillPortEvent }) => {
@@ -56,25 +64,23 @@ export function useFill() {
       const event = message.event
 
       if (event.type === 'progress') {
-        /**
-         * A progress event must never tear down a finished review.
-         *
-         * Pressing Fill again while the review is open used to flip `status` back to
-         * `running`, which unmounts `ReviewPanel` — and its edits live in component state,
-         * so every correction the user had made silently reverted to the model's original
-         * answers when the next `complete` mounted a fresh one.
-         *
-         * A new fill that reaches `complete` will replace the review wholesale, which is
-         * correct; it is only the intermediate churn that has to be ignored.
-         */
-        setState((prev) =>
-          prev.status === 'done' ? prev : { ...prev, status: 'running', stage: event.stage },
-        )
+        setState((prev) => ({
+          ...prev,
+          status: 'running',
+          stage: event.stage,
+          stageDone: event.done,
+          stageTotal: event.total,
+        }))
       } else if (event.type === 'complete') {
-        setState({ status: 'done', plan: event.plan, report: event.report })
+        setState((prev) => ({
+          status: 'done',
+          plan: event.plan,
+          report: event.report,
+          tabId: prev.tabId,
+        }))
         void queryClient.invalidateQueries({ queryKey: getGetAccountQueryKey() })
       } else if (event.type === 'error') {
-        setState({ status: 'error', error: event.error })
+        setState((prev) => ({ status: 'error', error: event.error, tabId: prev.tabId }))
       }
     }
 
@@ -86,12 +92,10 @@ export function useFill() {
    * Pick up a fill that finished before the panel opened.
    *
    * The listener above only hears live broadcasts, and the common case is the opposite: the
-   * user fills from the page dock with the panel closed, then presses Review. The panel then
-   * mounted with no result and showed the sources list — a button that promised a
-   * destination and delivered the starting point.
+   * user fills from the page and then opens the panel to check the judgement calls.
    *
-   * Scoped to the active tab so opening the panel on a different page cannot resurrect
-   * someone else's answers into a review of this one.
+   * Scoped to the active tab so opening the panel elsewhere cannot resurrect someone else's
+   * answers into a review of this page.
    */
   useEffect(() => {
     let cancelled = false
@@ -105,9 +109,10 @@ export function useFill() {
 
       if (cancelled || !last || tab?.id !== last.tabId) return
 
-      // Never clobber a fill already in flight or already shown.
       setState((prev) =>
-        prev.status === 'idle' ? { status: 'done', plan: last.plan, report: last.report } : prev,
+        prev.status === 'idle'
+          ? { status: 'done', plan: last.plan, report: last.report, tabId: last.tabId }
+          : prev,
       )
     })()
 
@@ -120,42 +125,55 @@ export function useFill() {
     async (options: { overwriteExisting: boolean }) => {
       const [tab] = await chrome.tabs.query({ active: true, currentWindow: true })
       if (!tab?.id) {
-        setState({
-          status: 'error',
-          error: { code: 'INVALID_REQUEST', message: 'No active tab' },
-        })
+        setState({ status: 'error', error: { code: 'INVALID_REQUEST', message: 'No active tab' } })
         return
       }
+
+      // A new fill replaces the last one wholesale, so corrections against the old plan would
+      // otherwise be applied to answers that no longer exist.
+      clearDraft(tab.id)
 
       portRef.current?.disconnect()
       const port = chrome.runtime.connect({ name: FILL_PORT })
       portRef.current = port
 
-      setState({ status: 'running', stage: 'detecting' })
+      setState({ status: 'running', stage: 'detecting', tabId: tab.id })
 
       port.onMessage.addListener((event: FillPortEvent) => {
         switch (event.type) {
           case 'progress':
-            setState((prev) => ({ ...prev, status: 'running', stage: event.stage }))
+            setState((prev) => ({
+              ...prev,
+              status: 'running',
+              stage: event.stage,
+              stageDone: event.done,
+              stageTotal: event.total,
+            }))
             break
           case 'complete':
-            setState({ status: 'done', plan: event.plan, report: event.report })
-            // A successful fill consumed quota; the header bar must reflect it.
+            setState((prev) => ({
+              status: 'done',
+              plan: event.plan,
+              report: event.report,
+              tabId: prev.tabId,
+            }))
+            // A successful fill consumed quota; Profile and Home must reflect it.
             void queryClient.invalidateQueries({ queryKey: getGetAccountQueryKey() })
             break
           case 'error':
-            setState({ status: 'error', error: event.error })
+            setState((prev) => ({ status: 'error', error: event.error, tabId: prev.tabId }))
             break
         }
       })
 
       port.onDisconnect.addListener(() => {
         portRef.current = null
-        // A disconnect *before* a terminal event means the worker died mid-fill. Say so,
-        // rather than leaving a spinner running forever.
+        // A disconnect *before* a terminal event means the worker died mid-fill. Say so, rather
+        // than leaving a progress list frozen forever.
         setState((prev) =>
           prev.status === 'running'
             ? {
+                ...prev,
                 status: 'error',
                 error: { code: 'INTERNAL', message: 'The fill was interrupted. Try again.' },
               }
@@ -175,18 +193,14 @@ export function useFill() {
 
   const reset = useCallback(() => {
     portRef.current?.disconnect()
-    setState({ status: 'idle' })
+    setState((prev) => {
+      clearDraft(prev.tabId ?? null)
+      return { status: 'idle' }
+    })
     // Drop the parked result too. Without this, finishing a review and reopening the panel
     // brings the same review straight back, which reads as the panel being stuck.
     void chrome.storage.session.remove('aff:lastFill').catch(() => undefined)
   }, [])
 
   return { state, start, reset }
-}
-
-export const STAGE_LABEL: Record<string, string> = {
-  detecting: 'Reading the page…',
-  routing: 'Working out what to answer…',
-  generating: 'Writing your answers…',
-  applying: 'Filling the form…',
 }

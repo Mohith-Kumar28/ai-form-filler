@@ -10,6 +10,7 @@
       "**",
       "!**/dist",
       "!**/.output",
+      "!**/.gallery",
       "!**/.wxt",
       "!**/.wrangler",
       "!**/src/generated",
@@ -43,5 +44,17 @@
     "parser": {
       "tailwindDirectives": true
     }
-  }
+  },
+  "overrides": [
+    {
+      "includes": ["**/*.css"],
+      "linter": {
+        "rules": {
+          "correctness": {
+            "noUnknownTypeSelector": "off"
+          }
+        }
+      }
+    }
+  ]
 }

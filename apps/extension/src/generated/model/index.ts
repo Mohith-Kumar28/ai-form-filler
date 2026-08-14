@@ -27,6 +27,7 @@ export * from './fillRequestForm';
 export * from './fillRequestFormFieldsItem';
 export * from './fillRequestFormFieldsItemKind';
 export * from './fillRequestFormFieldsItemOptionsItem';
+export * from './fillRequestScope';
 export * from './identity';
 export * from './identityLinks';
 export * from './improveAnswer200';

@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>On-page layer</title>
+    <style>
+      /*
+        Deliberately not our design system.
+
+        This stands in for somebody else's application form, which is the only place the
+        overlay ever appears — reviewing it against our own styles would hide exactly the
+        failure that matters, which is the seal or the slip looking like it belongs to us
+        rather than sitting politely on top of a site we do not control.
+      */
+      :root { color-scheme: light; }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        padding: 40px 32px 120px;
+        background: #ffffff;
+        color: #1f2328;
+        font: 15px/1.55 -apple-system, "Segoe UI", Roboto, sans-serif;
+      }
+      main { max-width: 640px; margin: 0 auto; }
+      h1 { font-size: 24px; margin: 0 0 4px; letter-spacing: -0.01em; }
+      .co { color: #656d76; margin: 0 0 32px; font-size: 14px; }
+      h2 {
+        font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em;
+        color: #656d76; margin: 32px 0 12px; padding-bottom: 6px;
+        border-bottom: 1px solid #d8dee4;
+      }
+      label { display: block; font-size: 13px; font-weight: 600; margin: 16px 0 6px; }
+      input, textarea, select {
+        width: 100%; padding: 8px 10px; font: inherit; font-size: 14px;
+        border: 1px solid #d0d7de; border-radius: 6px; background: #fff; color: inherit;
+      }
+      textarea { min-height: 96px; resize: vertical; }
+      .short { max-width: 180px; }
+      .row { display: flex; gap: 16px; }
+      .row > div { flex: 1; }
+      .note { font-size: 12px; color: #656d76; margin-top: 4px; }
+      .caption {
+        font: 600 11px/1 ui-monospace, Menlo, monospace; letter-spacing: 0.12em;
+        text-transform: uppercase; color: #8250df; margin: 40px 0 0;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Senior Platform Engineer</h1>
+      <p class="co">Alderman &amp; Roe · Bristol, hybrid · Applications close 4 September</p>
+
+      <p class="caption">Seal on the focused field</p>
+      <h2>About you</h2>
+      <div class="row">
+        <div>
+          <label for="first">First name</label>
+          <input id="first" value="Ifeoma" />
+        </div>
+        <div>
+          <label for="last">Last name</label>
+          <input id="last" value="Balogun" />
+        </div>
+      </div>
+      <label for="phone">Phone</label>
+      <input id="phone" class="short" value="+44 7911 248 630" />
+      <p class="note">A narrow field: the seal sits outside its right edge instead of over the value.</p>
+
+      <p class="caption">The slip, opened from the seal</p>
+      <h2>Eligibility</h2>
+      <label for="auth">Do you require visa sponsorship?</label>
+      <input id="auth" value="" placeholder="Type your answer" />
+
+      <p class="caption">Reviewing an answer it concluded</p>
+      <h2>Why this role</h2>
+      <label for="why">Why do you want to work at Alderman &amp; Roe?</label>
+      <textarea id="why">I spent four years at Kestrel Health rebuilding a claims pipeline that nobody wanted to touch, and the part I liked was the archaeology.</textarea>
+
+      <p class="caption">Field marks after a fill</p>
+      <h2>Details</h2>
+      <label for="start">Earliest start date</label>
+      <input id="start" class="short" value="3 November 2026" />
+      <p class="note">Printed — read straight off what you told it. Settles and clears.</p>
+
+      <label for="salary">Salary expectations</label>
+      <input id="salary" class="short" value="£72,000" />
+      <p class="note">Endorsed — concluded rather than read. The mark stays until you act on it.</p>
+
+      <label for="hear">How did you hear about this role?</label>
+      <input id="hear" class="short" value="LinkedIn" />
+      <p class="note">Unsure — answered below the confidence threshold. Also stays.</p>
+    </main>
+    <script>
+      /*
+        Repaints the fake site dark, to prove the overlay reads the page rather than the OS.
+        Runs before the module so the scheme is already settled when the host mounts.
+      */
+      if (new URLSearchParams(location.search).has('dark')) {
+        document.documentElement.style.colorScheme = 'dark'
+        const s = document.createElement('style')
+        s.textContent = `
+          body { background: #0d1117; color: #e6edf3; }
+          h2 { color: #8b949e; border-color: #30363d; }
+          .co, .note { color: #8b949e; }
+          input, textarea, select { background: #0d1117; border-color: #30363d; color: #e6edf3; }
+          .caption { color: #d2a8ff; }
+        `
+        document.head.appendChild(s)
+      }
+    </script>
+    <script type="module" src="./overlay.ts"></script>
+  </body>
+</html>

@@ -50,6 +50,9 @@ export default defineConfig({
       // instead of asking for host access to every site up front.
       'activeTab',
       'scripting',
+      // Serves `/_favicon/` so a saved link shows the site's own mark from Chrome's cache,
+      // rather than the extension fetching favicons from every site in someone's list.
+      'favicon',
     ],
 
     // Broad host access is what a general-purpose form filler needs, but it is also the

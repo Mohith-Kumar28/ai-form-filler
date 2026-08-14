@@ -5,8 +5,10 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { FillRequestForm } from './fillRequestForm';
+import type { FillRequestScope } from './fillRequestScope';
 
 export interface FillRequest {
   form: FillRequestForm;
   overwriteExisting?: boolean;
+  scope?: FillRequestScope;
 }

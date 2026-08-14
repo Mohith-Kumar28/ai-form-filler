@@ -73,8 +73,17 @@ fillRoutes.openapi(fillRoute, async (c) => {
    */
   await writeFillLog(db, userId, request, plan, tierCounts)
 
+  /**
+   * A single field is free.
+   *
+   * The allowance is denominated in *forms*, so charging one of a free plan's fifty to fill
+   * one focused input would make the page seal's cheapest action its most expensive one and
+   * teach people not to use it. Field-scoped requests still pass the rate limiter and the
+   * pre-flight `enforceQuota` check, so an exhausted account cannot fill anything either way.
+   */
   const didWork = plan.fills.length > 0 || plan.usage.costMicroUsd > 0
-  const used = didWork ? await consumeQuota(c.env, userId) : account.quota.used
+  const chargeable = didWork && request.scope !== 'field'
+  const used = chargeable ? await consumeQuota(c.env, userId) : account.quota.used
 
   return c.json({ ...plan, quotaRemaining: Math.max(0, account.quota.limit - used) }, 200)
 })

@@ -602,6 +602,11 @@
           "overwriteExisting": {
             "type": "boolean",
             "default": false
+          },
+          "scope": {
+            "type": "string",
+            "enum": ["form", "field"],
+            "default": "form"
           }
         },
         "required": ["form"]
