@@ -94,32 +94,40 @@ export async function runFill(
     if (fieldIds.length > 0) batches.push({ tier, fieldIds })
   }
 
+  /**
+   * One retrieval for the whole form, shared by every tier.
+   *
+   * It used to run for tier 3 only, because the profile document carried everything else
+   * inline. It no longer does — history, projects, opinions, and the user's past answers all
+   * live in memory now — so a tier-1 question like "which of these do you use?" needs
+   * retrieval just as much as an essay does.
+   *
+   * Gathered once rather than per batch: the batches are three slices of the same form about
+   * the same person, so three searches would return heavily overlapping passages and pay
+   * three round trips for it.
+   */
+  const context =
+    batches.length > 0
+      ? await gatherFillContext({
+          env: ctx.env,
+          userId: ctx.userId,
+          questions: tier0.unresolved
+            .map((c) => labels.get(c.fieldId) ?? '')
+            .filter((label) => label !== ''),
+        })
+      : { sourceChunks: [] }
+
   const results = await Promise.all(
     batches.map(async (batch) => {
       const fields = batch.fieldIds
         .map((id) => byId.get(id))
         .filter((f): f is NonNullable<typeof f> => f !== undefined)
 
-      /**
-       * Retrieval only for tier 3.
-       *
-       * Tiers 1 and 2 answer choices and short facts, which the always-present structured
-       * profile already covers — retrieving for them would add tokens and a round trip to
-       * the majority of fields on a form for no gain in answer quality.
-       */
-      const context =
-        batch.tier === 3
-          ? await gatherFillContext({
-              env: ctx.env,
-              userId: ctx.userId,
-              questions: fields.map((f) => f.label),
-            })
-          : { sourceChunks: [] }
-
       return generateFills({
         tier: batch.tier,
         profileDoc: docRow.doc,
         env: ctx.env,
+        userId: ctx.userId,
         fields,
         classifications,
         origin: request.form.origin,

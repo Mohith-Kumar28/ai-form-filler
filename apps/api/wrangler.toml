@@ -21,6 +21,12 @@ database_name = "aff-db"
 database_id = "81953412-9f82-417a-8a7d-69b3d69a1ee1"
 migrations_dir = "migrations"
 
+# Original uploads, kept so a source can be previewed and so a stored file can be attached
+# to a form's file input. This is a blob store, not a search index — memory does retrieval.
+[[r2_buckets]]
+binding = "UPLOADS"
+bucket_name = "aff-uploads"
+
 # Sliding-window rate-limit counters. KV's native TTL does the expiry for us.
 [[kv_namespaces]]
 binding = "RATE_LIMIT"
@@ -59,6 +65,10 @@ migrations_dir = "migrations"
 binding = "RATE_LIMIT"
 id = "PLACEHOLDER_STAGING_KV_ID"
 
+[[env.staging.r2_buckets]]
+binding = "UPLOADS"
+bucket_name = "aff-uploads-staging"
+
 [env.staging.browser]
 binding = "BROWSER"
 
@@ -84,6 +94,10 @@ migrations_dir = "migrations"
 [[env.production.kv_namespaces]]
 binding = "RATE_LIMIT"
 id = "6d59a27f6f2c418396ea28f231d08682"
+
+[[env.production.r2_buckets]]
+binding = "UPLOADS"
+bucket_name = "aff-uploads"
 
 [env.production.browser]
 binding = "BROWSER"

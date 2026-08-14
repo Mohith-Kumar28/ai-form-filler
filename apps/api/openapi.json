@@ -163,131 +163,12 @@
               }
             }
           },
-          "education": {
-            "type": "array",
-            "items": {
-              "type": "object",
-              "properties": {
-                "institution": {
-                  "type": "string"
-                },
-                "degree": {
-                  "type": "string"
-                },
-                "field": {
-                  "type": "string"
-                },
-                "grade": {
-                  "type": "string"
-                },
-                "startDate": {
-                  "type": "string"
-                },
-                "endDate": {
-                  "type": "string"
-                }
-              },
-              "required": ["institution"]
-            },
-            "default": []
-          },
-          "experience": {
-            "type": "array",
-            "items": {
-              "type": "object",
-              "properties": {
-                "company": {
-                  "type": "string"
-                },
-                "title": {
-                  "type": "string"
-                },
-                "startDate": {
-                  "type": "string"
-                },
-                "endDate": {
-                  "type": "string"
-                },
-                "summary": {
-                  "type": "string"
-                },
-                "highlights": {
-                  "type": "array",
-                  "items": {
-                    "type": "string"
-                  },
-                  "default": []
-                }
-              },
-              "required": ["company", "title"]
-            },
-            "default": []
-          },
-          "skills": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            },
-            "default": []
-          },
           "custom": {
             "type": "object",
             "additionalProperties": {
               "type": "string"
             },
             "default": {}
-          },
-          "style": {
-            "type": "object",
-            "properties": {
-              "tone": {
-                "type": "string"
-              },
-              "averageSentenceLength": {
-                "type": "number"
-              },
-              "exemplars": {
-                "type": "array",
-                "items": {
-                  "type": "string"
-                },
-                "default": []
-              },
-              "avoid": {
-                "type": "array",
-                "items": {
-                  "type": "string"
-                },
-                "default": []
-              }
-            }
-          },
-          "preferences": {
-            "type": "array",
-            "items": {
-              "type": "object",
-              "properties": {
-                "topic": {
-                  "type": "string"
-                },
-                "stance": {
-                  "type": "string"
-                },
-                "evidence": {
-                  "type": "string"
-                },
-                "confidence": {
-                  "type": "number",
-                  "minimum": 0,
-                  "maximum": 1
-                }
-              },
-              "required": ["topic", "stance", "evidence", "confidence"]
-            },
-            "default": []
-          },
-          "summary": {
-            "type": "string"
           },
           "sources": {
             "type": "array",
@@ -299,15 +180,7 @@
                 },
                 "kind": {
                   "type": "string",
-                  "enum": [
-                    "resume",
-                    "transcript",
-                    "linkedin",
-                    "github",
-                    "portfolio",
-                    "freeform",
-                    "image"
-                  ]
+                  "enum": ["document", "link", "text", "image", "audio"]
                 },
                 "label": {
                   "type": "string"
@@ -322,6 +195,20 @@
                 "extractedChars": {
                   "type": "integer",
                   "minimum": 0
+                },
+                "mediaType": {
+                  "type": "string"
+                },
+                "sizeBytes": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "url": {
+                  "type": "string"
+                },
+                "hasFile": {
+                  "type": "boolean",
+                  "default": false
                 },
                 "createdAt": {
                   "type": "string",
@@ -338,7 +225,7 @@
             "default": 0
           }
         },
-        "required": ["identity", "style"]
+        "required": ["identity"]
       },
       "ProfilePatch": {
         "type": "object",
@@ -346,32 +233,11 @@
           "identity": {
             "$ref": "#/components/schemas/Identity"
           },
-          "education": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/EducationEntry"
-            }
-          },
-          "experience": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/ExperienceEntry"
-            }
-          },
-          "skills": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          },
           "custom": {
             "type": "object",
             "additionalProperties": {
               "type": "string"
             }
-          },
-          "style": {
-            "$ref": "#/components/schemas/StyleProfile"
           }
         }
       },
@@ -410,83 +276,6 @@
           }
         }
       },
-      "EducationEntry": {
-        "type": "object",
-        "properties": {
-          "institution": {
-            "type": "string"
-          },
-          "degree": {
-            "type": "string"
-          },
-          "field": {
-            "type": "string"
-          },
-          "grade": {
-            "type": "string"
-          },
-          "startDate": {
-            "type": "string"
-          },
-          "endDate": {
-            "type": "string"
-          }
-        },
-        "required": ["institution"]
-      },
-      "ExperienceEntry": {
-        "type": "object",
-        "properties": {
-          "company": {
-            "type": "string"
-          },
-          "title": {
-            "type": "string"
-          },
-          "startDate": {
-            "type": "string"
-          },
-          "endDate": {
-            "type": "string"
-          },
-          "summary": {
-            "type": "string"
-          },
-          "highlights": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            },
-            "default": []
-          }
-        },
-        "required": ["company", "title"]
-      },
-      "StyleProfile": {
-        "type": "object",
-        "properties": {
-          "tone": {
-            "type": "string"
-          },
-          "averageSentenceLength": {
-            "type": "number"
-          },
-          "exemplars": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            },
-            "default": []
-          },
-          "avoid": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            },
-            "default": []
-          }
-        }
-      },
       "AddSourceResponse": {
         "type": "object",
         "properties": {
@@ -502,12 +291,8 @@
       "TextSourceRequest": {
         "type": "object",
         "properties": {
-          "kind": {
-            "$ref": "#/components/schemas/SourceKind"
-          },
           "label": {
             "type": "string",
-            "minLength": 1,
             "maxLength": 200
           },
           "url": {
@@ -517,12 +302,7 @@
           "text": {
             "type": "string"
           }
-        },
-        "required": ["kind", "label"]
-      },
-      "SourceKind": {
-        "type": "string",
-        "enum": ["resume", "transcript", "linkedin", "github", "portfolio", "freeform", "image"]
+        }
       },
       "ProfileResponse": {
         "type": "object",
@@ -582,6 +362,13 @@
                 "inferred": {
                   "type": "boolean",
                   "default": false
+                },
+                "options": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "default": []
                 }
               },
               "required": ["fieldId", "value", "confidence", "tier"]
@@ -1207,7 +994,7 @@
     "/v1/profile/sources/upload": {
       "post": {
         "tags": ["profile"],
-        "summary": "Upload a PDF or image source",
+        "summary": "Upload a file of any kind memory can read",
         "operationId": "uploadSource",
         "security": [
           {
@@ -1225,11 +1012,13 @@
                     "type": "string",
                     "format": "binary"
                   },
-                  "kind": {
-                    "$ref": "#/components/schemas/SourceKind"
+                  "label": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200
                   }
                 },
-                "required": ["file", "kind"]
+                "required": ["file", "label"]
               }
             }
           }
@@ -1242,6 +1031,88 @@
                 "schema": {
                   "$ref": "#/components/schemas/AddSourceResponse"
                 }
+              }
+            }
+          },
+          "400": {
+            "description": "Request failed validation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid, or expired credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "402": {
+            "description": "Monthly quota exhausted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/profile/sources/{id}/file": {
+      "get": {
+        "tags": ["profile"],
+        "summary": "Download or preview a stored original",
+        "operationId": "getSourceFile",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The file",
+            "content": {
+              "*/*": {
+                "schema": {}
               }
             }
           },
@@ -1510,6 +1381,116 @@
                     }
                   },
                   "required": ["recorded"]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Request failed validation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid, or expired credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "402": {
+            "description": "Monthly quota exhausted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/fill/improve": {
+      "post": {
+        "tags": ["fill"],
+        "summary": "Rewrite a single answer to an instruction",
+        "operationId": "improveAnswer",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "label": {
+                    "type": "string",
+                    "description": "The question being answered."
+                  },
+                  "value": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "instruction": {
+                    "type": "string",
+                    "minLength": 1,
+                    "description": "A preset instruction or the user's own words."
+                  },
+                  "maxLength": {
+                    "type": "integer",
+                    "exclusiveMinimum": 0
+                  }
+                },
+                "required": ["label", "value", "instruction"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The rewritten answer",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "value": {
+                      "type": "string"
+                    }
+                  },
+                  "required": ["value"]
                 }
               }
             }

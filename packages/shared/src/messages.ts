@@ -17,6 +17,13 @@ export type Request =
   | { type: 'overlay/openPanel' }
   | { type: 'form/detected'; form: FormSchema }
   | { type: 'feedback/submit'; payload: FeedbackRequest }
+  /**
+   * Write one reviewed answer back into the page.
+   *
+   * The panel cannot reach the tab itself, so this goes through the worker. An empty
+   * `value` clears the field, which is what rejecting an answer does.
+   */
+  | { type: 'review/write'; fieldId: string; value: string }
   | { type: 'sidepanel/open'; tabId: number }
 
 /**
@@ -34,7 +41,11 @@ export type Result<T> = { ok: true; value: T } | { ok: false; error: ApiError }
  * different listener in a different context, and mixing them would let a side-panel message
  * type reach a page.
  */
-export type ContentRequest = { type: 'content/detect' } | { type: 'content/apply'; plan: FillPlan }
+export type ContentRequest =
+  | { type: 'content/detect' }
+  | { type: 'content/apply'; plan: FillPlan }
+  /** A single field, corrected or cleared from the review. No animation, no plan. */
+  | { type: 'content/write'; fieldId: string; value: string }
 
 /** What the content script reports after writing values into the page. */
 export interface ApplyReport {
@@ -45,7 +56,9 @@ export interface ApplyReport {
 
 export type ContentResponseFor<R extends ContentRequest> = R extends { type: 'content/detect' }
   ? FormSchema | null
-  : ApplyReport
+  : R extends { type: 'content/write' }
+    ? boolean
+    : ApplyReport
 
 export { FILL_PORT } from './constants.js'
 

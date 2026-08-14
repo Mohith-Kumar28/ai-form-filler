@@ -9,11 +9,9 @@ export type ProfileSourcesItemKind = typeof ProfileSourcesItemKind[keyof typeof 
 
 
 export const ProfileSourcesItemKind = {
-  resume: 'resume',
-  transcript: 'transcript',
-  linkedin: 'linkedin',
-  github: 'github',
-  portfolio: 'portfolio',
-  freeform: 'freeform',
+  document: 'document',
+  link: 'link',
+  text: 'text',
   image: 'image',
+  audio: 'audio',
 } as const;

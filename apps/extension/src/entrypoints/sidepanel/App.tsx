@@ -126,6 +126,8 @@ type Tab = 'sources' | 'details'
 function SignedIn() {
   const queryClient = useQueryClient()
   const [tab, setTab] = useState<Tab>('sources')
+  // Adding a source takes the whole panel — see AddSource for why it is not an inline widget.
+  const [adding, setAdding] = useState(false)
   const account = useGetAccount()
   const profile = useGetProfile()
 
@@ -188,6 +190,10 @@ function SignedIn() {
     return <ReviewPanel plan={fill.state.plan} onBack={fill.reset} />
   }
 
+  if (adding) {
+    return <AddSource onDone={() => setAdding(false)} />
+  }
+
   return (
     <div className="flex h-full flex-col bg-ground">
       <header className="shrink-0 border-b border-rule bg-page px-4 pb-3 pt-3">
@@ -243,7 +249,7 @@ function SignedIn() {
         ))}
       </nav>
 
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex min-h-0 flex-1 flex-col">
         {profile.isPending && (
           <p className="measure px-4 py-4 text-[11px] uppercase tracking-wide text-faint">
             Reading
@@ -256,13 +262,14 @@ function SignedIn() {
         )}
 
         {profile.data && tab === 'sources' && (
-          <>
-            <AddSource />
-            <SourceList sources={profile.data.sources} />
-          </>
+          <SourceList sources={profile.data.sources ?? []} onAdd={() => setAdding(true)} />
         )}
 
-        {profile.data && tab === 'details' && <IdentityEditor profile={profile.data} />}
+        {profile.data && tab === 'details' && (
+          <div className="flex-1 overflow-y-auto">
+            <IdentityEditor profile={profile.data} />
+          </div>
+        )}
       </div>
 
       <footer className="shrink-0 border-t border-rule bg-page px-4 py-3">

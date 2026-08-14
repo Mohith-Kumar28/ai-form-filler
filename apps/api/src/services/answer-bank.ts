@@ -20,9 +20,22 @@ export async function recordFeedback(
   userId: string,
   payload: FeedbackRequest,
 ): Promise<number> {
-  const entries = payload.entries
-    // Very short answers ("Yes", "3") carry no reusable voice or substance.
-    .filter((entry) => entry.accepted.trim().length > 20)
+  const entries = payload.entries.filter((entry) => {
+    const answer = entry.accepted.trim()
+    if (answer === '') return false
+
+    /**
+     * An edit is kept regardless of length; an accepted answer has to earn its place.
+     *
+     * These are different events. Accepting our proposal mostly confirms what memory
+     * already knows, so a bare "Yes" adds nothing and storing every one of them would
+     * dilute retrieval with noise. An **edit** is the user telling us we were wrong, and
+     * that is the highest-signal thing the product ever sees — a corrected job title, a
+     * changed notice period, or a different dropdown choice is short *and* important.
+     * Filtering those by length is what would stop the tool getting smarter as it is used.
+     */
+    return entry.edited || answer.length > 20
+  })
 
   if (entries.length === 0) return 0
 

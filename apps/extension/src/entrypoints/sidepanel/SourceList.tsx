@@ -1,152 +1,168 @@
-import { useQueryClient } from '@tanstack/react-query'
-import {
-  getGetProfileQueryKey,
-  useDeleteSource,
-} from '../../generated/endpoints/profile/profile.js'
-import type { Profile, ProfileSourcesItem } from '../../generated/model/index.js'
-import { IconClose } from './icons.js'
-
-const KIND_LABEL: Record<string, string> = {
-  resume: 'Résumé',
-  transcript: 'Transcript',
-  linkedin: 'LinkedIn',
-  github: 'GitHub',
-  portfolio: 'Portfolio',
-  freeform: 'Notes',
-  image: 'Image',
-}
+import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { deleteSource, getGetProfileQueryKey } from '../../generated/endpoints/profile/profile.js'
+import type { ProfileSourcesItem as ProfileSource } from '../../generated/model/index.js'
+import { API_URL, STORAGE_KEYS } from '../../lib/config.js'
+import { readLocal } from '../../lib/storage.js'
 
 /**
- * Sources as ruled entries.
+ * What the notebook has been given.
  *
- * Each carries an entry number, because in a notebook the order of record is information.
- * The number sits in a real margin column so the title has a consistent left edge to line
- * up against, rather than floating beside it.
+ * Every row is openable: a source you cannot look at again is one you cannot verify, and the
+ * most common question about a stored file is "which resume is that". Files open in a tab,
+ * links open where they point, and pasted text has nothing to open — so it says so rather
+ * than offering a dead affordance.
  */
-export function SourceList({ sources = [] }: { sources?: Profile['sources'] }) {
-  const queryClient = useQueryClient()
 
-  const remove = useDeleteSource({
-    mutation: {
-      onSuccess: ({ profile }) => {
-        queryClient.setQueryData(getGetProfileQueryKey(), profile)
-        void queryClient.invalidateQueries({ queryKey: ['account'] })
-      },
-    },
-  })
+const KIND_LABEL: Record<string, string> = {
+  document: 'Document',
+  link: 'Link',
+  text: 'Text',
+  image: 'Image',
+  audio: 'Voice',
+}
 
-  if (sources.length === 0) {
-    return <EmptyState />
+function KindIcon({ kind }: { kind: string }) {
+  const paths: Record<string, string> = {
+    document: 'M4 2h5l3 3v9H4V2Z M9 2v3h3',
+    link: 'M6.5 9.5a2.5 2.5 0 0 0 3.5 0l2-2a2.5 2.5 0 0 0-3.5-3.5l-.8.8 M9.5 6.5a2.5 2.5 0 0 0-3.5 0l-2 2A2.5 2.5 0 0 0 7.5 12l.8-.8',
+    text: 'M3.5 4h9 M3.5 8h9 M3.5 12h5',
+    image: 'M2.5 3.5h11v9h-11z M2.5 10l3-3 3 3 2-2 3 3',
+    audio: 'M8 2.5v11 M5 5.5v5 M11 5.5v5 M2.5 7.5v1 M13.5 7.5v1',
   }
 
   return (
-    <div>
-      <h2 className="px-4 pb-1.5 pt-4 text-[11px] font-semibold uppercase tracking-[0.08em] text-faint">
-        Recorded
-      </h2>
-      {sources.map((source, index) => (
-        <Entry
-          key={source.id}
-          source={source}
-          // Newest first in the list, but numbered by order of record — entry 1 is the
-          // first thing ever added, which is what a page number means.
-          number={sources.length - index}
-          onRemove={() => remove.mutate({ id: source.id })}
-          removing={remove.isPending && remove.variables?.id === source.id}
-        />
-      ))}
-      {remove.isError && (
-        <p className="px-4 py-2 text-[12px] text-annot" role="alert">
-          {remove.error.message}
-        </p>
-      )}
-    </div>
+    <svg
+      viewBox="0 0 16 16"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.4"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className="size-4 shrink-0"
+      aria-hidden="true"
+    >
+      <path d={paths[kind] ?? paths.document} />
+    </svg>
   )
+}
+
+function formatSize(bytes?: number): string {
+  if (!bytes) return ''
+  if (bytes < 1024 * 1024) return `${Math.max(1, Math.round(bytes / 1024))} KB`
+  return `${(bytes / 1024 / 1024).toFixed(1)} MB`
 }
 
 /**
- * The empty state carries the product's premise.
+ * Opens a stored original.
  *
- * Previously this space was 600px of nothing, which is the single largest region of the
- * panel and was doing no work at all — a new user's first impression was a void.
+ * The file endpoint needs the session token, and a plain `<a href>` cannot carry one — so
+ * the bytes are fetched, wrapped in a blob URL, and opened. That also means the token never
+ * lands in a URL, where it would end up in history and in any tab-sharing surface.
  */
-function EmptyState() {
-  return (
-    <div className="px-5 py-8">
-      <p className="text-[14px] font-medium leading-snug text-ink">Nothing recorded yet.</p>
-      <p className="mt-1.5 text-[12px] leading-relaxed text-muted">
-        Give it something to answer from — a résumé, your site, or a few lines about what you're
-        looking for. The more it holds, the fewer fields it leaves blank.
-      </p>
-      <ul className="mt-4 flex flex-col gap-2">
-        {[
-          ['A résumé or transcript', 'PDF or a photo — it reads scans too'],
-          ['Your site or GitHub', 'It loads the page and pulls out the substance'],
-          ['Anything else', 'Visa status, notice period, past answers'],
-        ].map(([title, note]) => (
-          <li key={title} className="flex gap-2.5">
-            <span className="mt-[7px] size-1 shrink-0 rounded-full bg-pen" aria-hidden />
-            <span className="text-[12px] leading-snug">
-              <span className="text-ink">{title}</span>
-              <span className="text-faint"> — {note}</span>
-            </span>
-          </li>
-        ))}
-      </ul>
-    </div>
-  )
+async function openSourceFile(source: ProfileSource): Promise<void> {
+  if (source.kind === 'link' && source.url) {
+    await chrome.tabs.create({ url: source.url })
+    return
+  }
+  if (!source.hasFile) return
+
+  const token = await readLocal<string>(STORAGE_KEYS.sessionToken)
+  const response = await fetch(`${API_URL}/v1/profile/sources/${source.id}/file`, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  })
+  if (!response.ok) return
+
+  const url = URL.createObjectURL(await response.blob())
+  await chrome.tabs.create({ url })
+  // The tab holds its own reference once loaded; releasing later avoids leaking the blob for
+  // the lifetime of the panel.
+  setTimeout(() => URL.revokeObjectURL(url), 60_000)
 }
 
-function Entry({
-  source,
-  number,
-  onRemove,
-  removing,
-}: {
-  source: ProfileSourcesItem
-  number: number
-  onRemove: () => void
-  removing: boolean
-}) {
-  const failed = source.status === 'failed'
-  const pending = source.status === 'pending' || source.status === 'parsing'
+export function SourceList({ sources, onAdd }: { sources: ProfileSource[]; onAdd: () => void }) {
+  const queryClient = useQueryClient()
+
+  const remove = useMutation({
+    mutationFn: (id: string) => deleteSource(id),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: getGetProfileQueryKey() }),
+  })
 
   return (
-    <article
-      className="entry-in group grid grid-cols-[1.75rem_1fr_auto] items-start gap-x-2 border-t border-rule-soft px-4 py-3 transition-colors hover:bg-page"
-      style={{ animationDelay: `${Math.min(number, 8) * 30}ms` }}
-    >
-      <span className="measure pt-px text-[11px] text-faint" aria-hidden>
-        {String(number).padStart(2, '0')}
-      </span>
+    <div className="flex h-full flex-col">
+      <div className="flex-1 overflow-y-auto">
+        {sources.length === 0 ? (
+          <div className="px-4 py-10 text-center">
+            <p className="text-[13px] text-ink">Nothing recorded yet</p>
+            <p className="mx-auto mt-1 max-w-[26ch] text-[11.5px] leading-snug text-muted">
+              Add a resume, a link, or just talk about yourself. One is enough to start.
+            </p>
+          </div>
+        ) : (
+          <ul>
+            {sources.map((source) => {
+              const openable = source.hasFile || (source.kind === 'link' && !!source.url)
+              return (
+                <li key={source.id} className="border-b border-rule-soft">
+                  <div className="flex items-center gap-2.5 px-4 py-2.5">
+                    <span className="text-faint">
+                      <KindIcon kind={source.kind} />
+                    </span>
 
-      <div className="min-w-0">
-        <h3 className="truncate text-[13.5px] font-medium leading-snug text-ink">{source.label}</h3>
-        <p className="mt-1 flex items-center gap-1.5 text-[11.5px] text-muted">
-          <span>{KIND_LABEL[source.kind] ?? source.kind}</span>
-          {source.extractedChars !== undefined && (
-            <>
-              <span className="text-faint" aria-hidden>
-                ·
-              </span>
-              <span className="measure">{source.extractedChars.toLocaleString()}</span>
-              <span className="text-faint">chars</span>
-            </>
-          )}
-          {pending && <span className="text-pen">· reading</span>}
-        </p>
-        {failed && source.error && <p className="mt-1 text-[11.5px] text-annot">{source.error}</p>}
+                    <button
+                      type="button"
+                      disabled={!openable}
+                      onClick={() => void openSourceFile(source)}
+                      className="min-w-0 flex-1 text-left disabled:cursor-default"
+                    >
+                      <span
+                        className={`block truncate text-[12.5px] leading-snug ${
+                          openable ? 'text-ink hover:text-pen' : 'text-ink'
+                        }`}
+                      >
+                        {source.label}
+                      </span>
+                      <span className="mt-0.5 block truncate text-[11px] text-faint">
+                        {[
+                          KIND_LABEL[source.kind] ?? source.kind,
+                          formatSize(source.sizeBytes),
+                          source.status === 'failed' ? 'Failed' : '',
+                        ]
+                          .filter(Boolean)
+                          .join(' · ')}
+                      </span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => remove.mutate(source.id)}
+                      disabled={remove.isPending}
+                      aria-label={`Remove ${source.label}`}
+                      className="shrink-0 text-[11px] text-faint transition-colors hover:text-annot disabled:opacity-40"
+                    >
+                      Remove
+                    </button>
+                  </div>
+
+                  {source.error && (
+                    <p className="px-4 pb-2 text-[11px] text-annot">{source.error}</p>
+                  )}
+                </li>
+              )
+            })}
+          </ul>
+        )}
       </div>
 
-      <button
-        type="button"
-        onClick={onRemove}
-        disabled={removing}
-        aria-label={`Remove ${source.label}`}
-        className="-mr-1 rounded-sharp p-1 text-faint opacity-0 transition-all hover:bg-annot-wash hover:text-annot focus-visible:opacity-100 group-hover:opacity-100 disabled:opacity-40"
-      >
-        <IconClose className="size-3.5" />
-      </button>
-    </article>
+      {/* The primary action, given the weight it deserves rather than tucked under a list. */}
+      <div className="shrink-0 border-t border-rule bg-page p-3">
+        <button
+          type="button"
+          onClick={onAdd}
+          className="w-full rounded-sharp bg-pen py-2 text-[13px] font-medium text-page transition-opacity hover:opacity-90"
+        >
+          Add a source
+        </button>
+      </div>
+    </div>
   )
 }

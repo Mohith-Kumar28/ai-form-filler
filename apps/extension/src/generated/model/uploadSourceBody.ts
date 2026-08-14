@@ -4,9 +4,12 @@
  * AI Form Filler API
  * OpenAPI spec version: 0.1.0
  */
-import type { SourceKind } from './sourceKind';
 
 export type UploadSourceBody = {
   file: Blob;
-  kind: SourceKind;
+  /**
+     * @minLength 1
+     * @maxLength 200
+     */
+  label: string;
 };

@@ -1,6 +1,7 @@
 import { createRoute, OpenAPIHono, z } from '@hono/zod-openapi'
 import { drizzle } from 'drizzle-orm/d1'
 import type { AppEnv } from '../env.js'
+import { improveAnswer } from '../llm/improve.js'
 import { requireAuth } from '../middleware/auth.js'
 import { consumeQuota, enforceQuota, rateLimit } from '../middleware/quota.js'
 import {
@@ -95,4 +96,59 @@ fillRoutes.openapi(feedbackRoute, async (c) => {
   const payload = c.req.valid('json')
   const recorded = await recordFeedback(c.env, c.get('userId'), payload)
   return c.json({ recorded }, 200)
+})
+
+/**
+ * Rewrite one answer.
+ *
+ * Rate-limited like a fill but **not** quota-counted. Quota is denominated in forms, and
+ * charging a form for polishing one sentence would make the user choose between improving an
+ * answer and filling another page — which is exactly the wrong thing to make them weigh.
+ */
+const improveRoute = createRoute({
+  method: 'post',
+  path: '/improve',
+  tags: ['fill'],
+  summary: 'Rewrite a single answer to an instruction',
+  operationId: 'improveAnswer',
+  security: bearerAuth,
+  middleware: [rateLimit] as const,
+  request: {
+    body: {
+      content: {
+        'application/json': {
+          schema: z.object({
+            label: z.string().openapi({ description: 'The question being answered.' }),
+            value: z.string().min(1),
+            instruction: z
+              .string()
+              .min(1)
+              .openapi({ description: "A preset instruction or the user's own words." }),
+            maxLength: z.number().int().positive().optional(),
+          }),
+        },
+      },
+      required: true,
+    },
+  },
+  responses: {
+    200: {
+      description: 'The rewritten answer',
+      content: { 'application/json': { schema: z.object({ value: z.string() }) } },
+    },
+    ...errorResponses,
+  },
+})
+
+fillRoutes.openapi(improveRoute, async (c) => {
+  const body = c.req.valid('json')
+  const value = await improveAnswer({
+    env: c.env,
+    userId: c.get('userId'),
+    label: body.label,
+    value: body.value,
+    instruction: body.instruction,
+    ...(body.maxLength ? { maxLength: body.maxLength } : {}),
+  })
+  return c.json({ value }, 200)
 })

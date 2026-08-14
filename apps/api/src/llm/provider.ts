@@ -34,7 +34,34 @@ import type { ModelSpec } from './models.js'
  *
  * Revisit when the package ships a v4-compatible build.
  */
-export function resolveModel(env: Env, spec: ModelSpec): LanguageModel {
+/**
+ * What every inference call is tagged with in AI Gateway's logs.
+ *
+ * Without this, every request in the dashboard is an anonymous row: you can see that spend
+ * happened and not who caused it, which feature caused it, or which tier. That is exactly
+ * the information needed to answer the two questions that actually come up — "why did the
+ * bill move" and "why is this user's fill bad" — and it cannot be reconstructed afterwards,
+ * because the logs are all there is.
+ *
+ * `user` is our internal user id, never an email. It is the join key back to `fill_log` and
+ * to the user row, so support and cost attribution both work, while the gateway's logs stay
+ * free of anything that identifies a person on its own.
+ *
+ * Kept to five keys deliberately: Cloudflare caps custom metadata, and a tag nobody filters
+ * on is a tag that costs payload on every request for nothing.
+ */
+export interface GatewayMetadata {
+  /** Internal user id. Never an email or a name. */
+  user: string
+  /** Which part of the product spent the money. */
+  feature: 'fill' | 'ingest' | 'improve'
+  /** Tier for a fill; absent elsewhere. The single biggest driver of per-request cost. */
+  tier?: number
+  /** The site the form was on — a hostname, for spotting a site that answers badly. */
+  origin?: string
+}
+
+export function resolveModel(env: Env, spec: ModelSpec, meta?: GatewayMetadata): LanguageModel {
   const base = (env.AI_GATEWAY_URL ?? '').replace(/\/$/, '')
 
   if (base === '') {
@@ -46,7 +73,21 @@ export function resolveModel(env: Env, spec: ModelSpec): LanguageModel {
 
   // Unified Billing authenticates with a Cloudflare token in `cf-aig-authorization`; the
   // provider's own auth header is empty because there is no provider account behind it.
-  const headers = { 'cf-aig-authorization': `Bearer ${env.AI_GATEWAY_TOKEN ?? ''}` }
+  const headers: Record<string, string> = {
+    'cf-aig-authorization': `Bearer ${env.AI_GATEWAY_TOKEN ?? ''}`,
+  }
+
+  if (meta) {
+    // Values must be primitives; the gateway rejects a nested object outright rather than
+    // flattening it, and a rejected header takes the whole request with it.
+    headers['cf-aig-metadata'] = JSON.stringify({
+      user: meta.user,
+      feature: meta.feature,
+      model: spec.modelId,
+      ...(meta.tier !== undefined ? { tier: meta.tier } : {}),
+      ...(meta.origin ? { origin: meta.origin } : {}),
+    })
+  }
 
   if (spec.family === 'anthropic') {
     return createAnthropic({

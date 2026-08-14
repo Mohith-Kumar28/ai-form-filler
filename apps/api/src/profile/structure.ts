@@ -37,87 +37,22 @@ const StructuredProfileSchema = z.object({
         .describe('Any profile or project URL, keyed by platform name.')
         .default([]),
     })
-    .describe('Only what the document actually states about this person.'),
-
-  education: z
-    .array(
-      z.object({
-        institution: z.string(),
-        degree: z.string().optional(),
-        field: z.string().optional(),
-        grade: z.string().optional(),
-        startDate: z.string().optional(),
-        endDate: z.string().optional(),
-      }),
-    )
-    .default([]),
-
-  experience: z
-    .array(
-      z.object({
-        company: z.string(),
-        title: z.string(),
-        startDate: z.string().optional(),
-        endDate: z.string().optional(),
-        summary: z.string().optional(),
-        highlights: z.array(z.string()).default([]),
-      }),
-    )
-    .default([]),
-
-  skills: z.array(z.string()).default([]),
-
-  /**
-   * Free-form facts that don't fit the schema — visa status, notice period, salary
-   * expectation, dietary needs, t-shirt size. Deliberately open-ended, because forms ask
-   * about anything and a fixed schema is what makes every other autofiller narrow.
-   */
-  facts: z
-    .array(z.object({ key: z.string(), value: z.string() }))
-    .describe('Any other concrete, stated fact about this person.')
-    .default([]),
-
-  /**
-   * The part that lets the tool answer questions the sources never literally address.
-   * Inferred from what the person builds, writes about, and chooses to highlight.
-   */
-  preferences: z
-    .array(
-      z.object({
-        topic: z.string().describe('What this is a preference about, e.g. "work environment".'),
-        stance: z.string().describe("The person's likely position, in their terms."),
-        evidence: z.string().describe('What in the source supports this.'),
-        confidence: z
-          .number()
-          .min(0)
-          .max(1)
-          .describe('1.0 only if explicitly stated. Below 0.7 if inferred from context.'),
-      }),
-    )
-    .describe('Interests, values, and likely choices — what this person would opt into.')
-    .default([]),
-
-  /** Verbatim prose by this person, used as few-shot voice examples for long answers. */
-  writingSamples: z
-    .array(z.string())
-    .describe('Two or three passages written by the person, quoted exactly. Prose, not bullets.')
-    .default([]),
-
-  summary: z.string().describe('Two sentences describing who this person is.'),
+    .describe('Only what the document actually states about this person. Omit anything absent.'),
 })
 
 export type StructuredSource = z.infer<typeof StructuredProfileSchema>
 
-const SYSTEM = `You extract a durable profile of a person from a document they provided about themselves.
+const SYSTEM = `You pull contact and identity details out of a document a person provided about themselves.
 
-The output is used later to fill forms on their behalf, so accuracy about facts matters more than completeness.
+This is a narrow extraction job, not a summary. The only thing wanted is the handful of typed
+fields a form asks for by name — the details that must be exact and are answered without any
+further reasoning.
 
 Rules:
-- Facts must be stated in the document. Never invent a date, employer, grade, or contact detail.
-- Preferences are different: infer them from what the person builds, writes about, and chooses to highlight. Mark how confident you are, and say what supports it.
-- Writing samples must be quoted exactly, and must be the person's own prose.
-- Ignore navigation, cookie banners, footers, and boilerplate.
-- If the document is not about a person, return empty arrays and say so in the summary.`
+- Every value must appear in the document. Never infer, complete, or correct one.
+- Omit a field entirely rather than guessing it.
+- If the document is not about a person, return an empty object.
+- Ignore navigation, cookie banners, footers, and boilerplate.`
 
 export interface StructureResult {
   structured: StructuredSource
@@ -175,13 +110,14 @@ export async function structureSource(
   env: Env,
   source: StructureSourceInput,
   label: string,
+  userId: string,
 ): Promise<StructureResult> {
   if (source.kind === 'file' && source.bytes.byteLength > MAX_FILE_BYTES) {
     throw new ApiErrorResponse('INVALID_REQUEST', 'That file is larger than 20 MB')
   }
   // Flash: extraction is a reading task, and this runs on every ingested document.
   const spec = MODELS[2]
-  const model = resolveModel(env, spec)
+  const model = resolveModel(env, spec, { user: userId, feature: 'ingest' })
 
   let captured: StructuredSource | null = null
 

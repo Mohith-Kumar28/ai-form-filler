@@ -1,8 +1,6 @@
 import {
   Account as AccountBase,
   ApiError as ApiErrorBase,
-  EducationEntry as EducationEntryBase,
-  ExperienceEntry as ExperienceEntryBase,
   FeedbackRequest as FeedbackRequestBase,
   FillPlan as FillPlanBase,
   FillRequest as FillRequestBase,
@@ -10,7 +8,6 @@ import {
   Profile as ProfileBase,
   ProfileSource as ProfileSourceBase,
   SourceKind as SourceKindBase,
-  StyleProfile as StyleProfileBase,
 } from '@aff/shared'
 import { z } from '@hono/zod-openapi'
 
@@ -23,9 +20,6 @@ import { z } from '@hono/zod-openapi'
  */
 
 export const Identity = IdentityBase.openapi('Identity')
-export const EducationEntry = EducationEntryBase.openapi('EducationEntry')
-export const ExperienceEntry = ExperienceEntryBase.openapi('ExperienceEntry')
-export const StyleProfile = StyleProfileBase.openapi('StyleProfile')
 export const ProfileSource = ProfileSourceBase.openapi('ProfileSource')
 export const Profile = ProfileBase.openapi('Profile')
 export const SourceKind = SourceKindBase.openapi('SourceKind')
@@ -49,18 +43,22 @@ export const SignInResponse = z
 export const ProfilePatch = z
   .object({
     identity: Identity.optional(),
-    education: z.array(EducationEntry).optional(),
-    experience: z.array(ExperienceEntry).optional(),
-    skills: z.array(z.string()).optional(),
+    /** The user's own key/value facts. Replaced wholesale, like any array field. */
     custom: z.record(z.string(), z.string()).optional(),
-    style: StyleProfile.optional(),
   })
   .openapi('ProfilePatch')
 
 export const TextSourceRequest = z
   .object({
-    kind: SourceKind,
-    label: z.string().min(1).max(200),
+    /**
+     * A name for this source, required for links and optional for pasted text.
+     *
+     * A list of sources called "Untitled" three times over is unusable, and only the person
+     * adding a link knows whether it is their portfolio or a job posting they are answering
+     * about. Pasted text is the exception: it carries its own opening line, so demanding a
+     * title before accepting it is friction with nothing behind it.
+     */
+    label: z.string().max(200).optional(),
     url: z.string().url().optional(),
     text: z.string().optional(),
   })

@@ -306,12 +306,12 @@ export const useAddTextSource = <TError = ErrorType<ApiError>,
 }
 
 /**
- * @summary Upload a PDF or image source
+ * @summary Upload a file of any kind memory can read
  */
 export const uploadSource = async (uploadSourceBody: UploadSourceBody, options?: Parameters<typeof httpClient>[1]): Promise<AddSourceResponse> => {
     const formData = new FormData();
 formData.append(`file`, uploadSourceBody.file);
-formData.append(`kind`, uploadSourceBody.kind);
+formData.append(`label`, uploadSourceBody.label);
 
   return httpClient<AddSourceResponse>(getUploadSourceUrl(),
   {
@@ -358,7 +358,7 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
     export type UploadSourceMutationError = ErrorType<ApiError>
 
     /**
- * @summary Upload a PDF or image source
+ * @summary Upload a file of any kind memory can read
  */
 export const useUploadSource = <TError = ErrorType<ApiError>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof uploadSource>>, TError,{data: BodyType<UploadSourceBody>}, TContext>, request?: SecondParameter<typeof httpClient>}
@@ -370,7 +370,107 @@ export const useUploadSource = <TError = ErrorType<ApiError>,
       > => {
       return useMutation(getUploadSourceMutationOptions(options), queryClient);
     }
-    export const getDeleteSourceUrl = (id: string,) => {
+    export const getGetSourceFileUrl = (id: string,) => {
+
+
+
+
+  return `/v1/profile/sources/${id}/file`
+}
+
+/**
+ * @summary Download or preview a stored original
+ */
+export const getSourceFile = async (id: string, options?: Parameters<typeof httpClient>[1]): Promise<unknown> => {
+
+  return httpClient<unknown>(getGetSourceFileUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetSourceFileQueryKey = (id: string,) => {
+    return [
+    `/v1/profile/sources/${id}/file`
+    ] as const;
+    }
+
+
+export const getGetSourceFileQueryOptions = <TData = Awaited<ReturnType<typeof getSourceFile>>, TError = ErrorType<ApiError>>(id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getSourceFile>>, TError, TData>>, request?: SecondParameter<typeof httpClient>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetSourceFileQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getSourceFile>>> = ({ signal }) => getSourceFile(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getSourceFile>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type GetSourceFileQueryResult = NonNullable<Awaited<ReturnType<typeof getSourceFile>>>
+export type GetSourceFileQueryError = ErrorType<ApiError>
+
+
+export function useGetSourceFile<TData = Awaited<ReturnType<typeof getSourceFile>>, TError = ErrorType<ApiError>>(
+ id: string, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getSourceFile>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getSourceFile>>,
+          TError,
+          Awaited<ReturnType<typeof getSourceFile>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof httpClient>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetSourceFile<TData = Awaited<ReturnType<typeof getSourceFile>>, TError = ErrorType<ApiError>>(
+ id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getSourceFile>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getSourceFile>>,
+          TError,
+          Awaited<ReturnType<typeof getSourceFile>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof httpClient>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetSourceFile<TData = Awaited<ReturnType<typeof getSourceFile>>, TError = ErrorType<ApiError>>(
+ id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getSourceFile>>, TError, TData>>, request?: SecondParameter<typeof httpClient>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary Download or preview a stored original
+ */
+
+export function useGetSourceFile<TData = Awaited<ReturnType<typeof getSourceFile>>, TError = ErrorType<ApiError>>(
+ id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getSourceFile>>, TError, TData>>, request?: SecondParameter<typeof httpClient>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getGetSourceFileQueryOptions(id,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+export const getDeleteSourceUrl = (id: string,) => {
 
 
 

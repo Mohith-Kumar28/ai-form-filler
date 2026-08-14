@@ -40,6 +40,14 @@ export const Fill = z.object({
    * they submit it.
    */
   inferred: z.boolean().default(false),
+  /**
+   * The choices the field offered, when it offered any.
+   *
+   * Carried so the review can show what was picked *out of what*. Without it a radio answer
+   * and a free-text answer look identical in the panel, and there is no way to tell a wrong
+   *choice from an unavailable one.
+   */
+  options: z.array(z.string()).default([]),
 })
 export type Fill = z.infer<typeof Fill>
 

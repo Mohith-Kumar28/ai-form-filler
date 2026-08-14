@@ -88,6 +88,23 @@ function optionsFrom(nodes: Element[]): FieldOption[] {
 
 function detectQuestion(item: Element): DetectedField | null {
   const label = questionLabel(item)
+
+  /**
+   * No heading, no question.
+   *
+   * This is the load-bearing check, and it is deliberately not about nesting. Google reuses
+   * `role="listitem"` for the question *and* for each option row inside it, so a naive scan
+   * finds an eight-option question as nine fields — the real one plus eight single-option
+   * impostors that arrive with an empty label, cost a model call each, and show up in the
+   * review as answers to no question.
+   *
+   * An earlier fix filtered by ancestry, which assumed a specific nesting depth and did not
+   * survive contact with the real page. A heading is what actually distinguishes the two:
+   * every question has one, no option row does. It is also the honest test — a field with no
+   * label cannot be answered anyway, because the label is the entire question we send.
+   */
+  if (label === '') return null
+
   const hint = questionHint(item)
   const required = item.querySelector(REQUIRED_MARKER) !== null
 
@@ -186,10 +203,40 @@ export class GoogleFormsAdapter implements FormAdapter {
     const container = (isDocument ? (root as Document).body : root) as HTMLElement | null
     if (!container) return []
 
+    /**
+     * Outermost list items only.
+     *
+     * Google wraps **each option row** in its own `[role="listitem"]` as well as the
+     * question, so a plain `querySelectorAll` returns one node per question *plus* one per
+     * option. Every option row contains a `[role="checkbox"]`, so each was detected as its
+     * own single-option multiselect with an empty label — a ten-option question arrived as
+     * eleven fields, ten of them unanswerable duplicates that still cost a model call and
+     * still showed up in the review as answers to no question.
+     */
+    /**
+     * Outermost list items first, then a claim check.
+     *
+     * Ancestry filtering is kept as a cheap first pass, but it is not trusted on its own —
+     * see `detectQuestion`, where the heading check does the real work. The claim set below
+     * is the final guarantee: once a control belongs to one question, no later question may
+     * also own it, whatever the markup looks like. That holds for nesting we have not seen.
+     */
+    const items = [...container.querySelectorAll(QUESTION)].filter(
+      (item) => item.parentElement?.closest(QUESTION) === null,
+    )
+
+    const claimed = new Set<Element>()
     const fields: DetectedField[] = []
-    for (const item of container.querySelectorAll(QUESTION)) {
+
+    for (const item of items) {
       const field = detectQuestion(item)
-      if (field) fields.push(field)
+      if (!field) continue
+
+      const controls = field.groupElements ?? [field.element]
+      if (controls.some((control) => claimed.has(control))) continue
+
+      for (const control of controls) claimed.add(control)
+      fields.push(field)
     }
 
     if (fields.length === 0) return []
@@ -202,22 +249,31 @@ export class GoogleFormsAdapter implements FormAdapter {
     if (schema.kind === 'radio' && groupElements) {
       const target = matchOption(groupElements, value)
       if (!target) return false
-      target.click()
+      // `realClick`, not `.click()` — see its comment. These are divs, not inputs.
+      realClick(target)
       return target.getAttribute('aria-checked') === 'true'
     }
 
     if (schema.kind === 'multiselect' && groupElements) {
-      const wanted = value.split(',').map((v) => v.trim().toLowerCase())
+      const wanted = value
+        .split(',')
+        .map((v) => v.trim().toLowerCase())
+        .filter((v) => v.length > 0)
       let applied = false
 
       for (const option of groupElements) {
-        const optionValue = (option.getAttribute('data-value') ?? '').toLowerCase()
-        const optionLabel = (option.getAttribute('aria-label') ?? '').toLowerCase()
-        const shouldCheck = wanted.some((w) => w === optionValue || w === optionLabel)
+        /**
+         * Matched on every key the option can be identified by, including its visible text.
+         * This used to compare `data-value` and `aria-label` only, while the single-select
+         * path already matched on text content — so a model answering with the words a
+         * human reads selected radios correctly and silently checked nothing here.
+         */
+        const keys = optionKeys(option).map((k) => k.toLowerCase())
+        const shouldCheck = wanted.some((w) => keys.includes(w))
         const isChecked = option.getAttribute('aria-checked') === 'true'
 
         // Clicking toggles, so only click when the state actually needs to change.
-        if (shouldCheck !== isChecked) option.click()
+        if (shouldCheck !== isChecked) realClick(option)
         if (shouldCheck) applied = true
       }
       return applied
@@ -272,37 +328,78 @@ function realClick(node: HTMLElement): void {
   node.click()
 }
 
-/** Options only become selectable once the popup is really open. */
-function isSelectable(node: HTMLElement): boolean {
+/** Whether the environment lays anything out. Headless DOMs report no rects for anything. */
+function hasLayout(): boolean {
+  return document.body.getClientRects().length > 0
+}
+
+/**
+ * Whether an option can actually be clicked.
+ *
+ * Google pre-renders every dropdown option inside the collapsed listbox, so presence in the
+ * DOM says nothing. Three independent signals, because each covers a case the others miss:
+ *
+ *   - `aria-hidden` and computed style, which work with or without a layout engine.
+ *   - The owning listbox reporting itself collapsed.
+ *   - Geometry — but **only where layout exists**. Rects are empty for every node in a
+ *     headless DOM, so testing them unconditionally would reject everything off-browser.
+ */
+function isVisible(node: HTMLElement): boolean {
   if (node.getAttribute('aria-hidden') === 'true') return false
-  // A pre-rendered option inside a collapsed listbox is present but not clickable; its
-  // closest listbox reports itself collapsed.
-  const owner = node.closest('[role="listbox"]')
-  if (owner?.getAttribute('aria-expanded') === 'false') return false
+
+  const style = node.ownerDocument.defaultView?.getComputedStyle(node)
+  if (style && (style.display === 'none' || style.visibility === 'hidden')) return false
+
+  if (node.closest('[role="listbox"]')?.getAttribute('aria-expanded') === 'false') return false
+
+  if (hasLayout() && node.getClientRects().length === 0) return false
+
   return true
+}
+
+/** Polls a condition until it holds or the deadline passes. */
+async function waitFor(predicate: () => boolean, timeoutMs: number): Promise<boolean> {
+  const deadline = Date.now() + timeoutMs
+  while (Date.now() < deadline) {
+    if (predicate()) return true
+    await new Promise((resolve) => setTimeout(resolve, 50))
+  }
+  return predicate()
 }
 
 /**
  * Opens a Google Forms dropdown and picks an option.
  *
- * Three things the previous version got wrong: it used `.click()` where the widget needs
- * pointer events, it never waited for the popup to actually open, and its "visible" filter
- * matched pre-rendered hidden options — so it would click a dead node and report success.
+ * Three things have to be verified rather than assumed, because each fails silently:
+ *
+ *   1. That the popup actually opened. A click on the wrong node does nothing at all, and
+ *      every step after it then operates on the collapsed widget.
+ *   2. That the option clicked is visible. Otherwise the pre-rendered copy is clicked and
+ *      the page never hears about it.
+ *   3. That the selection landed. The old check was `aria-expanded !== 'true'`, which is
+ *      satisfied by the attribute being *absent* — the exact state of a dropdown that never
+ *      opened. So the one case it needed to catch was the one case it reported as success.
  */
 async function openAndSelect(listbox: HTMLElement, value: string): Promise<boolean> {
+  const before = listbox.textContent ?? ''
+
   realClick(listbox)
 
-  const deadline = Date.now() + 1500
-  let option: HTMLElement | undefined
+  // Options render into an overlay that may live outside the listbox, so the popup is
+  // detected by options becoming visible anywhere, not by an attribute on this node.
+  const opened = await waitFor(
+    () =>
+      listbox.getAttribute('aria-expanded') === 'true' ||
+      [...document.querySelectorAll<HTMLElement>('[role="option"]')].some(isVisible),
+    1500,
+  )
 
-  while (Date.now() < deadline) {
-    const candidates = [...document.querySelectorAll<HTMLElement>('[role="option"]')].filter(
-      isSelectable,
-    )
-    option = matchOption(candidates, value)
-    if (option) break
-    await new Promise((resolve) => setTimeout(resolve, 60))
-  }
+  if (!opened) return false
+
+  const option = matchOption(
+    [...document.querySelectorAll<HTMLElement>('[role="option"]')].filter(isVisible),
+    value,
+  )
 
   if (!option) {
     // Escape closes the popup; a second click can toggle it back open on some builds and
@@ -313,13 +410,19 @@ async function openAndSelect(listbox: HTMLElement, value: string): Promise<boole
     return false
   }
 
+  const chosen = (option.textContent ?? '').replace(/\s+/g, ' ').trim()
   realClick(option)
 
-  // Confirm rather than assume: the widget marks the chosen option, and reporting a
-  // success the page did not accept is worse than reporting the failure.
-  await new Promise((resolve) => setTimeout(resolve, 60))
-  return (
-    option.getAttribute('aria-selected') === 'true' ||
-    listbox.getAttribute('aria-expanded') !== 'true'
-  )
+  /**
+   * Confirmed by what the widget now reads.
+   *
+   * `aria-selected` alone is not enough — Google sets it on the pre-rendered copy in some
+   * builds without committing the choice. The listbox displaying the chosen label is the
+   * state the user can see, which makes it the state worth asserting.
+   */
+  return waitFor(() => {
+    if (option.getAttribute('aria-selected') === 'true') return true
+    const now = (listbox.textContent ?? '').replace(/\s+/g, ' ').trim()
+    return now !== before.replace(/\s+/g, ' ').trim() && chosen !== '' && now.includes(chosen)
+  }, 1000)
 }

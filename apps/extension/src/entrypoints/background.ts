@@ -71,6 +71,27 @@ export default defineBackground(() => {
         }).then(sendResponse)
         return true
 
+      /**
+       * A corrected or rejected answer, forwarded from the panel to the page.
+       *
+       * The panel has no access to the tab, and the content script owns the only
+       * `fieldId -> Element` map, so this hop is what connects them. Targets the active tab
+       * because that is the form the review is about.
+       */
+      case 'review/write':
+        void toResult(async () => {
+          const [tab] = await chrome.tabs.query({ active: true, currentWindow: true })
+          if (tab?.id !== undefined) {
+            await chrome.tabs.sendMessage(tab.id, {
+              type: 'content/write',
+              fieldId: request.fieldId,
+              value: request.value,
+            })
+          }
+          return null
+        }).then(sendResponse)
+        return true
+
       /** The dock's Review action — opens the panel where the judgement calls are listed. */
       case 'overlay/openPanel':
         void toResult(async () => {

@@ -4,16 +4,32 @@ import type { FeedbackRequest } from '@aff/shared'
  * Captures what the user actually submitted, after any edits.
  *
  * This is what makes the product compound: an edited answer is the highest-signal data the
- * system ever gets, because the user cared enough to correct us. Those corrections become
- * BM25 retrieval context and, later, the writing-voice exemplars.
+ * system ever gets, because the user cared enough to correct us. Those corrections go into
+ * memory and are retrieved the next time a similar question is asked.
  *
- * Read on submit rather than on every keystroke — mid-typing text is not an answer, and
- * an input listener on someone else's form is both noisy and invasive.
+ * Read on submit rather than on every keystroke — mid-typing text is not an answer, and an
+ * input listener on someone else's form is both noisy and invasive. Submit is also the only
+ * moment the user has declared the values final.
+ *
+ * **Only differences are reported.** An answer kept exactly as proposed teaches nothing that
+ * memory does not already contain, and sending one per field per form would fill a user's
+ * memory with restatements of itself and make retrieval worse over time.
  */
+
+/**
+ * Ceiling on what one submission may teach.
+ *
+ * A long form with many corrections is still one event in the user's life, and letting a
+ * single submit write dozens of memories would let one unusual form dominate everything
+ * retrieved afterwards. Longest answers win the cap: a corrected essay carries far more
+ * reusable voice than a corrected postcode.
+ */
+const MAX_LEARNED_PER_SUBMIT = 12
 
 export interface ProposedValue {
   fieldId: string
   label: string
+  /** What we wrote. Empty for a field we left blank but are still watching. */
   proposed: string
 }
 
@@ -47,15 +63,30 @@ export function createFeedbackCapture(
       // A field the user cleared is a rejection, not an answer worth learning from.
       if (accepted === null || accepted.trim() === '') continue
 
+      /**
+       * Only what the user changed.
+       *
+       * Two cases count, and they are the same event from memory's point of view — the user
+       * supplied this, not us. Either they corrected an answer we wrote, or they filled a
+       * field we left blank, which is the phone-number case: we had no value, they typed
+       * one, and next time we should know it.
+       */
+      if (accepted.trim() === proposal.proposed.trim()) continue
+
       entries.push({
         label: proposal.label,
         proposed: proposal.proposed,
         accepted,
-        edited: accepted.trim() !== proposal.proposed.trim(),
+        edited: true,
       })
     }
 
-    if (entries.length > 0) send({ origin, entries })
+    // Longest first, then capped — see MAX_LEARNED_PER_SUBMIT.
+    const learned = entries
+      .sort((a, b) => b.accepted.length - a.accepted.length)
+      .slice(0, MAX_LEARNED_PER_SUBMIT)
+
+    if (learned.length > 0) send({ origin, entries: learned })
 
     // One report per fill. Re-submitting the same form should not double-count answers.
     armed = false

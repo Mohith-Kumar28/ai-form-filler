@@ -94,6 +94,8 @@ export function resolveTier0(
       value,
       // Certain: this is the user's own stored value, copied verbatim.
       confidence: 1,
+      // Tier 0 answers identity fields, which are typed inputs rather than choices.
+      options: [],
       tier: 0,
       // A direct lookup is never an inference.
       inferred: false,

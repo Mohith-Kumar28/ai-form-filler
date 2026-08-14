@@ -40,6 +40,10 @@ CREATE TABLE `profile_sources` (
 	`status` text DEFAULT 'pending' NOT NULL,
 	`error` text,
 	`memory_id` text,
+	`r2_key` text,
+	`media_type` text,
+	`size_bytes` integer,
+	`url` text,
 	`extracted_text` text,
 	`created_at` integer NOT NULL,
 	FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON UPDATE no action ON DELETE cascade

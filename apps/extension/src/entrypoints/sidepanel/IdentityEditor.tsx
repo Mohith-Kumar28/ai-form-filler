@@ -63,12 +63,6 @@ export function IdentityEditor({ profile }: { profile: Profile }) {
         save.mutate({ data: { identity: draft, custom } })
       }}
     >
-      {profile.summary && (
-        <p className="border-b border-rule px-4 py-3 text-[12px] italic leading-relaxed text-muted">
-          {profile.summary}
-        </p>
-      )}
-
       <dl>
         {IDENTITY_FIELDS.map(({ key, label, type }) => (
           <div
@@ -201,27 +195,6 @@ export function IdentityEditor({ profile }: { profile: Profile }) {
           </button>
         </div>
       </section>
-
-      {(profile.preferences?.length ?? 0) > 0 && (
-        <section className="px-4 py-3">
-          <h3 className="measure text-[11px] uppercase tracking-wide text-annot">
-            Concluded about you
-          </h3>
-          <p className="mt-0.5 text-[11.5px] text-muted">
-            Read from your entries when they were added. Used for questions you never answered
-            outright — edit an entry above and these are rebuilt.
-          </p>
-          <ul className="mt-2">
-            {profile.preferences?.map((pref) => (
-              <li key={pref.topic} className="border-t border-rule py-1.5">
-                <p className="text-[12px] leading-snug text-ink">
-                  <span className="text-muted">{pref.topic}:</span> {pref.stance}
-                </p>
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
 
       <div className="sticky bottom-0 flex items-center gap-2 border-t border-rule bg-page px-4 py-2">
         <button

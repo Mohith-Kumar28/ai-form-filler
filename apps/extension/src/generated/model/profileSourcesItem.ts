@@ -15,5 +15,10 @@ export type ProfileSourcesItem = {
   error?: string;
   /** @minimum 0 */
   extractedChars?: number;
+  mediaType?: string;
+  /** @minimum 0 */
+  sizeBytes?: number;
+  url?: string;
+  hasFile?: boolean;
   createdAt: string;
 };

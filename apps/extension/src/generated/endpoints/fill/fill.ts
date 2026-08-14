@@ -19,6 +19,8 @@ import type {
   FeedbackRequest,
   FillPlan,
   FillRequest,
+  ImproveAnswer200,
+  ImproveAnswerBody,
   SubmitFeedback200
 } from '../../model';
 
@@ -170,4 +172,74 @@ export const useSubmitFeedback = <TError = ErrorType<ApiError>,
         TContext
       > => {
       return useMutation(getSubmitFeedbackMutationOptions(options), queryClient);
+    }
+    export const getImproveAnswerUrl = () => {
+
+
+
+
+  return `/v1/fill/improve`
+}
+
+/**
+ * @summary Rewrite a single answer to an instruction
+ */
+export const improveAnswer = async (improveAnswerBody: ImproveAnswerBody, options?: Parameters<typeof httpClient>[1]): Promise<ImproveAnswer200> => {
+
+  return httpClient<ImproveAnswer200>(getImproveAnswerUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(improveAnswerBody)
+  }
+);}
+
+
+
+
+
+export const getImproveAnswerMutationOptions = <TError = ErrorType<ApiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof improveAnswer>>, TError,{data: BodyType<ImproveAnswerBody>}, TContext>, request?: SecondParameter<typeof httpClient>}
+): UseMutationOptions<Awaited<ReturnType<typeof improveAnswer>>, TError,{data: BodyType<ImproveAnswerBody>}, TContext> => {
+
+const mutationKey = ['improveAnswer'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof improveAnswer>>, {data: BodyType<ImproveAnswerBody>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  improveAnswer(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ImproveAnswerMutationResult = NonNullable<Awaited<ReturnType<typeof improveAnswer>>>
+    export type ImproveAnswerMutationBody = BodyType<ImproveAnswerBody>
+    export type ImproveAnswerMutationError = ErrorType<ApiError>
+
+    /**
+ * @summary Rewrite a single answer to an instruction
+ */
+export const useImproveAnswer = <TError = ErrorType<ApiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof improveAnswer>>, TError,{data: BodyType<ImproveAnswerBody>}, TContext>, request?: SecondParameter<typeof httpClient>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof improveAnswer>>,
+        TError,
+        {data: BodyType<ImproveAnswerBody>},
+        TContext
+      > => {
+      return useMutation(getImproveAnswerMutationOptions(options), queryClient);
     }

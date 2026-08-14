@@ -365,3 +365,203 @@ describe('GoogleFormsAdapter dropdowns', () => {
     expect(escaped).toBe(true)
   })
 })
+
+describe('Google Forms option rows are not questions', () => {
+  /**
+   * Google nests a `[role="listitem"]` per option inside the question's own listitem. This
+   * is the markup that turned one ten-option question into eleven fields.
+   */
+  function checkboxQuestion(options: string[]): string {
+    const rows = options
+      .map(
+        (label) =>
+          `<div role="listitem">
+             <div role="checkbox" aria-checked="false" data-value="${label}"
+                  aria-label="${label}"><span>${label}</span></div>
+           </div>`,
+      )
+      .join('')
+    return `<div role="listitem">
+        <div role="heading">Where do you currently save them?</div>
+        <div role="list">${rows}</div>
+      </div>`
+  }
+
+  it('reads a ten-option question as one field, not eleven', () => {
+    const options = Array.from({ length: 10 }, (_, i) => `Option ${i + 1}`)
+    document.body.innerHTML = checkboxQuestion(options)
+
+    const adapter = new GoogleFormsAdapter()
+    const fields = adapter.detectForms(document)[0]!.fields
+
+    expect(fields).toHaveLength(1)
+    expect(fields[0]!.schema.label).toBe('Where do you currently save them?')
+    expect(fields[0]!.schema.options).toHaveLength(10)
+  })
+
+  it('leaves no field carrying an empty label', () => {
+    // An empty label is the tell: an option row has no heading of its own, so every
+    // duplicate field arrived label-less and unanswerable.
+    document.body.innerHTML = checkboxQuestion(['Notion', 'Obsidian'])
+
+    const fields = new GoogleFormsAdapter().detectForms(document)[0]!.fields
+    expect(fields.every((f) => f.schema.label.length > 0)).toBe(true)
+  })
+
+  it('selects multiple options by their visible text', async () => {
+    document.body.innerHTML = checkboxQuestion(['Notion', 'Obsidian', 'Notes'])
+    const adapter = new GoogleFormsAdapter()
+    const field = adapter.detectForms(document)[0]!.fields[0]!
+
+    const checked: string[] = []
+    for (const node of document.querySelectorAll<HTMLElement>('[role="checkbox"]')) {
+      node.addEventListener('pointerdown', () => {
+        node.setAttribute('aria-checked', 'true')
+        checked.push(node.getAttribute('data-value') ?? '')
+      })
+    }
+
+    expect(await adapter.applyValue(field, 'Notion, Notes')).toBe(true)
+    expect(checked).toEqual(['Notion', 'Notes'])
+  })
+
+  it('drives radios with pointer events, which is all Google listens for', async () => {
+    document.body.innerHTML = `
+      <div role="listitem">
+        <div role="heading">Pick one</div>
+        <div role="list">
+          <div role="listitem"><div role="radio" aria-checked="false" data-value="Yes">Yes</div></div>
+          <div role="listitem"><div role="radio" aria-checked="false" data-value="No">No</div></div>
+        </div>
+      </div>`
+
+    const adapter = new GoogleFormsAdapter()
+    const field = adapter.detectForms(document)[0]!.fields[0]!
+
+    // Only a pointer sequence flips it — a bare .click() leaves aria-checked false, which
+    // is exactly how these were failing silently.
+    for (const node of document.querySelectorAll<HTMLElement>('[role="radio"]')) {
+      node.addEventListener('pointerdown', () => node.setAttribute('aria-checked', 'true'))
+    }
+
+    expect(await adapter.applyValue(field, 'Yes')).toBe(true)
+  })
+})
+
+describe('Google Forms option rows never become questions', () => {
+  const adapter = () => new GoogleFormsAdapter()
+  const optionRow = (label: string) =>
+    `<div role="listitem">
+       <div role="checkbox" aria-checked="false" data-value="${label}" aria-label="${label}">
+         <span>${label}</span>
+       </div>
+     </div>`
+
+  it('ignores option rows that are siblings of the question, not children', () => {
+    // The layout an ancestry filter cannot catch: the heading and the options sit side by
+    // side, so every option row's nearest listitem ancestor is null — exactly like a real
+    // question's. Only the missing heading tells them apart.
+    document.body.innerHTML = `
+      <div role="listitem"><div role="heading">Which features excite you?</div></div>
+      <div role="list">
+        ${optionRow('AI-powered search')}
+        ${optionRow('Agentic chatbot')}
+        ${optionRow('Smart grouping')}
+      </div>`
+
+    const fields = adapter().detectForms(document)[0]?.fields ?? []
+    expect(fields.every((f) => f.schema.label.length > 0)).toBe(true)
+    // The heading-only item has no control, so nothing is answerable here — but crucially
+    // three phantom questions are not invented either.
+    expect(fields).toHaveLength(0)
+  })
+
+  it('reads a linear scale as one question, not ten', () => {
+    const radios = Array.from(
+      { length: 10 },
+      (_, i) =>
+        `<div role="listitem">
+           <div role="radio" aria-checked="false" data-value="${i + 1}" aria-label="${i + 1}"></div>
+         </div>`,
+    ).join('')
+
+    document.body.innerHTML = `
+      <div role="listitem">
+        <div role="heading">How frustrating is this?</div>
+        <div role="list">${radios}</div>
+      </div>`
+
+    const fields = adapter().detectForms(document)[0]?.fields ?? []
+    expect(fields).toHaveLength(1)
+    expect(fields[0]?.schema.options).toHaveLength(10)
+  })
+
+  it('never lets two questions claim the same control', () => {
+    // Two headed list items wrapping the same checkbox group. Whatever the markup, one
+    // control belongs to one question — otherwise the same field is answered twice.
+    document.body.innerHTML = `
+      <div role="listitem">
+        <div role="heading">Outer question</div>
+        <div role="listitem">
+          <div role="heading">Inner question</div>
+          ${optionRow('Only option')}
+        </div>
+      </div>`
+
+    const fields = adapter().detectForms(document)[0]?.fields ?? []
+    const controls = fields.flatMap((f) => f.groupElements ?? [f.element])
+    expect(new Set(controls).size).toBe(controls.length)
+  })
+
+  it('still finds a real question when options are nested inside it', () => {
+    document.body.innerHTML = `
+      <div role="listitem">
+        <div role="heading">Where do you save things?</div>
+        <div role="list">${optionRow('Notion')}${optionRow('Obsidian')}</div>
+      </div>`
+
+    const fields = adapter().detectForms(document)[0]?.fields ?? []
+    expect(fields).toHaveLength(1)
+    expect(fields[0]?.schema.label).toBe('Where do you save things?')
+    expect(fields[0]?.schema.options).toHaveLength(2)
+  })
+})
+
+describe('a dropdown that never opens', () => {
+  const adapter = new GoogleFormsAdapter()
+
+  it('reports failure when aria-expanded is absent rather than false', async () => {
+    /**
+     * The regression this exists for. Google adds `aria-expanded` only once a dropdown has
+     * been opened, so on one that never opened the attribute is missing entirely. The old
+     * success check was `aria-expanded !== 'true'`, which an absent attribute satisfies — so
+     * the single case it had to catch was the one it reported as a success, and the field
+     * was left untouched while the panel said it was filled.
+     */
+    document.body.innerHTML = `
+      <div role="listitem">
+        <div role="heading">How did you hear about us?</div>
+        <div role="listbox">
+          <div role="option" data-value="">Choose</div>
+          <div role="option" data-value="friend">A friend</div>
+        </div>
+      </div>`
+
+    const field = adapter.detectForms(document)[0]!.fields[0]!
+    // Nothing listens, so no popup ever appears — exactly a widget whose click target moved.
+    expect(await adapter.applyValue(field, 'A friend')).toBe(false)
+  })
+
+  it('does not report success merely because an option carries aria-selected already', async () => {
+    document.body.innerHTML = `
+      <div role="listitem">
+        <div role="heading">Country</div>
+        <div role="listbox" aria-expanded="false">
+          <div role="option" data-value="in" aria-selected="true">India</div>
+        </div>
+      </div>`
+
+    const field = adapter.detectForms(document)[0]!.fields[0]!
+    expect(await adapter.applyValue(field, 'India')).toBe(false)
+  })
+})

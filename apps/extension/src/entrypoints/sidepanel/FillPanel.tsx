@@ -1,106 +1,30 @@
-import { REVIEW_CONFIDENCE_THRESHOLD } from '@aff/shared'
 import { useState } from 'react'
 import type { Account } from '../../generated/model/index.js'
 import { STAGE_LABEL, useFill } from '../../lib/use-fill.js'
 import { IconInferred, IconPen, IconVerified } from './icons.js'
 
-const SKIP_REASON_LABEL: Record<string, string> = {
-  no_matching_knowledge: 'Nothing recorded answers this',
-  already_filled: 'Already filled',
-  unsupported_kind: 'Field type not supported yet',
-  quota_exhausted: 'Out of forms this month',
-  model_error: 'Could not answer',
-}
-
 /**
- * The fill action and its record.
+ * The fill action and its progress. Nothing else.
  *
- * The product's trust rests on one distinction being unmissable: an answer the notebook
- * *observed* (you stated it) versus one it *concluded* (it read you). Those carry different
- * risks, so they get different marks and different words — not one amber "needs review"
- * bucket that flattens them together, which is what the previous panel did.
+ * Everything about the *result* belongs to `ReviewPanel`, which replaces this surface once a
+ * fill finishes. Keeping a second copy of the result here is what produced two competing
+ * views of the same answers.
  */
 export function FillPanel({ account }: { account: Account }) {
-  const { state, start, reset } = useFill()
+  const { state, start } = useFill()
   const [highQuality, setHighQuality] = useState(false)
 
   const outOfQuota = account.quota.used >= account.quota.limit
   const disabled = !account.profileReady || outOfQuota || state.status === 'running'
 
-  const inferred = state.plan?.fills.filter((f) => f.inferred) ?? []
-  const unsure =
-    state.plan?.fills.filter((f) => !f.inferred && f.confidence < REVIEW_CONFIDENCE_THRESHOLD) ?? []
-
-  if (state.status === 'done' && state.plan) {
-    const applied = state.report?.applied.length ?? 0
-    const failed = state.report?.failed.length ?? 0
-
-    return (
-      <div className="flex flex-col gap-3">
-        <div>
-          <p className="measure text-[11px] uppercase tracking-wide text-faint">Recorded</p>
-          <p className="mt-0.5 text-[15px] text-ink">
-            <span className="measure font-medium">{applied}</span> of{' '}
-            <span className="measure">{state.plan.fills.length}</span> fields filled
-          </p>
-          <div className="rule-draw mt-2 h-px w-full origin-left bg-verified" />
-          <p className="measure mt-1.5 text-[11px] text-faint">
-            {state.plan.usage.latencyMs}ms
-            {state.plan.usage.costMicroUsd > 0 &&
-              ` · ${(state.plan.usage.costMicroUsd / 10_000).toFixed(2)}¢`}
-          </p>
-        </div>
-
-        {failed > 0 && (
-          <p className="text-[12px] text-annot">
-            {failed} could not be written — the page may have changed since.
-          </p>
-        )}
-
-        {inferred.length > 0 && (
-          <Group
-            title="Judgement calls"
-            note="Concluded from what you've recorded, not stated by you."
-            tone="annot"
-            fills={inferred}
-          />
-        )}
-
-        {unsure.length > 0 && (
-          <Group
-            title="Uncertain"
-            note="Answered, but the notebook is not confident."
-            tone="graphite"
-            fills={unsure}
-          />
-        )}
-
-        {state.plan.skipped.length > 0 && (
-          <details className="border-t border-rule pt-2">
-            <summary className="cursor-pointer text-[12px] text-muted marker:text-faint">
-              {state.plan.skipped.length} left blank
-            </summary>
-            <ul className="mt-1.5 flex flex-col gap-1">
-              {state.plan.skipped.map((skip) => (
-                <li key={skip.fieldId} className="text-[11px] text-faint">
-                  {skip.detail ?? SKIP_REASON_LABEL[skip.reason] ?? skip.reason}
-                </li>
-              ))}
-            </ul>
-          </details>
-        )}
-
-        <button
-          type="button"
-          onClick={reset}
-          className="w-full rounded-sharp border border-rule py-2 text-[12px] text-muted transition-colors hover:border-pen hover:text-pen"
-        >
-          Fill again
-        </button>
-      </div>
-    )
-  }
-
+  /**
+   * No done state here.
+   *
+   * A finished fill is handed to `ReviewPanel`, which takes over the whole surface. This
+   * component used to render its own summary and its own judgement-call list underneath the
+   * profile tabs, so the same answers appeared in two places with different affordances —
+   * one read-only, one editable — and neither looked like the primary one.
+   */
   return (
     <div className="flex flex-col gap-2">
       {state.status === 'idle' && account.profileReady && (
@@ -152,7 +76,7 @@ export function FillPanel({ account }: { account: Account }) {
   )
 }
 
-function Group({
+function _Group({
   title,
   note,
   tone,

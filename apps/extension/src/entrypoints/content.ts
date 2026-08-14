@@ -45,6 +45,16 @@ export default defineContentScript({
 
     const feedback = createFeedbackCapture(location.origin, (payload) => {
       void chrome.runtime.sendMessage({ type: 'feedback/submit', payload })
+
+      /**
+       * Acknowledge the learning, briefly.
+       *
+       * Fires on submit, so the page is usually navigating away — the dock may only be seen
+       * for a moment, and that is fine. It costs nothing, and on forms that submit in place
+       * it is the one point where the user sees that correcting an answer did something.
+       */
+      dockState = 'settled'
+      dock?.setState({ kind: 'learned', count: payload.entries.length })
     })
 
     function clearMarkers(): void {
@@ -186,16 +196,25 @@ export default defineContentScript({
         inferred: result.applied.filter((id) => inferred.has(id)).length,
       })
 
-      // Arm only for fields actually written — a skipped field has no proposal to compare
-      // the user's value against, so it teaches nothing.
+      /**
+       * Watch every field on the form, not only the ones we wrote.
+       *
+       * A field we skipped and the user then filled in themselves — a phone number we never
+       * had — is exactly as informative as a correction, and arming only written fields made
+       * it invisible. Fields we wrote carry their proposed value so a real edit can be told
+       * from an untouched answer; skipped fields carry an empty one, so anything the user
+       * types there reads as new.
+       */
+      const written = new Map(
+        animated.filter((f) => result.applied.includes(f.fieldId)).map((f) => [f.fieldId, f.value]),
+      )
+
       feedback.arm(
-        animated
-          .filter((f) => result.applied.includes(f.fieldId))
-          .map((f) => ({
-            fieldId: f.fieldId,
-            label: detection.elements.get(f.fieldId)?.schema.label ?? '',
-            proposed: f.value,
-          })),
+        detection.form.fields.map((field) => ({
+          fieldId: field.id,
+          label: field.label,
+          proposed: written.get(field.id) ?? '',
+        })),
         (fieldId) => {
           const element = detection.elements.get(fieldId)?.element
           return element ? readFieldValue(element) : null
@@ -215,6 +234,38 @@ export default defineContentScript({
           case 'content/detect':
             sendResponse(detect())
             return false
+
+          /**
+           * A single reviewed field, written without animation.
+           *
+           * The stagger exists to make a whole-form fill legible; replaying it for one
+           * corrected answer would just be latency between the user typing and the page
+           * agreeing. An empty value clears the field, which is what a rejection is.
+           */
+          case 'content/write': {
+            const detection = lastDetection
+            const field = detection?.elements.get(request.fieldId)
+            if (!detection || !field?.element.isConnected) {
+              sendResponse(false)
+              return false
+            }
+
+            markers.get(request.fieldId)?.destroy()
+            markers.delete(request.fieldId)
+
+            // `applyValue` is sync for native inputs and async for widgets that need a
+            // popup; Promise.resolve flattens both without branching.
+            void Promise.resolve(detection.adapter.applyValue(field, request.value)).then((ok) => {
+              // Re-mark only a written value. A cleared field should look untouched, not
+              // flagged — the user has resolved it, and a marker would read as unfinished.
+              if (ok && request.value !== '') {
+                markers.set(request.fieldId, mountFieldMarker(field.element))
+                markers.get(request.fieldId)?.setState('filled')
+              }
+              sendResponse(ok)
+            })
+            return true
+          }
 
           case 'content/apply':
             // `true` keeps the channel open: applying is async because it animates.

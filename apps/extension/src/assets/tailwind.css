@@ -30,6 +30,13 @@
   --color-annot-wash: oklch(95% 0.035 25);
   /* Verified green: recorded as stated. */
   --color-verified: oklch(46% 0.14 155);
+  /*
+    Amber: answered, but not confidently. The middle of the three score states.
+    Deliberately distinct from annotation red, which means "this was concluded, not read" —
+    a merely uncertain answer and an inferred one need different amounts of alarm.
+    Lightness is tuned for >=4.5:1 on the page background, like every other text token here.
+  */
+  --color-amber: oklch(52% 0.13 75);
   /* Ink blue: the pen itself — actions and focus. */
   --color-pen: oklch(48% 0.19 262);
   --color-pen-wash: oklch(95% 0.035 262);
@@ -60,6 +67,7 @@
     --color-annot: oklch(74% 0.17 28);
     --color-annot-wash: oklch(28% 0.06 28);
     --color-verified: oklch(76% 0.16 155);
+    --color-amber: oklch(78% 0.14 80);
     --color-pen: oklch(76% 0.15 258);
     --color-pen-wash: oklch(28% 0.06 258);
   }

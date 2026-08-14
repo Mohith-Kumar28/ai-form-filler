@@ -4,17 +4,10 @@
  * AI Form Filler API
  * OpenAPI spec version: 0.1.0
  */
-import type { EducationEntry } from './educationEntry';
-import type { ExperienceEntry } from './experienceEntry';
 import type { Identity } from './identity';
 import type { ProfilePatchCustom } from './profilePatchCustom';
-import type { StyleProfile } from './styleProfile';
 
 export interface ProfilePatch {
   identity?: Identity;
-  education?: EducationEntry[];
-  experience?: ExperienceEntry[];
-  skills?: string[];
   custom?: ProfilePatchCustom;
-  style?: StyleProfile;
 }

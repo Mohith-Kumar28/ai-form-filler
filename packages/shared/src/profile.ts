@@ -1,15 +1,16 @@
 import { z } from 'zod'
 
 /** Where a piece of knowledge came from. Everything is normalised to text at ingest. */
-export const SourceKind = z.enum([
-  'resume',
-  'transcript',
-  'linkedin',
-  'github',
-  'portfolio',
-  'freeform',
-  'image',
-])
+/**
+ * What a source *is*, by medium rather than by purpose.
+ *
+ * The previous set named intents — resume, transcript, linkedin, portfolio — which the user
+ * had to pick from a dropdown before we would accept their file, and which told us nothing
+ * we could act on: a resume and a transcript are both a PDF we hand to memory unchanged.
+ * Medium is the thing the interface actually needs, because it decides the icon, whether a
+ * preview opens in a tab or a lightbox, and whether the file can be attached to a form.
+ */
+export const SourceKind = z.enum(['document', 'link', 'text', 'image', 'audio'])
 export type SourceKind = z.infer<typeof SourceKind>
 
 export const SourceStatus = z.enum(['pending', 'parsing', 'ready', 'failed'])
@@ -24,6 +25,13 @@ export const ProfileSource = z.object({
   error: z.string().optional(),
   /** Extracted character count — a cheap proxy for "did parsing actually work". */
   extractedChars: z.number().int().nonnegative().optional(),
+  /** Present when an original file is stored: what it is, how big, and where it came from. */
+  mediaType: z.string().optional(),
+  sizeBytes: z.number().int().nonnegative().optional(),
+  /** The address a link source points at, so the list can show and open it. */
+  url: z.string().optional(),
+  /** True when the original bytes are retrievable — drives preview and form attachment. */
+  hasFile: z.boolean().default(false),
   createdAt: z.string().datetime(),
 })
 export type ProfileSource = z.infer<typeof ProfileSource>
@@ -45,66 +53,29 @@ export const Identity = z.object({
 })
 export type Identity = z.infer<typeof Identity>
 
-export const EducationEntry = z.object({
-  institution: z.string(),
-  degree: z.string().optional(),
-  field: z.string().optional(),
-  /** Free text, not a number — "8.4 CGPA", "3.7/4.0", and "First Class" are all valid. */
-  grade: z.string().optional(),
-  startDate: z.string().optional(),
-  endDate: z.string().optional(),
-})
-export type EducationEntry = z.infer<typeof EducationEntry>
-
-export const ExperienceEntry = z.object({
-  company: z.string(),
-  title: z.string(),
-  startDate: z.string().optional(),
-  endDate: z.string().optional(),
-  summary: z.string().optional(),
-  highlights: z.array(z.string()).default([]),
-})
-export type ExperienceEntry = z.infer<typeof ExperienceEntry>
-
 /**
- * Learned writing voice, applied to every tier-2/3 answer. Derived from accepted answers
- * over time rather than asked for up front — users describe their own writing badly.
+ * What we keep locally about a person — deliberately almost nothing.
+ *
+ * An earlier version modelled education, experience, skills, inferred preferences, a writing
+ * voice, and a summary. All of it was a second, worse copy of what the memory layer already
+ * builds from the same documents, and it had to be re-derived by an LLM on every ingest,
+ * kept deterministic for the prompt cache, and rendered into every single prompt whether the
+ * form needed it or not.
+ *
+ * Two things survive, because retrieval genuinely cannot do them:
+ *
+ *   - `identity`: tier 0 answers an email or phone field with **no model call at all**, which
+ *     needs a typed value. Retrieval returns passages, and a passage is not a field.
+ *   - `custom`: facts the user typed themselves. Their own answer outranks anything inferred
+ *     from a document, so it is stored rather than searched for.
+ *
+ * Everything else — history, projects, voice, opinions — is retrieved from memory at fill
+ * time, ranked against the question actually being asked.
  */
-export const StyleProfile = z.object({
-  tone: z.string().optional(),
-  averageSentenceLength: z.number().optional(),
-  /** Short excerpts of the user's own accepted writing, used as few-shot examples. */
-  exemplars: z.array(z.string()).default([]),
-  avoid: z.array(z.string()).default([]),
-})
-export type StyleProfile = z.infer<typeof StyleProfile>
-
-/**
- * A likely position on something the sources never state outright — inferred from what the
- * person builds, writes about, and highlights. This is what lets the tool answer a
- * judgement call ("would you like to hear about future roles?") the way they would, rather
- * than leaving it blank.
- */
-export const Preference = z.object({
-  topic: z.string(),
-  stance: z.string(),
-  evidence: z.string(),
-  confidence: z.number().min(0).max(1),
-})
-export type Preference = z.infer<typeof Preference>
-
 export const Profile = z.object({
   identity: Identity,
-  education: z.array(EducationEntry).default([]),
-  experience: z.array(ExperienceEntry).default([]),
-  skills: z.array(z.string()).default([]),
-  /** Anything that doesn't fit the schema above — visa status, dietary needs, t-shirt size. */
+  /** Facts the user typed: visa status, dietary needs, t-shirt size, notice period. */
   custom: z.record(z.string(), z.string()).default({}),
-  style: StyleProfile,
-  /** Inferred positions, used for questions the sources do not literally answer. */
-  preferences: z.array(Preference).default([]),
-  /** Two sentences describing this person, compiled from all sources. */
-  summary: z.string().optional(),
   sources: z.array(ProfileSource).default([]),
   /** Bumped on every recompile. The extension uses it to invalidate its cached copy. */
   version: z.number().int().nonnegative().default(0),

@@ -1,4 +1,4 @@
-import { ApiErrorResponse, type SourceKind } from '@aff/shared'
+import { ApiErrorResponse } from '@aff/shared'
 import { normalizeText } from './compile.js'
 
 /** Guards against a pathological upload filling the profile document and the context window. */
@@ -91,10 +91,3 @@ export function parseFreeform(text: string): ParsedSource {
   }
   return result
 }
-
-/** Which source kinds arrive as a file upload rather than a URL or pasted text. */
-export const FILE_SOURCE_KINDS: ReadonlySet<SourceKind> = new Set<SourceKind>([
-  'resume',
-  'transcript',
-  'image',
-])

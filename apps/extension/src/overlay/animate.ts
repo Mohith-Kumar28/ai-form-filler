@@ -91,7 +91,6 @@ export async function runFillAnimation(
   // last field first would otherwise make the sequence jump around.
   const ordered = [...fills].sort((a, b) => {
     const relation = a.element.compareDocumentPosition(b.element)
-    // biome-ignore lint/suspicious/noBitwiseOperators: compareDocumentPosition returns a bitmask
     return relation & Node.DOCUMENT_POSITION_FOLLOWING ? -1 : 1
   })
 

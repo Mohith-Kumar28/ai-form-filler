@@ -13,7 +13,9 @@ function capture() {
 }
 
 describe('createFeedbackCapture', () => {
-  it('reports an untouched answer as accepted, not edited', () => {
+  it('sends nothing when the user changed nothing', () => {
+    // An answer kept exactly as proposed restates what memory already holds. Storing one per
+    // field per form would bury the corrections that actually carry signal.
     const { feedback, sent } = capture()
     feedback.arm(
       [{ fieldId: 'f1', label: 'Why us?', proposed: 'Because of the compiler work.' }],
@@ -22,12 +24,37 @@ describe('createFeedbackCapture', () => {
 
     document.dispatchEvent(new Event('submit', { bubbles: true }))
 
-    expect(sent[0]?.entries[0]).toEqual({
-      label: 'Why us?',
-      proposed: 'Because of the compiler work.',
-      accepted: 'Because of the compiler work.',
-      edited: false,
-    })
+    expect(sent).toHaveLength(0)
+  })
+
+  it('learns a field we left blank that the user filled in themselves', () => {
+    // The phone-number case: we had no value, they typed one. Exactly as informative as a
+    // correction, and invisible while only written fields were watched.
+    const { feedback, sent } = capture()
+    feedback.arm([{ fieldId: 'f1', label: 'Phone', proposed: '' }], () => '+1 555 0100')
+
+    document.dispatchEvent(new Event('submit', { bubbles: true }))
+
+    expect(sent[0]?.entries).toEqual([
+      { label: 'Phone', proposed: '', accepted: '+1 555 0100', edited: true },
+    ])
+  })
+
+  it('caps how much one submission may teach', () => {
+    const { feedback, sent } = capture()
+    const many = Array.from({ length: 30 }, (_, i) => ({
+      fieldId: `f${i}`,
+      label: `Q${i}`,
+      proposed: '',
+    }))
+    // Longer answers survive the cap: a corrected essay carries more reusable voice than a
+    // corrected postcode.
+    feedback.arm(many, (id) => 'x'.repeat(Number(id.slice(1)) + 1))
+
+    document.dispatchEvent(new Event('submit', { bubbles: true }))
+
+    expect(sent[0]?.entries).toHaveLength(12)
+    expect(sent[0]?.entries[0]?.accepted).toHaveLength(30)
   })
 
   it('flags a corrected answer as edited — the highest-signal case', () => {
@@ -48,7 +75,7 @@ describe('createFeedbackCapture', () => {
     feedback.arm([{ fieldId: 'f1', label: 'Q', proposed: 'answer' }], () => '  answer  ')
 
     document.dispatchEvent(new Event('submit', { bubbles: true }))
-    expect(sent[0]?.entries[0]?.edited).toBe(false)
+    expect(sent).toHaveLength(0)
   })
 
   it('drops a field the user cleared — a rejection is not an answer to learn from', () => {
@@ -61,7 +88,7 @@ describe('createFeedbackCapture', () => {
 
   it('reports once per fill, even if the form is submitted twice', () => {
     const { feedback, sent } = capture()
-    feedback.arm([{ fieldId: 'f1', label: 'Q', proposed: 'a' }], () => 'a')
+    feedback.arm([{ fieldId: 'f1', label: 'Q', proposed: 'a' }], () => 'corrected')
 
     document.dispatchEvent(new Event('submit', { bubbles: true }))
     document.dispatchEvent(new Event('submit', { bubbles: true }))
@@ -72,7 +99,7 @@ describe('createFeedbackCapture', () => {
 
   it('catches a form that submits by navigating away rather than firing submit', () => {
     const { feedback, sent } = capture()
-    feedback.arm([{ fieldId: 'f1', label: 'Q', proposed: 'a' }], () => 'a')
+    feedback.arm([{ fieldId: 'f1', label: 'Q', proposed: 'a' }], () => 'corrected')
 
     // Many real forms post via fetch and redirect, firing no submit event at all.
     window.dispatchEvent(new Event('pagehide'))
@@ -81,7 +108,7 @@ describe('createFeedbackCapture', () => {
 
   it('sends nothing after disarm', () => {
     const { feedback, sent } = capture()
-    feedback.arm([{ fieldId: 'f1', label: 'Q', proposed: 'a' }], () => 'a')
+    feedback.arm([{ fieldId: 'f1', label: 'Q', proposed: 'a' }], () => 'corrected')
     feedback.disarm()
 
     document.dispatchEvent(new Event('submit', { bubbles: true }))
@@ -90,7 +117,7 @@ describe('createFeedbackCapture', () => {
 
   it('carries the origin so answers can be attributed to a site', () => {
     const { feedback, sent } = capture()
-    feedback.arm([{ fieldId: 'f1', label: 'Q', proposed: 'a' }], () => 'a')
+    feedback.arm([{ fieldId: 'f1', label: 'Q', proposed: 'a' }], () => 'corrected')
 
     document.dispatchEvent(new Event('submit', { bubbles: true }))
     expect(sent[0]?.origin).toBe('https://jobs.example.com')

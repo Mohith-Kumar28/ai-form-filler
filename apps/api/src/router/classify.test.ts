@@ -152,6 +152,8 @@ describe('resolveTier0', () => {
         confidence: 1,
         tier: 0,
         inferred: false,
+        // Identity fields are typed inputs, so there are no options to have chosen among.
+        options: [],
       },
     ])
   })

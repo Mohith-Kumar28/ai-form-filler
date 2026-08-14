@@ -11,6 +11,8 @@ export interface GenerateInput extends UserMessageInput {
   profileDoc: string
   /** Carries the AI Gateway endpoint and token. */
   env: Env
+  /** Tags this call in AI Gateway's logs so spend and quality are attributable. */
+  userId: string
 }
 
 export interface GenerateResult {
@@ -50,7 +52,7 @@ function readCacheCounters(metadata: unknown): { read: number; write: number } {
  * gateway's own JSON body carries the real reason, and the cases below are the ones that are
  * configuration problems rather than genuine outages.
  */
-function translateProviderError(cause: unknown): ApiErrorResponse {
+export function translateProviderError(cause: unknown): ApiErrorResponse {
   const message = cause instanceof Error ? cause.message : String(cause)
   const body = (cause as { responseBody?: string })?.responseBody ?? ''
   const combined = `${message} ${body}`
@@ -95,7 +97,12 @@ function translateProviderError(cause: unknown): ApiErrorResponse {
 export async function generateFills(input: GenerateInput): Promise<GenerateResult> {
   const spec = MODELS[input.tier]
   // Cloudflare AI Gateway, Unified Billing. See provider.ts.
-  const model = resolveModel(input.env, spec)
+  const model = resolveModel(input.env, spec, {
+    user: input.userId,
+    feature: 'fill',
+    tier: input.tier,
+    origin: input.origin,
+  })
 
   const [instructions, profile] = buildSystemBlocks(input.profileDoc)
 
@@ -106,20 +113,46 @@ export async function generateFills(input: GenerateInput): Promise<GenerateResul
     inputSchema: SubmitFillsSchema,
     execute: async (args) => {
       const labels = new Map(input.fields.map((field) => [field.id, field.label]))
-      captured.fills = args.fills.map((f) => ({
-        fieldId: f.fieldId,
-        label: labels.get(f.fieldId) ?? '',
-        value: f.value,
-        confidence: f.confidence,
-        tier: input.tier,
-        inferred: f.inferred ?? false,
-        ...(f.reasoning ? { reasoning: f.reasoning } : {}),
-      }))
-      captured.skipped = args.skipped.map((s) => ({
-        fieldId: s.fieldId,
-        reason: 'no_matching_knowledge' as const,
-        detail: s.reason,
-      }))
+      const optionsFor = new Map(
+        input.fields.map((field) => [field.id, (field.options ?? []).map((o) => o.label)]),
+      )
+
+      /**
+       * Model output is filtered against the fields actually asked about.
+       *
+       * Nothing constrains `fieldId` to the batch — it is a string, and the model will
+       * sometimes answer a multi-select by emitting one entry per chosen option, inventing
+       * an id for each. Those extra entries matched no field, so they got an empty label
+       * and surfaced in the review as answers to no question, repeating the same reasoning
+       * over and over. They are dropped here rather than rendered around.
+       *
+       * Duplicates on a real id are collapsed to the first, which is the one the model
+       * committed to before it started elaborating.
+       */
+      const seen = new Set<string>()
+      captured.fills = args.fills
+        .filter((f) => {
+          if (!labels.has(f.fieldId) || seen.has(f.fieldId)) return false
+          seen.add(f.fieldId)
+          return true
+        })
+        .map((f) => ({
+          fieldId: f.fieldId,
+          label: labels.get(f.fieldId) ?? '',
+          value: f.value,
+          confidence: f.confidence,
+          tier: input.tier,
+          inferred: f.inferred ?? false,
+          options: optionsFor.get(f.fieldId) ?? [],
+          ...(f.reasoning ? { reasoning: f.reasoning } : {}),
+        }))
+      captured.skipped = args.skipped
+        .filter((s) => labels.has(s.fieldId) && !seen.has(s.fieldId))
+        .map((s) => ({
+          fieldId: s.fieldId,
+          reason: 'no_matching_knowledge' as const,
+          detail: s.reason,
+        }))
       return 'recorded'
     },
   })

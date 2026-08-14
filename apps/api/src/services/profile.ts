@@ -10,12 +10,7 @@ import type { Db } from './account.js'
 export function emptyProfile(): Omit<Profile, 'sources'> {
   return {
     identity: { links: {} },
-    education: [],
-    experience: [],
-    skills: [],
     custom: {},
-    style: { exemplars: [], avoid: [] },
-    preferences: [],
     version: 0,
   }
 }
@@ -52,17 +47,6 @@ async function loadStructured(db: Db, userId: string): Promise<StructuredProfile
   }
 }
 
-async function loadReadySources(db: Db, userId: string) {
-  return db
-    .select({
-      label: profileSources.label,
-      kind: profileSources.kind,
-      text: profileSources.extractedText,
-    })
-    .from(profileSources)
-    .where(and(eq(profileSources.userId, userId), eq(profileSources.status, 'ready')))
-}
-
 /**
  * Recompiles PROFILE_DOC and persists it.
  *
@@ -71,15 +55,11 @@ async function loadReadySources(db: Db, userId: string) {
  * invalidate the extension's cached copy or churn the prompt cache.
  */
 export async function recompileProfile(db: Db, userId: string): Promise<{ version: number }> {
-  const [structured, sources] = await Promise.all([
-    loadStructured(db, userId),
-    loadReadySources(db, userId),
-  ])
+  const structured = await loadStructured(db, userId)
 
-  const compiled = await compileProfileDoc(
-    { ...structured, sources: [] },
-    sources.map((s) => ({ label: s.label, kind: s.kind, text: s.text ?? '' })),
-  )
+  // Source text is no longer inlined: memory retrieval supplies it, selected against the
+  // questions being asked rather than shipped whole on every request.
+  const compiled = await compileProfileDoc({ ...structured, sources: [] })
 
   const existing = await db
     .select({ hash: profileDocs.hash, version: profileDocs.version })
@@ -125,6 +105,12 @@ export async function getProfile(db: Db, userId: string): Promise<Profile> {
       status: row.status,
       ...(row.error ? { error: row.error } : {}),
       ...(row.extractedText ? { extractedChars: row.extractedText.length } : {}),
+      ...(row.mediaType ? { mediaType: row.mediaType } : {}),
+      ...(row.sizeBytes !== null ? { sizeBytes: row.sizeBytes } : {}),
+      ...(row.url ? { url: row.url } : {}),
+      // Whether the original bytes can be fetched back — what the UI needs to decide
+      // between offering a preview and offering nothing.
+      hasFile: row.r2Key !== null,
       createdAt: new Date(row.createdAt).toISOString(),
     }))
     // Newest first, with the id as a tiebreak so same-millisecond uploads have a stable order.
@@ -189,12 +175,43 @@ export async function updateStructured(
   return getProfile(db, userId)
 }
 
+/**
+ * Looks up one source's stored file, scoped to its owner.
+ *
+ * The userId is in the WHERE clause rather than assumed from the key's prefix: the prefix
+ * does contain it, but a lookup that trusts the caller's id to match is one refactor away
+ * from letting anyone read anyone's resume by guessing a source id.
+ */
+export async function getSourceFile(
+  db: Db,
+  userId: string,
+  sourceId: string,
+): Promise<{ r2Key: string | null; mediaType: string | null; label: string } | null> {
+  const rows = await db
+    .select({
+      r2Key: profileSources.r2Key,
+      mediaType: profileSources.mediaType,
+      label: profileSources.label,
+    })
+    .from(profileSources)
+    .where(and(eq(profileSources.id, sourceId), eq(profileSources.userId, userId)))
+    .limit(1)
+
+  return rows[0] ?? null
+}
+
 export interface NewSource {
   kind: SourceKind
   label: string
   text: string
   /** Supermemory document id, kept so deleting the source deletes the original too. */
   memoryId?: string
+  /** R2 key for the original file, when there is one. Drives preview and form attachment. */
+  r2Key?: string
+  mediaType?: string
+  sizeBytes?: number
+  /** Where a link source points. */
+  url?: string
   /** Structured extraction from the ingest pass, merged into the profile below. */
   structured?: StructuredSource
 }
@@ -206,58 +223,55 @@ export interface NewSource {
  * portfolio, then a LinkedIn export, and each should *add* to what we know rather than
  * overwrite it. User-entered values still win over anything extracted.
  */
+/** Treats undefined, null, and whitespace-only as absent — a cleared field is an empty one. */
+function isBlank(value: string | undefined): boolean {
+  return value === undefined || value.trim() === ''
+}
+
+/**
+ * Extraction fills gaps. It never overwrites.
+ *
+ * A value already in the profile was either typed by the user or read from a document they
+ * chose to add, and in both cases it is the more trustworthy of the two — an extractor
+ * reading a stale resume should not be able to replace the phone number someone just
+ * corrected by hand.
+ *
+ * `??=` was not enough on its own: it only skips `undefined`, so a field the user had
+ * *cleared* to an empty string stayed permanently empty and could never be refilled by a
+ * later source. Blank means empty, and empty means fillable.
+ */
+function fillIfEmpty(
+  current: string | undefined,
+  incoming: string | undefined,
+): string | undefined {
+  if (!isBlank(current)) return current
+  return isBlank(incoming) ? current : incoming
+}
+
 function mergeStructured(
   current: StructuredProfile,
   extracted: StructuredSource,
 ): StructuredProfile {
   const identity = { ...current.identity }
-  identity.fullName ??= extracted.identity.fullName
-  identity.email ??= extracted.identity.email
-  identity.phone ??= extracted.identity.phone
-  identity.location ??= extracted.identity.location
-  identity.pronouns ??= extracted.identity.pronouns
-  identity.workAuthorization ??= extracted.identity.workAuthorization
+  identity.fullName = fillIfEmpty(identity.fullName, extracted.identity.fullName)
+  identity.email = fillIfEmpty(identity.email, extracted.identity.email)
+  identity.phone = fillIfEmpty(identity.phone, extracted.identity.phone)
+  identity.location = fillIfEmpty(identity.location, extracted.identity.location)
+  identity.pronouns = fillIfEmpty(identity.pronouns, extracted.identity.pronouns)
+  identity.workAuthorization = fillIfEmpty(
+    identity.workAuthorization,
+    extracted.identity.workAuthorization,
+  )
+
+  // Same rule per platform: a link already recorded wins over a newly extracted one.
   identity.links = {
     ...Object.fromEntries(extracted.identity.links.map((l) => [l.platform, l.url])),
     ...current.identity.links,
   }
 
-  const dedupe = <T>(items: T[], key: (item: T) => string): T[] => {
-    const seen = new Map<string, T>()
-    for (const item of items) {
-      const k = key(item).toLowerCase().trim()
-      if (k && !seen.has(k)) seen.set(k, item)
-    }
-    return [...seen.values()]
-  }
-
-  return {
-    ...current,
-    identity,
-    education: dedupe(
-      [...current.education, ...extracted.education],
-      (e) => `${e.institution}|${e.degree ?? ''}`,
-    ),
-    experience: dedupe(
-      [...current.experience, ...extracted.experience],
-      (e) => `${e.company}|${e.title}`,
-    ),
-    skills: dedupe([...current.skills, ...extracted.skills], (s) => s),
-    custom: {
-      ...Object.fromEntries(extracted.facts.map((f) => [f.key, f.value])),
-      ...current.custom,
-    },
-    preferences: dedupe([...current.preferences, ...extracted.preferences], (p) => p.topic),
-    style: {
-      ...current.style,
-      // Cap the exemplars: they go into every tier-3 prompt, so an unbounded list would
-      // grow the cached prefix without improving voice matching.
-      exemplars: dedupe([...current.style.exemplars, ...extracted.writingSamples], (x) =>
-        x.slice(0, 60),
-      ).slice(0, 5),
-    },
-    summary: current.summary ?? extracted.summary,
-  }
+  // `custom` is user-typed only. Nothing extracted is allowed in, so there is nothing to
+  // merge — the whole point of that field is that it is theirs.
+  return { ...current, identity }
 }
 
 /**
@@ -273,6 +287,10 @@ export async function addSource(db: Db, userId: string, source: NewSource): Prom
     kind: source.kind,
     label: source.label,
     memoryId: source.memoryId ?? null,
+    r2Key: source.r2Key ?? null,
+    mediaType: source.mediaType ?? null,
+    sizeBytes: source.sizeBytes ?? null,
+    url: source.url ?? null,
     status: 'ready',
     extractedText: source.text,
     createdAt: Date.now(),
@@ -300,13 +318,17 @@ export async function deleteSource(
   db: Db,
   userId: string,
   sourceId: string,
-): Promise<{ profile: Profile; memoryId: string | null }> {
+): Promise<{ profile: Profile; memoryId: string | null; r2Key: string | null }> {
   const deleted = await db
     .delete(profileSources)
     // Scoped by userId as well as id — without it, any authenticated user could delete
     // another user's source by guessing an id.
     .where(and(eq(profileSources.id, sourceId), eq(profileSources.userId, userId)))
-    .returning({ id: profileSources.id, memoryId: profileSources.memoryId })
+    .returning({
+      id: profileSources.id,
+      memoryId: profileSources.memoryId,
+      r2Key: profileSources.r2Key,
+    })
 
   const row = deleted[0]
   if (!row) {
@@ -314,5 +336,5 @@ export async function deleteSource(
   }
 
   await recompileProfile(db, userId)
-  return { profile: await getProfile(db, userId), memoryId: row.memoryId }
+  return { profile: await getProfile(db, userId), memoryId: row.memoryId, r2Key: row.r2Key }
 }

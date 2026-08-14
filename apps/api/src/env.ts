@@ -3,6 +3,12 @@ import type { Account } from '@aff/shared'
 export interface Env {
   DB: D1Database
   RATE_LIMIT: KVNamespace
+  /**
+   * Original uploads. A blob store, deliberately not a search index — that was the job it
+   * held before and the job memory took over. Files live here so a source can be previewed
+   * and so a stored resume can be attached to a form's file input.
+   */
+  UPLOADS: R2Bucket
 
   ENVIRONMENT: 'development' | 'production'
   /** `chrome-extension://<id>` — the only origin allowed through CORS in production. */

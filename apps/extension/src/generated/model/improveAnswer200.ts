@@ -5,9 +5,6 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export interface TextSourceRequest {
-  /** @maxLength 200 */
-  label?: string;
-  url?: string;
-  text?: string;
-}
+export type ImproveAnswer200 = {
+  value: string;
+};

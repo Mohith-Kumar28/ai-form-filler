@@ -32,6 +32,12 @@ export const profileSources = sqliteTable(
     error: text('error'),
     /** Supermemory document id, so deleting a source deletes the original it stored. */
     memoryId: text('memory_id'),
+    /** R2 key for the original file. Null for link and text sources. */
+    r2Key: text('r2_key'),
+    mediaType: text('media_type'),
+    sizeBytes: integer('size_bytes'),
+    /** The address a link source points at. */
+    url: text('url'),
     /** The structured summary. The full document lives in Supermemory. */
     extractedText: text('extracted_text'),
     createdAt: integer('created_at').notNull(),

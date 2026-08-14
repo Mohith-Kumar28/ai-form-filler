@@ -18,4 +18,5 @@ export type FillPlanFillsItem = {
   tier: typeof FillPlanFillsItemTier[keyof typeof FillPlanFillsItemTier];
   reasoning?: string;
   inferred?: boolean;
+  options?: string[];
 };
