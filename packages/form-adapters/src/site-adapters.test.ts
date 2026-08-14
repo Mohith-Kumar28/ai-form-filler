@@ -94,7 +94,17 @@ describe('GoogleFormsAdapter', () => {
   })
 
   it('captures the help text under a question', () => {
-    expect(detect()[0]?.schema.hint).toBe('Please use your legal name.')
+    // Google marks a real description with `aria-describedby` on the heading. Anything not
+    // marked that way is an option or a placeholder, and must not be passed off as guidance.
+    document.body.innerHTML = `
+      <div role="listitem">
+        <div role="heading" aria-describedby="d1">Why us?</div>
+        <div id="d1">Two or three sentences is plenty.</div>
+        <textarea></textarea>
+      </div>`
+
+    const field = new GoogleFormsAdapter().detectForms(document)[0]?.fields[0]
+    expect(field?.schema.hint).toBe('Two or three sentences is plenty.')
   })
 
   it('maps each widget onto the right behaviour', () => {
@@ -563,5 +573,86 @@ describe('a dropdown that never opens', () => {
 
     const field = adapter.detectForms(document)[0]!.fields[0]!
     expect(await adapter.applyValue(field, 'India')).toBe(false)
+  })
+})
+
+describe('react-select, verified rather than assumed', () => {
+  const adapter = new AtsAdapter()
+
+  /** A widget that commits the choice into `__single-value`, as react-select really does. */
+  function mountSelect({
+    live = true,
+    readonly = false,
+    options = ['India', 'United States'],
+  } = {}) {
+    document.body.innerHTML = `
+      <form>
+        <label for="country">Country</label>
+        <div class="select__control">
+          <input id="country" role="combobox" ${readonly ? 'readonly' : ''} />
+          <div class="select__value-container"></div>
+        </div>
+        <div class="select__menu">
+          ${options.map((o) => `<div class="select__option">${o}</div>`).join('')}
+        </div>
+      </form>`
+
+    if (live) {
+      for (const option of document.querySelectorAll<HTMLElement>('.select__option')) {
+        option.addEventListener('mousedown', () => {
+          const container = document.querySelector('.select__value-container')
+          if (container) {
+            container.innerHTML = `<div class="select__single-value">${option.textContent}</div>`
+          }
+        })
+      }
+    }
+
+    return adapter.detectForms(document)[0]?.fields ?? []
+  }
+
+  it('reports success once the control shows the chosen value', async () => {
+    const field = mountSelect().find((f) => f.schema.label === 'Country')
+    expect(await adapter.applyValue(field!, 'India')).toBe(true)
+    expect(document.querySelector('.select__single-value')?.textContent).toBe('India')
+  })
+
+  it('reports failure when the widget swallows the click', async () => {
+    // The bug this replaces: `driveReactSelect` returned true the instant it dispatched,
+    // so an inert widget marked every field filled.
+    const field = mountSelect({ live: false }).find((f) => f.schema.label === 'Country')
+    expect(await adapter.applyValue(field!, 'India')).toBe(false)
+  })
+
+  it('never selects the only rendered option just because it is the only one', async () => {
+    // A menu holds one option while it is still filtering. Answering "United States" against
+    // a list showing only "Afghanistan" used to select Afghanistan and report success.
+    const field = mountSelect({ options: ['Afghanistan'] }).find(
+      (f) => f.schema.label === 'Country',
+    )
+    expect(await adapter.applyValue(field!, 'United States')).toBe(false)
+    expect(document.querySelector('.select__single-value')).toBeNull()
+  })
+
+  it('detects a non-searchable combobox, which renders readonly', () => {
+    // Greenhouse's required demographic dropdowns are these. The generic pass rejects
+    // `[readonly]`, so they were not detected at all and the form could not be submitted.
+    const fields = mountSelect({ readonly: true })
+    expect(fields.some((f) => f.schema.kind === 'select')).toBe(true)
+  })
+
+  it('leaves an ordinary input alone when the wrapper merely uses BEM naming', () => {
+    document.body.innerHTML = `
+      <form>
+        <label for="n">Full name</label>
+        <div class="field__control"><input id="n" /></div>
+      </form>`
+
+    const field = adapter
+      .detectForms(document)[0]
+      ?.fields.find((f) => f.schema.label === 'Full name')
+    // `[class*="__control"]` matches `field__control` too — re-typing this as a choice field
+    // asked the model for a constrained answer and then never wrote it.
+    expect(field?.schema.kind).toBe('text')
   })
 })

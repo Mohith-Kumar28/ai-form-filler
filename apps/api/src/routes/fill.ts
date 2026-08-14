@@ -62,11 +62,19 @@ fillRoutes.openapi(fillRoute, async (c) => {
     request,
   )
 
-  // Quota is consumed only after a successful fill, so a failed model call does not cost the
-  // user a form. `fill_log` is written regardless — a zero-cost fill still tells us
-  // something about the free tier's real economics.
-  const used = await consumeQuota(c.env, userId)
+  /**
+   * Log first, then charge, and only charge for work.
+   *
+   * Two separate faults were here. A form whose fields were all already filled produces an
+   * empty plan and makes no model call, yet still cost the user one of their monthly forms —
+   * they paid for nothing. And `writeFillLog` ran *after* `consumeQuota`, so a log-write
+   * failure returned a 500 on a request whose quota had already been spent, costing them a
+   * form for an error on our side.
+   */
   await writeFillLog(db, userId, request, plan, tierCounts)
+
+  const didWork = plan.fills.length > 0 || plan.usage.costMicroUsd > 0
+  const used = didWork ? await consumeQuota(c.env, userId) : account.quota.used
 
   return c.json({ ...plan, quotaRemaining: Math.max(0, account.quota.limit - used) }, 200)
 })
@@ -94,7 +102,7 @@ const feedbackRoute = createRoute({
 
 fillRoutes.openapi(feedbackRoute, async (c) => {
   const payload = c.req.valid('json')
-  const recorded = await recordFeedback(c.env, c.get('userId'), payload)
+  const recorded = await recordFeedback(drizzle(c.env.DB), c.env, c.get('userId'), payload)
   return c.json({ recorded }, 200)
 })
 

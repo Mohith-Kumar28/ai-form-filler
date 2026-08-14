@@ -9,15 +9,35 @@ export default defineConfig({
    * Don't launch a throwaway browser in dev.
    *
    * WXT's own Chrome profile is signed into nothing, which makes it useless for a tool whose
-   * whole job is filling forms with your real identity. With this off, `pnpm dev` just
-   * watches and rebuilds into `.output/chrome-mv3` — load that unpacked once in your normal
-   * Chrome and it keeps auto-reloading on every save, session and all.
+   * whole job is filling forms with your real identity.
+   *
+   * **`pnpm dev` writes to `.output/chrome-mv3-dev`, not `.output/chrome-mv3`.** Those are
+   * two separate builds: `wxt` (dev) produces the first and keeps it live-reloading, `wxt
+   * build` produces the second and only when you run it. Loading the wrong one is
+   * indistinguishable from a fix not working — the extension simply stays on whatever was
+   * last built into the folder Chrome is watching, and no error is reported anywhere.
+   *
+   * Load `.output/chrome-mv3-dev` unpacked in your normal Chrome and leave `pnpm dev`
+   * running: it rebuilds and reloads the extension on every save, session and all.
    */
   webExt: {
     disabled: true,
   },
 
+  /**
+   * A build stamp, carried on the manifest.
+   *
+   * Chrome keeps the previously-injected content script alive in tabs that were already open
+   * when the extension was reloaded, so a fix can be built, loaded, and still not be what a
+   * given tab is running. Without a stamp those two states look identical from the outside.
+   *
+   * Read from the manifest at runtime rather than injected by a build-time `define`: a define
+   * that silently fails to substitute leaves a bare identifier in the bundle, which throws a
+   * ReferenceError and takes the whole content script with it. A missing manifest field just
+   * prints `undefined`.
+   */
   manifest: {
+    version_name: `0.1.0+${new Date().toISOString().replace(/\D/g, '').slice(4, 12)}`,
     name: 'AI Form Filler',
     description: 'Fills any form from your own knowledge base, in your own writing voice.',
     version: '0.0.1',

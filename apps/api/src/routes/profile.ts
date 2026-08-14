@@ -3,6 +3,7 @@ import { createRoute, OpenAPIHono, z } from '@hono/zod-openapi'
 import { drizzle } from 'drizzle-orm/d1'
 import type { AppEnv } from '../env.js'
 import { requireAuth } from '../middleware/auth.js'
+import { rateLimit } from '../middleware/quota.js'
 import {
   AddSourceResponse,
   bearerAuth,
@@ -33,6 +34,16 @@ import { addContent, addFile, addUrl, deleteDocument } from '../services/superme
 export const profileRoutes = new OpenAPIHono<AppEnv>()
 
 profileRoutes.use('*', requireAuth)
+
+/**
+ * Ingest is rate limited too.
+ *
+ * Only `/v1/fill` was metered, but every source added costs real money — a page render, a
+ * multimodal model call, a 15 MB R2 write and a memory ingest — and none of it consumed
+ * quota. One authenticated account could loop this endpoint indefinitely for free.
+ */
+profileRoutes.use('/sources', rateLimit)
+profileRoutes.use('/sources/upload', rateLimit)
 
 const getProfileRoute = createRoute({
   method: 'get',
@@ -249,15 +260,28 @@ profileRoutes.openapi(uploadSourceRoute, async (c) => {
    */
   const r2Key = `${userId}/${crypto.randomUUID()}-${file.name.replace(/[^\w.-]+/g, '-')}`
 
-  const [memoryId, structured] = await Promise.all([
+  const [memoryId] = await Promise.all([
     addFile(c.env, userId, file, { label }),
     c.env.UPLOADS.put(r2Key, bytes, { httpMetadata: { contentType: mediaType } }),
-    kind === 'document'
-      ? structureSource(c.env, { kind: 'file', bytes, mediaType }, label, userId).then(
-          (r) => r.structured,
-        )
-      : Promise.resolve(undefined),
-  ]).then(([id, , extracted]) => [id, extracted] as const)
+  ])
+
+  /**
+   * Structuring runs *after* storage, and its failure must not orphan what was stored.
+   *
+   * These three used to run together in one `Promise.all`. When the structuring call threw —
+   * any provider error does — the file was already in memory and in R2, but the row that
+   * records their ids was never written. The user saw "upload failed" while their resume
+   * stayed indexed and retrievable forever, with nothing left anywhere that could delete it.
+   *
+   * Identity extraction is an optimisation; storage is the thing the user asked for. So a
+   * failure here is swallowed and the source is still recorded, ids intact and deletable.
+   */
+  let structured: Awaited<ReturnType<typeof structureSource>>['structured'] | undefined
+  if (kind === 'document') {
+    structured = await structureSource(c.env, { kind: 'file', bytes, mediaType }, label, userId)
+      .then((r) => r.structured)
+      .catch(() => undefined)
+  }
 
   const profile = await addSource(db, userId, {
     kind,
@@ -269,6 +293,14 @@ profileRoutes.openapi(uploadSourceRoute, async (c) => {
     sizeBytes: file.size,
     ...(memoryId ? { memoryId } : {}),
     ...(structured ? { structured } : {}),
+    /**
+     * A source that never reached memory is not ready.
+     *
+     * `addFile` returns `null` for a missing key, any non-2xx, or a timeout — all swallowed
+     * so a fill never breaks. Marking it `ready` anyway showed the user a healthy resume
+     * that was in no index, that retrieval would never return, and that reported no error.
+     */
+    ...(memoryId ? {} : { status: 'failed' as const, error: 'Could not be indexed. Try again.' }),
   })
   return c.json({ profile, truncated: false }, 200)
 })
@@ -348,10 +380,25 @@ profileRoutes.openapi(deleteSourceRoute, async (c) => {
   // Delete the stored original too. If the user removed their resume, leaving the document
   // in memory is a privacy failure, not just wasted storage. Awaited rather than
   // backgrounded so a failure surfaces as a retryable error instead of silently keeping it.
-  await Promise.all([
-    memoryId ? deleteDocument(c.env, memoryId) : Promise.resolve(),
-    r2Key ? c.env.UPLOADS.delete(r2Key) : Promise.resolve(),
+  /**
+   * Report a failed delete instead of swallowing it.
+   *
+   * `deleteDocument` returns `false` rather than throwing, and this used to discard that
+   * boolean — so "remove my resume" could leave the document indexed forever while the UI
+   * said it was gone. The row is already deleted by this point, which means the id is
+   * unrecoverable, so the honest thing is to tell the user it needs retrying.
+   */
+  const [memoryGone] = await Promise.all([
+    memoryId ? deleteDocument(c.env, memoryId) : Promise.resolve(true),
+    r2Key ? c.env.UPLOADS.delete(r2Key).then(() => true) : Promise.resolve(true),
   ])
+
+  if (!memoryGone) {
+    throw new ApiErrorResponse(
+      'UPSTREAM_ERROR',
+      'Removed from your profile, but the stored copy could not be deleted. Try again.',
+    )
+  }
 
   return c.json({ profile }, 200)
 })

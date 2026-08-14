@@ -1,7 +1,7 @@
 import type { Fill, FillPlan, FillRequest, FillTier, Identity, Skip } from '@aff/shared'
 import { ApiErrorResponse } from '@aff/shared'
-import { eq } from 'drizzle-orm'
-import { fillLog, profileDocs } from '../db/schema.js'
+import { and, eq, sql } from 'drizzle-orm'
+import { fillLog, profileDocs, profileSources } from '../db/schema.js'
 import type { Env } from '../env.js'
 import { generateFills } from '../llm/generate.js'
 import { classifyForm } from '../router/classify.js'
@@ -41,7 +41,21 @@ export async function runFill(
     .limit(1)
 
   const docRow = docRows[0]
-  if (!docRow || docRow.tokens === 0) {
+
+  /**
+   * Ready means "has a source", not "the identity block is non-empty".
+   *
+   * `PROFILE_DOC` now renders only identity and the user's own facts, so a voice note, an
+   * image, or a PDF the extractor found no contact details in all compile to an empty
+   * document. Those users have a fully indexed corpus in memory and were being told to add
+   * a source they had already added — with no way to get past it.
+   */
+  const [{ count: sourceCount = 0 } = { count: 0 }] = await ctx.db
+    .select({ count: sql<number>`count(*)` })
+    .from(profileSources)
+    .where(and(eq(profileSources.userId, ctx.userId), eq(profileSources.status, 'ready')))
+
+  if (!docRow || sourceCount === 0) {
     throw new ApiErrorResponse(
       'PROFILE_NOT_READY',
       'Add at least one source before filling a form.',

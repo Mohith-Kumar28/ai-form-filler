@@ -1,5 +1,5 @@
 import type { FieldSchema } from '@aff/shared'
-import { GenericAdapter } from './generic.js'
+import { baseSchema, GenericAdapter, nextId } from './generic.js'
 import { resolveLabel } from './label.js'
 import type { DetectedField, DetectedForm } from './types.js'
 
@@ -32,8 +32,19 @@ const REACT_SELECT_INPUT = 'input[role="combobox"], input[id^="react-select"]'
 const REACT_SELECT_MENU = '[class*="__menu"]'
 const REACT_SELECT_OPTION = '[class*="__option"]'
 
+/**
+ * A react-select is identified by its **combobox input**, not by the wrapper class.
+ *
+ * `[class*="__control"]` matches ordinary BEM names — `field__control`, `form__control` —
+ * which are common in ATS themes. Any plain text input inside one was re-typed as a choice
+ * field with no options (so the model was asked for a constrained answer to a free-text
+ * question) and then routed to the react-select driver, which found no combobox and left
+ * the field empty.
+ */
 function isReactSelect(element: Element): boolean {
-  return element.closest(REACT_SELECT_CONTROL) !== null
+  if (element.matches(REACT_SELECT_INPUT)) return true
+  const control = element.closest(REACT_SELECT_CONTROL)
+  return control !== null && control.querySelector(REACT_SELECT_INPUT) !== null
 }
 
 export class AtsAdapter extends GenericAdapter {
@@ -45,11 +56,22 @@ export class AtsAdapter extends GenericAdapter {
 
   override detectForms(root: Document | ShadowRoot): DetectedForm[] {
     const forms = super.detectForms(root)
-    if (forms.length === 0) return forms
 
     const isDocument = root.nodeType === 9
     const container = (isDocument ? (root as Document).body : root) as HTMLElement | null
     if (!container) return forms
+
+    /**
+     * Kept going even when the generic pass found nothing.
+     *
+     * Returning early on an empty result meant a page whose only controls are non-searchable
+     * comboboxes — every one of them `readonly`, and so rejected by the generic scan — was
+     * reported as having no form at all. The second pass below is the only thing that can
+     * see them, so it has to run first-class rather than as a decoration on existing fields.
+     */
+    if (forms.length === 0) {
+      forms.push({ root: container, fields: [] })
+    }
 
     for (const form of forms) {
       // The generic pass sees react-select's backing input as a plain text field, which
@@ -70,9 +92,37 @@ export class AtsAdapter extends GenericAdapter {
           ...(readSelectedValue(control) ? { currentValue: readSelectedValue(control) } : {}),
         } satisfies FieldSchema
       }
+      /**
+       * A second pass for comboboxes the generic scan refuses.
+       *
+       * react-select with `isSearchable: false` renders a **readonly** input, and the
+       * generic pass rejects `[readonly]` as unfillable — so those fields were not detected
+       * at all. On Greenhouse they are exactly the required demographic and work-eligibility
+       * dropdowns, and a required field the tool never sees is a form the user cannot submit.
+       */
+      const seen = new Set(form.fields.map((field) => field.element))
+
+      for (const input of container.querySelectorAll<HTMLElement>(REACT_SELECT_INPUT)) {
+        if (seen.has(input)) continue
+        if (input.closest('fieldset[disabled], [inert]')) continue
+
+        const control = input.closest(REACT_SELECT_CONTROL)
+        const options = readPreloadedOptions(control)
+        const current = readSelectedValue(control)
+
+        form.fields.push({
+          schema: {
+            ...baseSchema(input, 'select', nextId('f')),
+            ...(options.length > 0 ? { options } : {}),
+            ...(current ? { currentValue: current } : {}),
+          },
+          element: input,
+        })
+      }
     }
 
-    return forms
+    // A form that is still empty after both passes is not a form.
+    return forms.filter((form) => form.fields.length > 0)
   }
 
   override async applyValue(field: DetectedField, value: string): Promise<boolean> {
@@ -138,11 +188,37 @@ async function driveReactSelect(input: HTMLInputElement, value: string): Promise
 
   // A real click, not `.click()` on the option element alone: react-select listens for
   // mousedown, and a plain click event does not always trigger selection.
+  const chosen = option.textContent?.trim().toLowerCase() ?? ''
+
   option.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }))
   option.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }))
   option.click()
 
-  return true
+  /**
+   * Confirmed by the control displaying the choice.
+   *
+   * This used to `return true` the moment the click was dispatched, with no check at all —
+   * so an inert or unresponsive widget reported every field as filled. react-select renders
+   * the committed value into a `__single-value` / `__multi-value` node, which is the same
+   * thing the user sees.
+   */
+  const control = input.closest(REACT_SELECT_CONTROL)
+  const deadline = Date.now() + 1000
+
+  while (Date.now() < deadline) {
+    const shown = [
+      ...(control?.querySelectorAll<HTMLElement>(
+        '[class*="__single-value"], [class*="__multi-value"]',
+      ) ?? []),
+    ]
+      .map((node) => node.textContent?.trim().toLowerCase() ?? '')
+      .join(' ')
+
+    if (chosen !== '' && shown.includes(chosen)) return true
+    await new Promise((resolve) => setTimeout(resolve, 50))
+  }
+
+  return false
 }
 
 async function waitForOption(
@@ -154,8 +230,19 @@ async function waitForOption(
   const deadline = Date.now() + timeoutMs
 
   while (Date.now() < deadline) {
-    const root = input.closest(REACT_SELECT_CONTROL)?.parentElement ?? document
-    const options = [...root.querySelectorAll<HTMLElement>(REACT_SELECT_OPTION)]
+    /**
+     * The menu is searched near the control first, then document-wide.
+     *
+     * react-select's `menuPortalTarget` renders the menu at the end of `<body>` to escape
+     * overflow clipping — which Greenhouse's embedded forms use. Scoping only to the
+     * control's parent meant portalled menus were never found, and every such field timed
+     * out and was left blank.
+     */
+    const scoped = input.closest(REACT_SELECT_CONTROL)?.parentElement
+    const options = [
+      ...(scoped?.querySelectorAll<HTMLElement>(REACT_SELECT_OPTION) ?? []),
+      ...input.ownerDocument.querySelectorAll<HTMLElement>(REACT_SELECT_OPTION),
+    ].filter((node, index, all) => all.indexOf(node) === index)
 
     if (options.length > 0) {
       const exact = options.find((o) => o.textContent?.trim().toLowerCase() === wanted)
@@ -166,9 +253,22 @@ async function waitForOption(
       const prefix = options.find((o) => o.textContent?.trim().toLowerCase().startsWith(wanted))
       if (prefix) return prefix
 
-      // Only fall back to the first filtered option when the query was specific enough to
-      // have meaningfully narrowed the list.
-      if (wanted.length >= 3 && options.length === 1) return options[0] ?? null
+      /**
+       * Every word of the answer must appear in the option.
+       *
+       * The previous rule took the sole rendered option whenever the query was 3+ characters
+       * — but a menu holds one option while it is still filtering or loading, so answering
+       * "United States" against a list showing only "Afghanistan" selected Afghanistan and
+       * reported success. A wrong country on a job application, silently.
+       */
+      const words = wanted.split(/\s+/).filter((w) => w.length > 2)
+      if (words.length > 0) {
+        const contains = options.find((o) => {
+          const text = o.textContent?.trim().toLowerCase() ?? ''
+          return words.every((word) => text.includes(word))
+        })
+        if (contains) return contains
+      }
     }
 
     await new Promise((resolve) => setTimeout(resolve, 60))

@@ -9,7 +9,7 @@ import type { IdentityLinks } from './identityLinks';
 export interface Identity {
   fullName?: string;
   preferredName?: string;
-  email?: string;
+  email?: '' | string;
   phone?: string;
   location?: string;
   links?: IdentityLinks;

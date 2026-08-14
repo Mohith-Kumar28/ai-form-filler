@@ -31,6 +31,14 @@ export interface ProposedValue {
   label: string
   /** What we wrote. Empty for a field we left blank but are still watching. */
   proposed: string
+  /**
+   * Carried so the server can tell whose details these are.
+   *
+   * "Phone" under "Emergency contact" is not the user's phone, and the classifier can only
+   * see that if the section travels with the answer.
+   */
+  section?: string
+  hint?: string
 }
 
 export interface FeedbackCapture {
@@ -75,6 +83,8 @@ export function createFeedbackCapture(
 
       entries.push({
         label: proposal.label,
+        ...(proposal.section ? { section: proposal.section } : {}),
+        ...(proposal.hint ? { hint: proposal.hint } : {}),
         proposed: proposal.proposed,
         accepted,
         edited: true,

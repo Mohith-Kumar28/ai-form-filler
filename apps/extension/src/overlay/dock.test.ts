@@ -83,7 +83,7 @@ describe('dock state machine', () => {
   })
 
   it('reports the filled count when done', () => {
-    dock.setState({ kind: 'done', applied: 24, total: 34, inferred: 0 })
+    dock.setState({ kind: 'done', applied: 24, answered: 24, total: 34, inferred: 0 })
     expect(text()).toContain('24')
     expect(text()).toContain('34')
     expect(text()).toContain('10 left blank')
@@ -92,19 +92,19 @@ describe('dock state machine', () => {
   it('surfaces judgement calls above the blank count when both exist', () => {
     // A judgement call is the thing the user must look at before submitting; a blank field
     // is merely absent and cannot be wrong.
-    dock.setState({ kind: 'done', applied: 30, total: 34, inferred: 3 })
+    dock.setState({ kind: 'done', applied: 30, answered: 30, total: 34, inferred: 3 })
     expect(text()).toContain('3 judgement calls to check')
     expect(text()).not.toContain('left blank')
   })
 
   it('says so plainly when nothing needs attention', () => {
-    dock.setState({ kind: 'done', applied: 34, total: 34, inferred: 0 })
+    dock.setState({ kind: 'done', applied: 34, answered: 34, total: 34, inferred: 0 })
     expect(text()).toContain('Everything answered')
   })
 
   it('recovers from done back to idle', () => {
     // The bug this file exists for: the old dock had no path out of `done`.
-    dock.setState({ kind: 'done', applied: 5, total: 5, inferred: 0 })
+    dock.setState({ kind: 'done', applied: 5, answered: 5, total: 5, inferred: 0 })
     dock.setState({ kind: 'idle', fieldCount: 5 })
     expect(text()).toContain('Fill 5 fields')
     expect(text()).not.toContain('filled')
@@ -134,15 +134,15 @@ describe('dock state machine', () => {
 
 describe('dock actions', () => {
   it('offers Review only when there is something to review', () => {
-    dock.setState({ kind: 'done', applied: 10, total: 10, inferred: 0 })
+    dock.setState({ kind: 'done', applied: 10, answered: 10, total: 10, inferred: 0 })
     expect(text()).not.toContain('Review')
 
-    dock.setState({ kind: 'done', applied: 10, total: 10, inferred: 2 })
+    dock.setState({ kind: 'done', applied: 10, answered: 10, total: 10, inferred: 2 })
     expect(text()).toContain('Review')
   })
 
   it('always offers a way out when finished', () => {
-    dock.setState({ kind: 'done', applied: 10, total: 10, inferred: 0 })
+    dock.setState({ kind: 'done', applied: 10, answered: 10, total: 10, inferred: 0 })
     expect(text()).toContain('Done')
   })
 
@@ -186,5 +186,26 @@ describe('an ended session', () => {
     dock.setState({ kind: 'error', message: 'Your session ended.', needsAuth: true })
     expect(text()).toContain('Signed out')
     expect(text()).not.toContain('Could not fill')
+  })
+})
+
+describe('answers the page refused', () => {
+  it('names the gap instead of leaving it to be inferred from two numbers', () => {
+    // 10 answered, 6 written. The old copy said only "6 of 11 filled", which reads as
+    // "it had no answer" when in fact it had four the page would not take.
+    dock.setState({ kind: 'done', applied: 6, answered: 10, total: 11, inferred: 1 })
+
+    expect(text()).toContain('6')
+    expect(text()).toContain('4 answered but not accepted')
+  })
+
+  it('offers Review when answers were rejected, even with nothing to second-guess', () => {
+    dock.setState({ kind: 'done', applied: 6, answered: 10, total: 11, inferred: 0 })
+    expect(text()).toContain('Review')
+  })
+
+  it('says nothing about rejection when the page took everything', () => {
+    dock.setState({ kind: 'done', applied: 10, answered: 10, total: 11, inferred: 0 })
+    expect(text()).not.toContain('not accepted')
   })
 })

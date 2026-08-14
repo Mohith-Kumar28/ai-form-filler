@@ -22,7 +22,8 @@
     "db:reset": "rm -rf .wrangler/state && wrangler d1 migrations apply aff-db --local",
     "db:query": "wrangler d1 execute aff-db --local --command",
     "db:costs": "node scripts/costs.mjs",
-    "openapi:emit": "tsx scripts/emit-openapi.ts"
+    "openapi:emit": "tsx scripts/emit-openapi.ts",
+    "dev:token": "node scripts/dev-token.mjs"
   },
   "dependencies": {
     "@aff/shared": "workspace:*",

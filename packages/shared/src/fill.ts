@@ -106,15 +106,42 @@ export type FillRequest = z.infer<typeof FillRequest>
  */
 export const FeedbackRequest = z.object({
   origin: z.string().url(),
-  entries: z.array(
-    z.object({
-      label: z.string(),
-      /** What we proposed. Absent if the user typed into a field we skipped. */
-      proposed: z.string().optional(),
-      /** What the user actually kept. */
-      accepted: z.string(),
-      edited: z.boolean(),
-    }),
-  ),
+  entries: z
+    .array(
+      z.object({
+        label: z.string().max(400),
+        /**
+         * The surrounding section and any help text.
+         *
+         * Carried because the label alone is not enough to decide whether a field is about
+         * *this* person: "Phone" under "Emergency contact", "Reference", or "Current employer"
+         * is someone else's number, and learning it as the user's own would then autofill a
+         * stranger's details onto every later form. The classifier needs the same haystack at
+         * feedback time that it had at fill time.
+         */
+        section: z.string().max(200).optional(),
+        hint: z.string().max(400).optional(),
+        /** What we proposed. Absent if the user typed into a field we skipped. */
+        proposed: z.string().max(4000).optional(),
+        /** What the user actually kept. Capped: this can reach the cached prompt prefix. */
+        accepted: z.string().max(4000),
+        edited: z.boolean(),
+        /**
+         * The user affirmed an answer they were asked to check.
+         *
+         * Distinct from `edited`, and worth as much. An inference the model got right is
+         * otherwise thrown away entirely — the next form re-derives it from scratch and may
+         * land somewhere else — so confirming is what turns a judgement call into a fact.
+         *
+         * There is deliberately no "incorrect" counterpart. A rejection says an answer was
+         * wrong without saying what is right, and storing that in the index the next answer
+         * is retrieved from would degrade later answers rather than improve them.
+         */
+        confirmed: z.boolean().optional(),
+      }),
+    )
+    // One form cannot teach more than this. Without a cap a single submit can write an
+    // unbounded number of memories and identity values.
+    .max(25),
 })
 export type FeedbackRequest = z.infer<typeof FeedbackRequest>

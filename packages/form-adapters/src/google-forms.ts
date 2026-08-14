@@ -52,36 +52,54 @@ function questionLabel(item: Element): string {
  * the heading (`parentElement.nextElementSibling`) would encode Google's current nesting
  * depth, which is generated markup and changes without notice.
  */
+/**
+ * The question's description, or nothing.
+ *
+ * Google marks it with `aria-describedby` on the heading. The previous version scanned for
+ * the first text-bearing node after the heading, which on a real form is the *first option*
+ * — so every question got a fabricated hint: "Your answer", "Choose", "WhatsApp's own
+ * personal chat", "Not Concerned". None of those are guidance, and handing one to the model
+ * as if it were is actively harmful: on a 1-10 scale, "Not Concerned" is the low anchor, and
+ * presenting it as a description biases the answer toward that end.
+ *
+ * A fabricated hint is worse than no hint, so anything not explicitly marked is discarded.
+ */
 function questionHint(item: Element): string {
-  const elements = [...item.querySelectorAll('*')]
-  const headingIndex = elements.findIndex((el) => el.matches(HEADING))
-  if (headingIndex === -1) return ''
+  const heading = item.querySelector(HEADING)
+  const describedBy = heading?.getAttribute('aria-describedby')
+  if (!describedBy) return ''
 
-  const heading = elements[headingIndex]
-
-  for (const candidate of elements.slice(headingIndex + 1)) {
-    // Skip anything still inside the heading — its own child nodes come next in this list.
-    if (heading?.contains(candidate)) continue
-
-    // A node wrapping a widget is layout, not prose.
-    if (candidate.querySelector('input, textarea, [role]')) continue
-    if (candidate.matches('input, textarea, [role]')) continue
-
-    const text = textOf(candidate)
-    if (text.length > 0 && text.length < 400) return text
+  const parts: string[] = []
+  for (const id of describedBy.split(/\s+/).filter(Boolean)) {
+    const node = item.querySelector(`#${CSS.escape(id)}`)
+    // Skip anything that is itself an answer widget or contains one.
+    if (!node || node.querySelector('[role="radio"], [role="checkbox"], [role="option"]')) continue
+    const text = textOf(node)
+    // Google puts the required-marker node in `aria-describedby` too; "*" is not guidance.
+    if (text && /[a-z0-9]/i.test(text) && text !== 'Your answer' && text !== 'Choose') {
+      parts.push(text)
+    }
   }
 
-  return ''
+  return parts.join(' ').slice(0, 400)
 }
 
+/**
+ * Turns option nodes into the choice list the model is offered.
+ *
+ * Falls back to the visible text: Google sets `data-value` on radios and dropdown options
+ * but **not** on checkboxes, so keying only on it produced empty options for every
+ * checkbox question.
+ */
 function optionsFrom(nodes: Element[]): FieldOption[] {
   return nodes
     .map((node) => {
-      // `data-value` is the value Google submits; aria-label is what the user reads. They
-      // usually match, but on "Other" options they do not.
-      const value = node.getAttribute('data-value') ?? node.getAttribute('aria-label') ?? ''
-      const label = node.getAttribute('aria-label') ?? value
-      return { value: value || label, label: label || value }
+      const keys = optionKeys(node as HTMLElement)
+      const value = node.getAttribute('data-value') || keys[0] || ''
+      const label = node.getAttribute('aria-label') || keys[keys.length - 1] || value
+      // A trailing colon is Google's rendering of "Other:", not part of the answer.
+      const clean = (text: string) => text.replace(/:\s*$/, '').trim()
+      return { value: clean(value || label), label: clean(label || value) }
     })
     .filter((option) => option.value !== '')
 }
@@ -174,9 +192,25 @@ function detectQuestion(item: Element): DetectedField | null {
     return { schema, element: textarea }
   }
 
-  const input = item.querySelector<HTMLInputElement>('input[type="text"], input[type="email"]')
+  /**
+   * Any real input, not just text and email.
+   *
+   * The selector used to name two types, so date, time, number, tel and url questions
+   * matched nothing, `detectQuestion` returned `null`, and the question never reached the
+   * model at all — it simply was not in the form, with no skip and no explanation.
+   */
+  const input = item.querySelector<HTMLInputElement>(
+    'input:not([type="hidden"]):not([type="file"]):not([aria-label*="Other" i])',
+  )
   if (input) {
-    const kind: FieldKind = input.type === 'email' ? 'email' : 'text'
+    const byType: Record<string, FieldKind> = {
+      email: 'email',
+      tel: 'tel',
+      url: 'url',
+      number: 'number',
+      date: 'date',
+    }
+    const kind: FieldKind = byType[input.type] ?? 'text'
     const schema: FieldSchema = {
       ...base,
       kind,
@@ -249,16 +283,45 @@ export class GoogleFormsAdapter implements FormAdapter {
     if (schema.kind === 'radio' && groupElements) {
       const target = matchOption(groupElements, value)
       if (!target) return false
+
+      // "Other" is only an answer once its companion box says what the other thing is.
+      writeOtherText(target, value)
+
+      /**
+       * Verified by the keys of the node we matched, not by the model's raw string.
+       *
+       * `matchOption` deliberately falls back to a substring match, so "iPhone" selects
+       * "iPhone (App Store)" — and comparing the answer back exactly then reported that
+       * successful click as a failure. The node's own identity is what we clicked, so it is
+       * what the check should look for.
+       */
+      const keys = optionKeys(target)
+      const scope = scopeOf(target)
       // `realClick`, not `.click()` — see its comment. These are divs, not inputs.
       realClick(target)
-      return target.getAttribute('aria-checked') === 'true'
+      // Re-read from the DOM: the node just clicked may already have been replaced.
+      return waitFor(() => isChosen(scope, 'radio', keys), 800)
     }
 
     if (schema.kind === 'multiselect' && groupElements) {
-      const wanted = value
-        .split(',')
-        .map((v) => v.trim().toLowerCase())
-        .filter((v) => v.length > 0)
+      /**
+       * The whole answer is tried before splitting on commas.
+       *
+       * Option labels contain commas — this form has "Documents (PDFs, notes, etc.)" — and
+       * splitting first shattered them into fragments that matched nothing, leaving the
+       * option permanently unfillable. Worse, a fragment can match a *different* option
+       * ("Yes" out of "Yes, I agree"), ticking the wrong box.
+       */
+      const asWhole = matchOption(groupElements, value)
+      const wanted = asWhole
+        ? [value.trim().toLowerCase()]
+        : value
+            .split(',')
+            .map((v) => v.trim().toLowerCase())
+            .filter((v) => v.length > 0)
+
+      const scope = scopeOf(groupElements[0] ?? element)
+      const chosenKeys: string[][] = []
       let applied = false
 
       for (const option of groupElements) {
@@ -269,14 +332,28 @@ export class GoogleFormsAdapter implements FormAdapter {
          * human reads selected radios correctly and silently checked nothing here.
          */
         const keys = optionKeys(option).map((k) => k.toLowerCase())
-        const shouldCheck = wanted.some((w) => keys.includes(w))
+        const shouldCheck = wanted.some((w) => keys.includes(w) || keys.some((k) => k === w))
         const isChecked = option.getAttribute('aria-checked') === 'true'
 
         // Clicking toggles, so only click when the state actually needs to change.
         if (shouldCheck !== isChecked) realClick(option)
-        if (shouldCheck) applied = true
+        if (shouldCheck) {
+          applied = true
+          chosenKeys.push(optionKeys(option))
+          writeOtherText(option, value)
+        }
       }
-      return applied
+
+      if (!applied) return false
+
+      /**
+       * Only what actually matched is verified.
+       *
+       * Requiring every requested token meant a partly-recognised answer ("Notion, Coda")
+       * ticked Notion, then reported failure — leaving the page modified while the UI called
+       * the field unfilled, and a retry would toggle Notion back off.
+       */
+      return waitFor(() => chosenKeys.every((keys) => isChosen(scope, 'checkbox', keys)), 800)
     }
 
     if (schema.kind === 'select') {
@@ -291,6 +368,37 @@ export class GoogleFormsAdapter implements FormAdapter {
   }
 }
 
+/**
+ * Fills the free-text box that sits beside an "Other" choice.
+ *
+ * Google renders `Other:` as a checkbox or radio with a disabled input next to it, enabled
+ * once the option is picked. Selecting it without writing anything leaves a checked-but-blank
+ * answer, which Google rejects at submit for a required question — so the fill looks
+ * successful and the form cannot be sent.
+ */
+function writeOtherText(option: HTMLElement, value: string): void {
+  const keys = optionKeys(option).map((k) => k.toLowerCase().replace(/:\s*$/, ''))
+  if (!keys.includes('other')) return
+
+  /**
+   * Scoped to the whole question, not the option's own row.
+   *
+   * Google wraps each option in its own `listitem`, so `closest` lands on that row — and the
+   * companion text box is a sibling of the option *list*, one level further out.
+   */
+  const box = (scopeOf(option) as ParentNode).querySelector<HTMLInputElement>(
+    'input[aria-label*="Other" i], input[type="text"]',
+  )
+  if (!box) return
+
+  // Google disables the box until its option is picked; the click above has just enabled it.
+  box.disabled = false
+
+  // Whatever the model said, minus the word "other" itself — that is the label, not content.
+  const text = value.replace(/^other\s*:?\s*/i, '').trim()
+  if (text !== '') writeTextValue(box, text)
+}
+
 /** Every string an option might legitimately be identified by. */
 function optionKeys(node: HTMLElement): string[] {
   return [
@@ -302,11 +410,24 @@ function optionKeys(node: HTMLElement): string[] {
   ].filter((key) => key.length > 0)
 }
 
+/** Whether an option is Google's free-text "Other" choice. */
+function isOtherOption(node: HTMLElement): boolean {
+  return optionKeys(node).some((k) => /^other:?$/i.test(k.trim()))
+}
+
 function matchOption(nodes: HTMLElement[], value: string): HTMLElement | undefined {
   const wanted = value.trim().toLowerCase()
   return (
     nodes.find((n) => optionKeys(n).includes(value.trim())) ??
     nodes.find((n) => optionKeys(n).some((k) => k.toLowerCase() === wanted)) ??
+    // Trailing colons are Google's rendering of "Other:", not part of the answer.
+    nodes.find((n) => optionKeys(n).some((k) => k.toLowerCase().replace(/:\s*$/, '') === wanted)) ??
+    /**
+     * "Other: a friend at the company" is one answer naming a choice *and* its free text.
+     * The substring fallback below tests whether the option contains the answer, which is
+     * the wrong way round for this shape and left every "Other" answer unmatched.
+     */
+    (/^other\b/i.test(wanted) ? nodes.find(isOtherOption) : undefined) ??
     // Last resort, and only when the query is specific enough to have narrowed meaningfully.
     (wanted.length > 2
       ? nodes.find((n) => optionKeys(n).some((k) => k.toLowerCase().includes(wanted)))
@@ -357,6 +478,52 @@ function isVisible(node: HTMLElement): boolean {
   return true
 }
 
+/**
+ * Whether the widget now reports `value` as chosen — re-read from the DOM, not from a node.
+ *
+ * Google replaces these nodes when it re-renders after a selection, so a reference captured
+ * before the click can be detached by the time we check it. Verifying through that reference
+ * reports failure for a selection the user can plainly see on the page, which then shows up
+ * as "answered but not accepted" on a field that is visibly filled.
+ *
+ * Searching by the option's own identity instead survives the node being swapped out.
+ */
+function isChosen(
+  root: ParentNode,
+  role: 'option' | 'radio' | 'checkbox',
+  keys: string[],
+): boolean {
+  const flag = role === 'option' ? 'aria-selected' : 'aria-checked'
+  const wanted = keys.map((key) => key.toLowerCase())
+
+  return [...root.querySelectorAll<HTMLElement>(`[role="${role}"]`)].some(
+    (node) =>
+      node.getAttribute(flag) === 'true' &&
+      optionKeys(node).some((key) => wanted.includes(key.toLowerCase())),
+  )
+}
+
+/**
+ * The question a control belongs to.
+ *
+ * Verification must be scoped to it. Searching the whole document asks only "is *some*
+ * option with this label selected anywhere" — and Google forms routinely repeat labels
+ * across questions (this fixture has "Screenshots and saved images" in two, and Yes/No in
+ * many). Filling one question then satisfies the check for the next, so a question that
+ * silently failed reports success. Our own successful fill arms it for the following one.
+ */
+function scopeOf(element: HTMLElement): ParentNode {
+  // The **outermost** list item. Google wraps each option row in its own `listitem` inside
+  // the question's, so `closest` alone lands on the single row we came from — scoping the
+  // check to one option and hiding every sibling it needs to see.
+  let scope = element.closest(QUESTION)
+  for (let outer = scope?.parentElement?.closest(QUESTION); outer; ) {
+    scope = outer
+    outer = scope.parentElement?.closest(QUESTION) ?? null
+  }
+  return scope ?? element.ownerDocument
+}
+
 /** Polls a condition until it holds or the deadline passes. */
 async function waitFor(predicate: () => boolean, timeoutMs: number): Promise<boolean> {
   const deadline = Date.now() + timeoutMs
@@ -380,28 +547,78 @@ async function waitFor(predicate: () => boolean, timeoutMs: number): Promise<boo
  *      satisfied by the attribute being *absent* — the exact state of a dropdown that never
  *      opened. So the one case it needed to catch was the one case it reported as success.
  */
-async function openAndSelect(listbox: HTMLElement, value: string): Promise<boolean> {
-  const before = listbox.textContent ?? ''
+/** Whether the popup is up, by either the attribute or an option actually being on screen. */
+/**
+ * Options for *this* listbox.
+ *
+ * Google keeps them as children of the listbox. Scanning the document instead let one
+ * dropdown's apply select an option belonging to a different question — and then confirm it.
+ * The document fallback exists only for builds that portal the popup out of the listbox.
+ */
+function optionsOf(listbox: HTMLElement): HTMLElement[] {
+  const own = [...listbox.querySelectorAll<HTMLElement>('[role="option"]')]
+  if (own.length > 0) return own
+  return [...(listbox.ownerDocument ?? document).querySelectorAll<HTMLElement>('[role="option"]')]
+}
 
+function isOpen(listbox: HTMLElement): boolean {
+  return listbox.getAttribute('aria-expanded') === 'true' || optionsOf(listbox).some(isVisible)
+}
+
+/**
+ * Opens the popup, trying each route a real user has.
+ *
+ * Google wires the widget through `jsaction`, whose handlers are registered on a delegating
+ * root rather than the node itself — `jsaction="click:cOuCgd(LgbsSe); mousedown:UX7yZ(...);
+ * keydown:I481le"`. Which of those actually fires for a synthesised event depends on the
+ * build, and a widget that ignores our mouse events is indistinguishable from one that
+ * opened and had nothing in it, so guessing once and giving up is what left dropdowns blank.
+ *
+ * The keyboard path is not a fallback hack: `keydown:I481le` is Google's own handler, and
+ * Enter and Down-arrow are how the widget is opened without a mouse.
+ */
+async function openDropdown(listbox: HTMLElement): Promise<boolean> {
   realClick(listbox)
+  if (await waitFor(() => isOpen(listbox), 700)) return true
 
-  // Options render into an overlay that may live outside the listbox, so the popup is
-  // detected by options becoming visible anywhere, not by an attribute on this node.
-  const opened = await waitFor(
-    () =>
-      listbox.getAttribute('aria-expanded') === 'true' ||
-      [...document.querySelectorAll<HTMLElement>('[role="option"]')].some(isVisible),
-    1500,
-  )
+  // Some builds bind the handler to the inner presentation node named by the jsaction.
+  const inner = listbox.querySelector<HTMLElement>('[jsname="LgbsSe"]')
+  if (inner) {
+    realClick(inner)
+    if (await waitFor(() => isOpen(listbox), 700)) return true
+  }
 
-  if (!opened) return false
+  listbox.focus()
+  for (const key of ['Enter', 'ArrowDown']) {
+    listbox.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true }))
+    listbox.dispatchEvent(new KeyboardEvent('keyup', { key, bubbles: true, cancelable: true }))
+    if (await waitFor(() => isOpen(listbox), 500)) return true
+  }
 
-  const option = matchOption(
-    [...document.querySelectorAll<HTMLElement>('[role="option"]')].filter(isVisible),
-    value,
-  )
+  return false
+}
+
+async function openAndSelect(listbox: HTMLElement, value: string): Promise<boolean> {
+  const opened = await openDropdown(listbox)
+
+  if (!opened) {
+    console.debug('[aff] dropdown did not open', {
+      label: listbox.getAttribute('aria-labelledby'),
+      expanded: listbox.getAttribute('aria-expanded'),
+      disabled: listbox.getAttribute('aria-disabled'),
+    })
+    return false
+  }
+
+  const option = matchOption(optionsOf(listbox).filter(isVisible), value)
 
   if (!option) {
+    console.debug('[aff] no dropdown option matched', {
+      wanted: value,
+      available: optionsOf(listbox)
+        .filter(isVisible)
+        .map((o) => o.getAttribute('data-value')),
+    })
     // Escape closes the popup; a second click can toggle it back open on some builds and
     // would leave the form visibly wrong.
     listbox.dispatchEvent(
@@ -410,19 +627,19 @@ async function openAndSelect(listbox: HTMLElement, value: string): Promise<boole
     return false
   }
 
-  const chosen = (option.textContent ?? '').replace(/\s+/g, ' ').trim()
+  const chosenKeys = optionKeys(option)
   realClick(option)
 
   /**
-   * Confirmed by what the widget now reads.
+   * Confirmed by which option the widget now reports as selected.
    *
-   * `aria-selected` alone is not enough — Google sets it on the pre-rendered copy in some
-   * builds without committing the choice. The listbox displaying the chosen label is the
-   * state the user can see, which makes it the state worth asserting.
+   * Not by the listbox's text: Google keeps every option as a **child** of the listbox, so
+   * its `textContent` is the whole option list concatenated. It reads the same before and
+   * after a selection, which made an earlier version of this check unsatisfiable — a click
+   * that worked perfectly still reported failure, and the field was then left alone.
+   *
+   * `aria-selected` moving to the clicked option is the state Google actually mutates, and
+   * requiring it to be *this* option rules out the placeholder still holding the flag.
    */
-  return waitFor(() => {
-    if (option.getAttribute('aria-selected') === 'true') return true
-    const now = (listbox.textContent ?? '').replace(/\s+/g, ' ').trim()
-    return now !== before.replace(/\s+/g, ' ').trim() && chosen !== '' && now.includes(chosen)
-  }, 1000)
+  return waitFor(() => isChosen(listbox, 'option', chosenKeys), 1000)
 }

@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import type { Account } from '../../generated/model/index.js'
-import { STAGE_LABEL, useFill } from '../../lib/use-fill.js'
+import type { FillState } from '../../lib/use-fill.js'
+import { STAGE_LABEL } from '../../lib/use-fill.js'
 import { IconInferred, IconPen, IconVerified } from './icons.js'
 
 /**
@@ -10,8 +11,24 @@ import { IconInferred, IconPen, IconVerified } from './icons.js'
  * fill finishes. Keeping a second copy of the result here is what produced two competing
  * views of the same answers.
  */
-export function FillPanel({ account }: { account: Account }) {
-  const { state, start } = useFill()
+/**
+ * Fill state arrives as props; this component owns none of it.
+ *
+ * It used to call `useFill()` itself, which is plain `useState` per call site — so the panel
+ * had **two independent fill states**. Port events reach only the instance that opened the
+ * port, so pressing "Fill this page" drove *this* copy to `done` while the one deciding
+ * whether to show the review stayed `idle`. The form filled, the button stopped spinning,
+ * and nothing else happened: no review, no error, no way back to the answers.
+ */
+export function FillPanel({
+  account,
+  state,
+  start,
+}: {
+  account: Account
+  state: FillState
+  start: (options: { quality: 'auto' | 'high'; overwriteExisting: boolean }) => void
+}) {
   const [highQuality, setHighQuality] = useState(false)
 
   const outOfQuota = account.quota.used >= account.quota.limit

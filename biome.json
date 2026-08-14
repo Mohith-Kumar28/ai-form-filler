@@ -13,7 +13,8 @@
       "!**/.wxt",
       "!**/.wrangler",
       "!**/src/generated",
-      "!**/migrations"
+      "!**/migrations",
+      "!**/fixtures"
     ]
   },
   "formatter": {

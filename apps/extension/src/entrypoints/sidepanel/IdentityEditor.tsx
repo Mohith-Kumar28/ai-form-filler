@@ -1,5 +1,6 @@
 import { useQueryClient } from '@tanstack/react-query'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { getGetAccountQueryKey } from '../../generated/endpoints/account/account.js'
 import {
   getGetProfileQueryKey,
   usePatchProfile,
@@ -29,12 +30,26 @@ export function IdentityEditor({ profile }: { profile: Profile }) {
     setCustom(profile.custom ?? {})
   }, [profile.identity, profile.custom, dirty])
 
+  /**
+   * What was sent, so a save cannot discard what was typed while it was in flight.
+   *
+   * `onSuccess` cleared `dirty`, which released the resync effect above, which overwrote the
+   * draft with the server's copy — so anything typed between pressing Save and the response
+   * landing vanished. That is the "I edit a value, hit Save, and it snaps back" report.
+   */
+  const submitted = useRef<ProfileIdentity | null>(null)
+
   const save = usePatchProfile({
     mutation: {
       onSuccess: (updated) => {
         queryClient.setQueryData(getGetProfileQueryKey(), updated)
-        void queryClient.invalidateQueries({ queryKey: ['account'] })
-        setDirty(false)
+        // The real key is `['/v1/me']`; `['account']` matched nothing, so the header quota
+        // and `profileReady` stayed stale until the panel was reopened.
+        void queryClient.invalidateQueries({ queryKey: getGetAccountQueryKey() })
+
+        // Still dirty if the user kept typing — only the exact submitted draft is settled.
+        const unchanged = JSON.stringify(submitted.current) === JSON.stringify(draft)
+        if (unchanged) setDirty(false)
       },
     },
   })
@@ -60,6 +75,7 @@ export function IdentityEditor({ profile }: { profile: Profile }) {
     <form
       onSubmit={(e) => {
         e.preventDefault()
+        submitted.current = draft
         save.mutate({ data: { identity: draft, custom } })
       }}
     >

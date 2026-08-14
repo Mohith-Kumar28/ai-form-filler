@@ -148,6 +148,18 @@ function SignedIn() {
     },
   })
 
+  /**
+   * The review is rendered **before** any account gating, deliberately.
+   *
+   * Its edits live in component state, so anything that unmounts it silently reverts every
+   * correction the user made back to the model's original answers. Below the gates, a failed
+   * background refetch of `/v1/me` — which keeps `data` but flips `status` to `error` — or a
+   * `queryClient.clear()` was enough to destroy an in-progress review.
+   */
+  if (fill.state.status === 'done' && fill.state.plan) {
+    return <ReviewPanel plan={fill.state.plan} report={fill.state.report} onBack={fill.reset} />
+  }
+
   if (account.isPending) {
     return (
       <div className="flex h-full items-center justify-center">
@@ -178,17 +190,6 @@ function SignedIn() {
   }
 
   const sourceCount = profile.data?.sources?.length ?? 0
-
-  /**
-   * A finished fill takes over the whole panel.
-   *
-   * Showing it as a strip under the profile tabs is what made Review a dead end — the user
-   * arrived somewhere that looked identical to where they started. The profile is one click
-   * away, and returning to it is the explicit end of the review.
-   */
-  if (fill.state.status === 'done' && fill.state.plan) {
-    return <ReviewPanel plan={fill.state.plan} onBack={fill.reset} />
-  }
 
   if (adding) {
     return <AddSource onDone={() => setAdding(false)} />
@@ -273,7 +274,7 @@ function SignedIn() {
       </div>
 
       <footer className="shrink-0 border-t border-rule bg-page px-4 py-3">
-        <FillPanel account={account.data} />
+        <FillPanel account={account.data} state={fill.state} start={fill.start} />
       </footer>
     </div>
   )

@@ -11,6 +11,15 @@ import {
 } from '../overlay/launcher.js'
 import { positionScheduler } from '../overlay/scheduler.js'
 
+/**
+ * Stamped at build time.
+ *
+ * A content script keeps running in already-open tabs after the extension is reloaded, so
+ * "did my fix ship" and "is this tab still on the old code" look identical from the outside.
+ * Printing the stamp makes them tell apart in one glance.
+ */
+const BUILD_STAMP = chrome.runtime.getManifest().version_name ?? 'dev'
+
 /** Below this, it is a search box or a newsletter signup, not a form worth offering to fill. */
 const MIN_FIELDS = 3
 
@@ -121,6 +130,18 @@ export default defineContentScript({
 
       lastDetection = detection
 
+      /**
+       * One line per detection, so "why does it say N fields" is answerable from DevTools
+       * instead of from screenshots. It prints the adapter that claimed the page and the
+       * raw node counts behind the number, which is exactly what separates a detection bug
+       * from a stale build — the two are indistinguishable from the dock alone.
+       */
+      console.debug(`[aff ${BUILD_STAMP}] ${detection.adapter.name}: ${fieldCount} fields`, {
+        listitems: document.querySelectorAll('[role="listitem"]').length,
+        headings: document.querySelectorAll('[role="heading"]').length,
+        labels: detection.form.fields.map((f) => f.label),
+      })
+
       if (dismissedSignature === signatureOf(detection)) return
       dismissedSignature = null
 
@@ -192,6 +213,8 @@ export default defineContentScript({
       dock?.setState({
         kind: 'done',
         applied: result.applied.length,
+        // What the model produced, whether or not the page took it.
+        answered: plan.fills.length,
         total,
         inferred: result.applied.filter((id) => inferred.has(id)).length,
       })
@@ -213,6 +236,8 @@ export default defineContentScript({
         detection.form.fields.map((field) => ({
           fieldId: field.id,
           label: field.label,
+          ...(field.section ? { section: field.section } : {}),
+          ...(field.hint ? { hint: field.hint } : {}),
           proposed: written.get(field.id) ?? '',
         })),
         (fieldId) => {

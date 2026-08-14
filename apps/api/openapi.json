@@ -138,8 +138,16 @@
                 "type": "string"
               },
               "email": {
-                "type": "string",
-                "format": "email"
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "enum": [""]
+                  },
+                  {
+                    "type": "string",
+                    "format": "email"
+                  }
+                ]
               },
               "phone": {
                 "type": "string"
@@ -150,8 +158,16 @@
               "links": {
                 "type": "object",
                 "additionalProperties": {
-                  "type": "string",
-                  "format": "uri"
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "enum": [""]
+                    },
+                    {
+                      "type": "string",
+                      "format": "uri"
+                    }
+                  ]
                 },
                 "default": {}
               },
@@ -251,8 +267,16 @@
             "type": "string"
           },
           "email": {
-            "type": "string",
-            "format": "email"
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [""]
+              },
+              {
+                "type": "string",
+                "format": "email"
+              }
+            ]
           },
           "phone": {
             "type": "string"
@@ -263,8 +287,16 @@
           "links": {
             "type": "object",
             "additionalProperties": {
-              "type": "string",
-              "format": "uri"
+              "anyOf": [
+                {
+                  "type": "string",
+                  "enum": [""]
+                },
+                {
+                  "type": "string",
+                  "format": "uri"
+                }
+              ]
             },
             "default": {}
           },
@@ -575,20 +607,35 @@
               "type": "object",
               "properties": {
                 "label": {
-                  "type": "string"
+                  "type": "string",
+                  "maxLength": 400
+                },
+                "section": {
+                  "type": "string",
+                  "maxLength": 200
+                },
+                "hint": {
+                  "type": "string",
+                  "maxLength": 400
                 },
                 "proposed": {
-                  "type": "string"
+                  "type": "string",
+                  "maxLength": 4000
                 },
                 "accepted": {
-                  "type": "string"
+                  "type": "string",
+                  "maxLength": 4000
                 },
                 "edited": {
+                  "type": "boolean"
+                },
+                "confirmed": {
                   "type": "boolean"
                 }
               },
               "required": ["label", "accepted", "edited"]
-            }
+            },
+            "maxItems": 25
           }
         },
         "required": ["origin", "entries"]

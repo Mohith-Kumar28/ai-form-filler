@@ -9,7 +9,7 @@ import type { ProfileIdentityLinks } from './profileIdentityLinks';
 export type ProfileIdentity = {
   fullName?: string;
   preferredName?: string;
-  email?: string;
+  email?: '' | string;
   phone?: string;
   location?: string;
   links?: ProfileIdentityLinks;

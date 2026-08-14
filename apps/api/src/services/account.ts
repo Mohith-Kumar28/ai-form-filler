@@ -1,8 +1,8 @@
 import { type Account, PLAN_LIMITS, type Plan, type QuotaState } from '@aff/shared'
-import { and, eq } from 'drizzle-orm'
+import { and, eq, sql } from 'drizzle-orm'
 import type { DrizzleD1Database } from 'drizzle-orm/d1'
 import type { GoogleIdentity } from '../auth/google.js'
-import { profileDocs, quotaUsage, users } from '../db/schema.js'
+import { profileDocs, profileSources, quotaUsage, users } from '../db/schema.js'
 
 export type Db = DrizzleD1Database<Record<string, never>>
 
@@ -82,16 +82,21 @@ export async function loadAccount(db: Db, userId: string): Promise<Account | nul
   const user = rows[0]
   if (!user) return null
 
-  const [quota, docRows] = await Promise.all([
+  const [quota, docRows, sourceRows] = await Promise.all([
     loadQuota(db, userId, user.plan),
     db
-      .select({ version: profileDocs.version, tokens: profileDocs.estimatedTokens })
+      .select({ version: profileDocs.version })
       .from(profileDocs)
       .where(eq(profileDocs.userId, userId))
       .limit(1),
+    db
+      .select({ count: sql<number>`count(*)` })
+      .from(profileSources)
+      .where(and(eq(profileSources.userId, userId), eq(profileSources.status, 'ready'))),
   ])
 
   const doc = docRows[0]
+  const readySources = sourceRows[0]?.count ?? 0
 
   return {
     id: user.id,
@@ -99,8 +104,9 @@ export async function loadAccount(db: Db, userId: string): Promise<Account | nul
     ...(user.name ? { name: user.name } : {}),
     ...(user.avatarUrl ? { avatarUrl: user.avatarUrl } : {}),
     quota,
-    // A compiled doc with no content is not a usable profile — gate the fill button on real text.
-    profileReady: (doc?.tokens ?? 0) > 0,
+    // Matches `runFill`'s gate: a source exists, whether or not it yielded identity text.
+    // Gating on token count told users with only images or audio to add a source forever.
+    profileReady: readySources > 0,
     profileVersion: doc?.version ?? 0,
   }
 }

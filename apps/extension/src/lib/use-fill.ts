@@ -56,7 +56,20 @@ export function useFill() {
       const event = message.event
 
       if (event.type === 'progress') {
-        setState((prev) => ({ ...prev, status: 'running', stage: event.stage }))
+        /**
+         * A progress event must never tear down a finished review.
+         *
+         * Pressing Fill again while the review is open used to flip `status` back to
+         * `running`, which unmounts `ReviewPanel` — and its edits live in component state,
+         * so every correction the user had made silently reverted to the model's original
+         * answers when the next `complete` mounted a fresh one.
+         *
+         * A new fill that reaches `complete` will replace the review wholesale, which is
+         * correct; it is only the intermediate churn that has to be ignored.
+         */
+        setState((prev) =>
+          prev.status === 'done' ? prev : { ...prev, status: 'running', stage: event.stage },
+        )
       } else if (event.type === 'complete') {
         setState({ status: 'done', plan: event.plan, report: event.report })
         void queryClient.invalidateQueries({ queryKey: getGetAccountQueryKey() })
@@ -68,6 +81,40 @@ export function useFill() {
     chrome.runtime.onMessage.addListener(onRuntimeMessage)
     return () => chrome.runtime.onMessage.removeListener(onRuntimeMessage)
   }, [queryClient])
+
+  /**
+   * Pick up a fill that finished before the panel opened.
+   *
+   * The listener above only hears live broadcasts, and the common case is the opposite: the
+   * user fills from the page dock with the panel closed, then presses Review. The panel then
+   * mounted with no result and showed the sources list — a button that promised a
+   * destination and delivered the starting point.
+   *
+   * Scoped to the active tab so opening the panel on a different page cannot resurrect
+   * someone else's answers into a review of this one.
+   */
+  useEffect(() => {
+    let cancelled = false
+
+    void (async () => {
+      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true })
+      const stored = await chrome.storage.session.get('aff:lastFill')
+      const last = stored['aff:lastFill'] as
+        | { tabId: number; plan: FillPlan; report: ApplyReport }
+        | undefined
+
+      if (cancelled || !last || tab?.id !== last.tabId) return
+
+      // Never clobber a fill already in flight or already shown.
+      setState((prev) =>
+        prev.status === 'idle' ? { status: 'done', plan: last.plan, report: last.report } : prev,
+      )
+    })()
+
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   const start = useCallback(
     async (options: { quality: 'auto' | 'high'; overwriteExisting: boolean }) => {
@@ -130,6 +177,9 @@ export function useFill() {
   const reset = useCallback(() => {
     portRef.current?.disconnect()
     setState({ status: 'idle' })
+    // Drop the parked result too. Without this, finishing a review and reopening the panel
+    // brings the same review straight back, which reads as the panel being stuck.
+    void chrome.storage.session.remove('aff:lastFill').catch(() => undefined)
   }, [])
 
   return { state, start, reset }

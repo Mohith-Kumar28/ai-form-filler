@@ -30,6 +30,11 @@ function definedOnly<T extends object>(input: T): Partial<T> {
  * Deliberately tolerant of malformed JSON: a parse failure here would otherwise brick a
  * user's entire profile page with a 500. An empty profile is recoverable; a hard error is not.
  */
+/** The stored structured profile. Exported so the learning loop can read before it writes. */
+export async function getStructured(db: Db, userId: string): Promise<StructuredProfile> {
+  return loadStructured(db, userId)
+}
+
 async function loadStructured(db: Db, userId: string): Promise<StructuredProfile> {
   const rows = await db
     .select({ structured: profileDocs.structuredJson, version: profileDocs.version })

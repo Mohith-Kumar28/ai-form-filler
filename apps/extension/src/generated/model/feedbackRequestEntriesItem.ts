@@ -6,8 +6,16 @@
  */
 
 export type FeedbackRequestEntriesItem = {
+  /** @maxLength 400 */
   label: string;
+  /** @maxLength 200 */
+  section?: string;
+  /** @maxLength 400 */
+  hint?: string;
+  /** @maxLength 4000 */
   proposed?: string;
+  /** @maxLength 4000 */
   accepted: string;
   edited: boolean;
+  confirmed?: boolean;
 };

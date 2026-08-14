@@ -1,6 +1,7 @@
+import type { ApplyReport } from '@aff/shared'
 import { REVIEW_CONFIDENCE_THRESHOLD } from '@aff/shared/constants'
 import { useMutation } from '@tanstack/react-query'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { improveAnswer } from '../../generated/endpoints/fill/fill.js'
 import type { FillPlan } from '../../generated/model/index.js'
 import { sendMessage } from '../../lib/messaging.js'
@@ -22,7 +23,7 @@ const STYLES = [
   { key: 'detailed', label: 'More detail' },
 ] as const
 
-type Verdict = 'pending' | 'kept' | 'edited' | 'cleared'
+type Verdict = 'pending' | 'kept' | 'edited' | 'cleared' | 'confirmed'
 
 interface Row {
   fieldId: string
@@ -42,9 +43,29 @@ function scoreTone(confidence: number, inferred: boolean): { text: string; ring:
   return { text: 'text-verified', ring: 'border-rule' }
 }
 
-export function ReviewPanel({ plan, onBack }: { plan: FillPlan; onBack: () => void }) {
+export function ReviewPanel({
+  plan,
+  report,
+  onBack,
+}: {
+  plan: FillPlan
+  /** Which fields the page actually accepted. Absent only if the panel opened mid-fill. */
+  report?: ApplyReport
+  onBack: () => void
+}) {
+  /**
+   * Answered and written are different numbers, and the gap is the interesting one.
+   *
+   * The model answering a question does not mean the page took the value — a dropdown whose
+   * popup never opened is answered and empty. Showing only "10 answered" while the page held
+   * six of them made the product look like it was lying, when it was actually failing to
+   * report a real failure.
+   */
+  const failed = new Set(report?.failed ?? [])
   const [verdicts, setVerdicts] = useState<Record<string, Verdict>>({})
   const [values, setValues] = useState<Record<string, string>>({})
+  /** Per-card message when the page refused a write, so the failure is visible on the card. */
+  const [writeErrors, setWriteErrors] = useState<Record<string, string>>({})
 
   const rows: Row[] = plan.fills.map((f) => ({
     fieldId: f.fieldId,
@@ -68,23 +89,67 @@ export function ReviewPanel({ plan, onBack }: { plan: FillPlan; onBack: () => vo
   ).length
 
   async function resolve(row: Row, next: string, verdict: Verdict) {
+    const previousValue = values[row.fieldId]
+    const previousVerdict = verdicts[row.fieldId]
+
     setVerdicts((v) => ({ ...v, [row.fieldId]: verdict }))
     setValues((v) => ({ ...v, [row.fieldId]: next }))
 
-    await sendMessage({ type: 'review/write', fieldId: row.fieldId, value: next })
+    /**
+     * The write is verified, and rolled back when the page refuses it.
+     *
+     * `sendMessage` resolves `{ok:false}` rather than throwing, and the content script
+     * answers `false` outright when the field is gone — both were discarded. The card then
+     * said "Remembered" and showed the new answer while the form still held the old one,
+     * which is the worst of both: the user believes a correction landed that never did.
+     */
+    /**
+     * A confirmation writes nothing back — the page already holds this value. It only
+     * records that the user checked it and agreed.
+     */
+    const result =
+      verdict === 'confirmed'
+        ? ({ ok: true } as const)
+        : await sendMessage({ type: 'review/write', fieldId: row.fieldId, value: next })
+
+    if (!result.ok) {
+      setVerdicts((v) => ({ ...v, [row.fieldId]: previousVerdict ?? 'pending' }))
+      setValues((v) => {
+        const restored = { ...v }
+        if (previousValue === undefined) delete restored[row.fieldId]
+        else restored[row.fieldId] = previousValue
+        return restored
+      })
+      setWriteErrors((e) => ({ ...e, [row.fieldId]: 'Could not write this to the page.' }))
+      return
+    }
+
+    setWriteErrors((e) => {
+      const cleared = { ...e }
+      delete cleared[row.fieldId]
+      return cleared
+    })
 
     /**
      * Only a rewrite teaches. Clearing says the answer was wrong without saying what is
      * right, and putting "this was wrong" into the same index the next answer is retrieved
      * from would make later answers worse rather than better.
      */
-    if (verdict === 'edited') {
+    if (verdict === 'edited' || verdict === 'confirmed') {
       const [tab] = await chrome.tabs.query({ active: true, currentWindow: true })
       await sendMessage({
         type: 'feedback/submit',
         payload: {
           origin: tab?.url ? new URL(tab.url).origin : '',
-          entries: [{ label: row.label, proposed: row.value, accepted: next, edited: true }],
+          entries: [
+            {
+              label: row.label,
+              proposed: row.value,
+              accepted: next,
+              edited: verdict === 'edited',
+              ...(verdict === 'confirmed' ? { confirmed: true } : {}),
+            },
+          ],
         },
       })
     }
@@ -112,7 +177,8 @@ export function ReviewPanel({ plan, onBack }: { plan: FillPlan; onBack: () => vo
           </button>
         </div>
         <p className="measure mt-0.5 text-[10.5px] text-faint">
-          {rows.length} answered
+          {rows.length - failed.size} written
+          {failed.size > 0 && <span className="text-annot"> · {failed.size} not accepted</span>}
           {plan.skipped.length > 0 && ` · ${plan.skipped.length} blank`}
           {` · ${(plan.usage.latencyMs / 1000).toFixed(1)}s`}
           {plan.usage.costMicroUsd > 0 && ` · ${(plan.usage.costMicroUsd / 10_000).toFixed(2)}¢`}
@@ -127,6 +193,8 @@ export function ReviewPanel({ plan, onBack }: { plan: FillPlan; onBack: () => vo
               row={row}
               verdict={verdicts[row.fieldId] ?? 'pending'}
               value={values[row.fieldId] ?? row.value}
+              failed={failed.has(row.fieldId)}
+              writeError={writeErrors[row.fieldId]}
               onResolve={resolve}
             />
           ))}
@@ -162,15 +230,33 @@ function AnswerCard({
   row,
   verdict,
   value,
+  failed,
+  writeError,
   onResolve,
 }: {
   row: Row
   verdict: Verdict
   value: string
+  /** The page refused this value — answered, but not actually on the form. */
+  failed: boolean
+  /** Set when a correction the user just made could not be written back. */
+  writeError?: string
   onResolve: (row: Row, next: string, verdict: Verdict) => void
 }) {
   const [draft, setDraft] = useState(value)
   const [showStyles, setShowStyles] = useState(false)
+
+  /**
+   * Re-sync when the answer changes underneath us.
+   *
+   * `useState(value)` seeds once and then ignores the prop, so picking an option chip left
+   * `draft` holding the *previous* answer — which made `dirty` true and put a "Save &
+   * remember / Revert" pair under a card the user had merely clicked a choice on. The
+   * comparison is against `value` so a genuine in-progress text edit is never discarded.
+   */
+  useEffect(() => {
+    setDraft(value)
+  }, [value])
 
   const dirty = draft.trim() !== value.trim()
   const tone = scoreTone(row.confidence, row.inferred)
@@ -193,25 +279,27 @@ function AnswerCard({
     },
   })
 
-  if (verdict === 'cleared') {
-    return (
-      <li className="flex items-baseline justify-between gap-2 rounded-sharp border border-rule bg-page px-3 py-2">
-        <p className="min-w-0 flex-1 truncate text-[11.5px] text-faint line-through">{row.label}</p>
-        <button
-          type="button"
-          onClick={() => onResolve(row, row.value, 'kept')}
-          className="shrink-0 text-[11px] text-faint transition-colors hover:text-ink"
-        >
-          Undo
-        </button>
-      </li>
-    )
-  }
-
   return (
-    <li className={`rounded-sharp border bg-page ${tone.ring}`}>
+    <li className={`rounded-sharp border bg-page ${failed ? 'border-annot' : tone.ring}`}>
       <div className="flex items-start gap-2 px-3 pb-1.5 pt-2.5">
         <p className="min-w-0 flex-1 text-[12px] font-medium leading-snug text-ink">{row.label}</p>
+        {verdict === 'cleared' && (
+          <button
+            type="button"
+            onClick={() => onResolve(row, row.value, 'kept')}
+            className="shrink-0 text-[10.5px] text-faint transition-colors hover:text-ink"
+          >
+            Undo
+          </button>
+        )}
+        {failed && (
+          <span
+            className="shrink-0 rounded-full border border-annot px-1.5 text-[10px] text-annot"
+            title="Answered, but the page did not accept it — pick an option here to write it"
+          >
+            not on the form
+          </span>
+        )}
         <span
           className={`measure shrink-0 text-[10.5px] font-medium tabular-nums ${tone.text}`}
           title={row.inferred ? 'Concluded, not stated by you' : 'Confidence'}
@@ -252,8 +340,28 @@ function AnswerCard({
         </div>
       )}
 
+      {/*
+        Rejecting an answer leaves the card open, not collapsed.
+        
+        "That's wrong" is usually the first half of a thought — the second half is typing the
+        right answer. Collapsing the card to a struck-through line took the editor away at
+        exactly the moment it was wanted, so the user had to go back to the page to do what
+        the panel had just invited them to do.
+      */}
+      {verdict === 'cleared' && (
+        <p className="px-3 pb-2 text-[11px] text-annot">
+          Removed from the form. Type the right answer below and it will be remembered.
+        </p>
+      )}
+
       {row.inferred && !dirty && row.reasoning && (
         <p className="px-3 pb-2 text-[11px] italic leading-snug text-muted">{row.reasoning}</p>
+      )}
+
+      {writeError && (
+        <p className="px-3 pb-2 text-[11px] text-annot" role="alert">
+          {writeError}
+        </p>
       )}
 
       {improve.isError && (
@@ -298,6 +406,35 @@ function AnswerCard({
           </>
         ) : (
           <>
+            {/*
+              A verdict on every answer, not only the doubtful ones.
+              
+              Confidence is the model's opinion of itself, and a fluent paragraph it was sure
+              about can still be wrong — which is exactly the answer a user most wants to
+              reject. Restricting the pair to low-confidence cards meant the ones that read
+              most convincingly were the hardest to argue with.
+              
+              Both do real work: one records the answer as a fact worth reusing, the other
+              takes it off the form so it cannot be submitted by accident.
+            */}
+            {verdict === 'pending' && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => onResolve(row, value, 'confirmed')}
+                  className="rounded-sharp border border-verified px-2 py-0.5 text-[11.5px] font-medium text-verified transition-colors hover:bg-verified/10"
+                >
+                  That&rsquo;s right
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onResolve(row, '', 'cleared')}
+                  className="rounded-sharp border border-annot px-2 py-0.5 text-[11.5px] font-medium text-annot transition-colors hover:bg-annot/10"
+                >
+                  That&rsquo;s wrong
+                </button>
+              </>
+            )}
             {!isChoice && (
               <button
                 type="button"
@@ -308,16 +445,9 @@ function AnswerCard({
                 {improve.isPending ? 'Rewriting…' : 'Improve'}
               </button>
             )}
-            {verdict === 'edited' && (
+            {(verdict === 'edited' || verdict === 'confirmed') && (
               <span className="measure text-[11px] text-verified">Remembered</span>
             )}
-            <button
-              type="button"
-              onClick={() => onResolve(row, '', 'cleared')}
-              className="ml-auto text-[11.5px] text-faint transition-colors hover:text-annot"
-            >
-              Clear
-            </button>
           </>
         )}
       </div>

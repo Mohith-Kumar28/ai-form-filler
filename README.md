@@ -68,10 +68,18 @@ a **specific extension ID** — so the extension has to exist before the client 
 
 1. Build and load the extension once to get its ID:
    ```sh
-   pnpm --filter @aff/extension build
+   pnpm dev            # leave running: rebuilds and live-reloads on every save
+   pnpm ext:path       # prints the exact folder to load
    ```
    Open `chrome://extensions`, enable Developer mode, **Load unpacked** →
-   `apps/extension/.output/chrome-mv3`. Copy the extension ID.
+   `apps/extension/.output/chrome-mv3-dev`. Copy the extension ID.
+
+   > **Load `chrome-mv3-dev`, not `chrome-mv3`.** They are two separate builds:
+   > `pnpm dev` writes the first and keeps it reloading; `pnpm build` writes the second,
+   > and only when you run it. Pointing Chrome at the wrong one looks exactly like a fix
+   > not working — the extension just stays on whatever was last written to the folder it
+   > is watching, and nothing anywhere reports an error. Each detection logs
+   > `[aff <version>]` to the console, so you can always confirm which build a tab is on.
 
 2. In Google Cloud Console → APIs & Services → Credentials → **Create credentials** →
    **OAuth client ID** → application type **Chrome Extension**. Paste the extension ID.

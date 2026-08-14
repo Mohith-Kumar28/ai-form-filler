@@ -19,7 +19,13 @@ export type WorkStage = 'detecting' | 'routing' | 'generating' | 'applying'
 export type DockState =
   | { kind: 'idle'; fieldCount: number }
   | { kind: 'working'; stage: WorkStage; done: number; total: number }
-  | { kind: 'done'; applied: number; total: number; inferred: number }
+  /**
+   * `answered` and `applied` are different, and the difference is a real failure.
+   *
+   * A dropdown the page refused is answered and empty. Reporting only "6 of 11 filled" hid
+   * that, and it read as the tool having no answer when it had one the page would not take.
+   */
+  | { kind: 'done'; applied: number; answered: number; total: number; inferred: number }
   /**
    * `needsAuth` splits the two error shapes apart, because the recovery differs. A failed
    * fill can be retried; an ended session cannot — retrying just fails again — so it gets
@@ -160,22 +166,29 @@ export function mountDock(options: DockOptions): DockHandle {
     }
 
     if (state.kind === 'done') {
-      const blank = state.total - state.applied
+      const rejected = Math.max(0, state.answered - state.applied)
+      const blank = state.total - state.answered
       layer.innerHTML = `
         <div class="dock-panel">
           <div class="dock-row">
             <span class="dock-icon dock-ok">${ICON_CHECK}</span>
             <span class="dock-title"><b class="dock-num">${state.applied}</b> of <span class="dock-num">${state.total}</span> filled</span>
           </div>
-          <p class="dock-detail${state.inferred > 0 ? ' dock-annot' : ''}">${
-            state.inferred > 0
-              ? `${state.inferred} judgement call${state.inferred === 1 ? '' : 's'} to check`
-              : blank > 0
-                ? `${blank} left blank`
-                : 'Everything answered'
+          <p class="dock-detail${rejected > 0 || state.inferred > 0 ? ' dock-annot' : ''}">${
+            rejected > 0
+              ? `${rejected} answered but not accepted by the page`
+              : state.inferred > 0
+                ? `${state.inferred} judgement call${state.inferred === 1 ? '' : 's'} to check`
+                : blank > 0
+                  ? `${blank} left blank`
+                  : 'Everything answered'
           }</p>
           <div class="dock-actions">
-            ${state.inferred > 0 ? '<button class="dock-btn" type="button" data-action="review">Review</button>' : ''}
+            ${
+              state.inferred > 0 || rejected > 0
+                ? '<button class="dock-btn" type="button" data-action="review">Review</button>'
+                : ''
+            }
             <button class="dock-btn dock-btn-quiet" type="button" data-action="dismiss">Done</button>
           </div>
         </div>`

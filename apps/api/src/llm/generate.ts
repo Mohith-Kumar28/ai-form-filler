@@ -129,10 +129,56 @@ export async function generateFills(input: GenerateInput): Promise<GenerateResul
        * Duplicates on a real id are collapsed to the first, which is the one the model
        * committed to before it started elaborating.
        */
+      const byId = new Map(input.fields.map((field) => [field.id, field]))
+
+      /**
+       * Whether an answer is actually one of the choices offered.
+       *
+       * `optionsFor` was built and then used only for display. A model answering a select or
+       * radio with something not on the list had that value passed straight to the content
+       * script, which matched nothing and left the field blank — reported as an answer.
+       * Skipping instead tells the user the truth and leaves the field visibly empty.
+       */
+      const answersTheOptions = (fieldId: string, value: string): boolean => {
+        const field = byId.get(fieldId)
+        const options = field?.options ?? []
+        if (options.length === 0) return true
+
+        const keys = new Set(
+          options.flatMap((o) => [o.value.toLowerCase().trim(), o.label.toLowerCase().trim()]),
+        )
+
+        // Multiselect answers arrive comma-separated; every part has to be a real option.
+        const parts =
+          field?.kind === 'multiselect'
+            ? value.split(',').map((v) => v.trim().toLowerCase())
+            : [value.trim().toLowerCase()]
+
+        return parts.every((part) => keys.has(part))
+      }
+
+      const rejected: { fieldId: string; reason: string }[] = []
       const seen = new Set<string>()
       captured.fills = args.fills
         .filter((f) => {
           if (!labels.has(f.fieldId) || seen.has(f.fieldId)) return false
+
+          if (!answersTheOptions(f.fieldId, f.value)) {
+            rejected.push({
+              fieldId: f.fieldId,
+              reason: 'The answer was not one of the offered choices',
+            })
+            seen.add(f.fieldId)
+            return false
+          }
+
+          const max = byId.get(f.fieldId)?.maxLength
+          if (max && f.value.length > max) {
+            // Programmatic writes bypass `maxlength`, so an over-long answer is accepted by
+            // the DOM and rejected at submit. Truncating is kinder than a silent failure.
+            f.value = f.value.slice(0, max)
+          }
+
           seen.add(f.fieldId)
           return true
         })
@@ -146,13 +192,20 @@ export async function generateFills(input: GenerateInput): Promise<GenerateResul
           options: optionsFor.get(f.fieldId) ?? [],
           ...(f.reasoning ? { reasoning: f.reasoning } : {}),
         }))
-      captured.skipped = args.skipped
-        .filter((s) => labels.has(s.fieldId) && !seen.has(s.fieldId))
-        .map((s) => ({
-          fieldId: s.fieldId,
-          reason: 'no_matching_knowledge' as const,
-          detail: s.reason,
-        }))
+      captured.skipped = [
+        ...args.skipped
+          .filter((s) => labels.has(s.fieldId) && !seen.has(s.fieldId))
+          .map((s) => ({
+            fieldId: s.fieldId,
+            reason: 'no_matching_knowledge' as const,
+            detail: s.reason,
+          })),
+        ...rejected.map((r) => ({
+          fieldId: r.fieldId,
+          reason: 'model_error' as const,
+          detail: r.reason,
+        })),
+      ]
       return 'recorded'
     },
   })
@@ -201,6 +254,28 @@ export async function generateFills(input: GenerateInput): Promise<GenerateResul
     outputTokens: result.usage.outputTokens ?? 0,
     cacheReadTokens: cache.read,
     cacheWriteTokens: cache.write,
+  }
+
+  /**
+   * Every field is accounted for, even when the model says nothing about it.
+   *
+   * `captured` is populated only inside the tool's `execute`. A provider that returns no
+   * tool call at all — Gemini's `MALFORMED_FUNCTION_CALL` is the realistic case — resolves
+   * normally, and the whole batch then appeared in neither `fills` nor `skipped`: no answer,
+   * no skip, no error, and the quota spent regardless.
+   */
+  const accounted = new Set([
+    ...captured.fills.map((f) => f.fieldId),
+    ...captured.skipped.map((s) => s.fieldId),
+  ])
+
+  for (const field of input.fields) {
+    if (accounted.has(field.id)) continue
+    captured.skipped.push({
+      fieldId: field.id,
+      reason: 'model_error',
+      detail: 'No answer came back for this field',
+    })
   }
 
   return {

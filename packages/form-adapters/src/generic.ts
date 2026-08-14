@@ -45,7 +45,7 @@ const TYPE_TO_KIND: Record<string, FieldKind> = {
 
 let idCounter = 0
 /** Ids only need to be unique within one detection pass — the map is rebuilt each time. */
-function nextId(prefix: string): string {
+export function nextId(prefix: string): string {
   idCounter += 1
   return `${prefix}${idCounter}`
 }
@@ -86,7 +86,21 @@ function isVisible(el: HTMLElement, hasLayout: boolean): boolean {
 
 function isFillable(el: HTMLElement, hasLayout: boolean): boolean {
   if (!isVisible(el, hasLayout)) return false
-  if (el.matches('[readonly], [disabled], [aria-hidden="true"]')) return false
+
+  /**
+   * Disabled is a **property**, not just an attribute.
+   *
+   * A control inside `<fieldset disabled>` has `el.disabled === true` and no attribute of
+   * its own, so an attribute-only test detected it, wrote to it, and reported success — and
+   * the browser then dropped the value at submit. The user saw text sitting in a greyed-out
+   * box and a form that failed validation with no explanation.
+   */
+  const control = el as HTMLInputElement
+  if (control.disabled === true) return false
+  if (el.closest('fieldset[disabled], [inert]')) return false
+  if (el.matches('[readonly], [disabled], [aria-hidden="true"], [aria-disabled="true"]')) {
+    return false
+  }
 
   const name = `${el.getAttribute('name') ?? ''} ${el.getAttribute('id') ?? ''} ${el.getAttribute('autocomplete') ?? ''}`
   if (SENSITIVE_NAME.test(name)) return false
@@ -106,9 +120,25 @@ function optionsOf(select: HTMLSelectElement): FieldOption[] {
 }
 
 /** Strings a model plausibly returns for a yes/no checkbox. */
-const AFFIRMATIVE = /^(yes|true|on|1|checked|agree(d)?|i agree|accept(ed)?)$/i
+const AFFIRMATIVE = /^(yes|true|on|1|checked|agree(d)?|i agree|accept(ed)?|confirm(ed)?)$/i
+const NEGATIVE = /^(no|false|off|0|unchecked|decline(d)?|n\/?a|none|not applicable)$/i
 
-function baseSchema(el: HTMLElement, kind: FieldKind, id: string): FieldSchema {
+/**
+ * What a yes/no answer means, or `null` when it means nothing we recognise.
+ *
+ * A lone checkbox used to be written as `AFFIRMATIVE.test(value)`, so "N/A", "United
+ * States", or any hallucinated answer became a silent "leave unchecked" **reported as a
+ * success**. That makes a wrong answer indistinguishable from a deliberate one, both in the
+ * UI and in the fill log. Returning `null` lets the caller report the failure honestly.
+ */
+function readIntent(value: string): boolean | null {
+  const trimmed = value.trim()
+  if (AFFIRMATIVE.test(trimmed)) return true
+  if (NEGATIVE.test(trimmed)) return false
+  return null
+}
+
+export function baseSchema(el: HTMLElement, kind: FieldKind, id: string): FieldSchema {
   const label = resolveLabel(el)
   const hint = resolveHint(el)
   const section = resolveSection(el)
@@ -129,15 +159,38 @@ function baseSchema(el: HTMLElement, kind: FieldKind, id: string): FieldSchema {
   }
 }
 
-/** Radios and checkboxes sharing a `name` are one logical question, not N fields. */
+/**
+ * Radios and checkboxes sharing a `name` are one logical question, not N fields.
+ *
+ * The key includes the owning form, because `name` scoping in HTML is **per-form**: two
+ * forms on one page each with `name="choice"` were merged into a single field carrying all
+ * four options and two duplicate labels, the second question vanished entirely, and applying
+ * an answer checked a radio in *both* forms.
+ */
 function groupControls(root: ParentNode, hasLayout: boolean): Map<string, HTMLInputElement[]> {
   const groups = new Map<string, HTMLInputElement[]>()
+  const formKeys = new WeakMap<HTMLFormElement, string>()
+  let formCounter = 0
+
   for (const el of root.querySelectorAll<HTMLInputElement>(
     'input[type="radio"], input[type="checkbox"]',
   )) {
     if (!isFillable(el, hasLayout)) continue
+
+    const form = el.form
+    let scope = 'no-form'
+    if (form) {
+      const existingKey = formKeys.get(form)
+      if (existingKey) scope = existingKey
+      else {
+        formCounter += 1
+        scope = `form${formCounter}`
+        formKeys.set(form, scope)
+      }
+    }
+
     // Ungrouped controls get a synthetic key so a lone checkbox is still its own field.
-    const key = el.name || `__ungrouped__${el.id || nextId('c')}`
+    const key = el.name ? `${scope}::${el.name}` : `__ungrouped__${el.id || nextId('c')}`
     const existing = groups.get(key)
     if (existing) existing.push(el)
     else groups.set(key, [el])
@@ -212,9 +265,17 @@ export class GenericAdapter implements FormAdapter {
       for (const control of controls) claimed.add(control)
 
       const isRadio = first.type === 'radio'
+      /**
+       * `"on"` is the browser's default for a checkbox with no `value`, not a real one.
+       * Keeping it made every option in a group share the value `"on"`, so a model answering
+       * with the value matched all of them and ticked every box.
+       */
+      const optionValue = (c: HTMLInputElement) =>
+        c.value && c.value !== 'on' ? c.value : resolveLabel(c)
+
       const options: FieldOption[] = controls.map((c) => ({
-        value: c.value || resolveLabel(c),
-        label: resolveLabel(c) || c.value,
+        value: optionValue(c),
+        label: resolveLabel(c) || optionValue(c),
       }))
 
       // A lone checkbox is a yes/no question; several sharing a name is multi-select.
@@ -228,7 +289,7 @@ export class GenericAdapter implements FormAdapter {
 
       const checked = controls.filter((c) => c.checked)
       if (checked.length > 0) {
-        schema.currentValue = checked.map((c) => c.value || resolveLabel(c)).join(', ')
+        schema.currentValue = checked.map(optionValue).join(', ')
       }
 
       fields.push({ schema, element: first, groupElements: controls })
@@ -241,6 +302,9 @@ export class GenericAdapter implements FormAdapter {
       if (el instanceof HTMLInputElement) {
         const type = (el.getAttribute('type') ?? 'text').toLowerCase()
         if (SKIPPED_INPUT_TYPES.has(type)) continue
+        // Setting a non-empty value on a file input throws `InvalidStateError` in Chrome,
+        // and nothing we produce can fill one anyway.
+        if (type === 'file') continue
         const kind = TYPE_TO_KIND[type] ?? 'text'
         const schema = baseSchema(el, kind, nextId('f'))
         if (el.value) schema.currentValue = el.value
@@ -266,10 +330,21 @@ export class GenericAdapter implements FormAdapter {
       }
     }
 
-    for (const el of container.querySelectorAll<HTMLElement>(
-      '[contenteditable="true"], [contenteditable=""]',
-    )) {
+    const editables = [
+      ...container.querySelectorAll<HTMLElement>('[contenteditable="true"], [contenteditable=""]'),
+    ]
+
+    for (const el of editables) {
       if (!isFillable(el, hasLayout)) continue
+
+      /**
+       * Only the outermost editable region is a field.
+       *
+       * Rich-text editors nest editable nodes. Detecting an inner one as its own field means
+       * writing the outer one first destroys it — `textContent` replaces every child — and
+       * the inner write then lands on a node that is no longer in the document.
+       */
+      if (editables.some((other) => other !== el && other.contains(el))) continue
       const schema = baseSchema(el, 'longtext', nextId('f'))
       const text = el.textContent?.trim()
       if (text) schema.currentValue = text
@@ -293,20 +368,37 @@ export class GenericAdapter implements FormAdapter {
       // usually the useless HTML default "on", so match on intent instead.
       if (schema.kind === 'checkbox') {
         const only = groupElements[0] as HTMLInputElement
-        return writeCheckedValue(only, AFFIRMATIVE.test(value.trim()))
+        const intent = readIntent(value)
+        // An answer that is neither yes nor no is not a deliberate "leave it unchecked" —
+        // it is an answer we failed to understand, and reporting success for it hid that.
+        if (intent === null) return false
+        return writeCheckedValue(only, intent)
       }
 
-      // Comma-separated for multiselect; a single token for radio.
-      const wanted = value
-        .split(',')
-        .map((v) => v.trim().toLowerCase())
-        .filter(Boolean)
+      /**
+       * The whole answer is tried before splitting on commas.
+       *
+       * Option labels contain commas — "Social media (X, Facebook, etc.)" is ordinary — and
+       * splitting first turned them into fragments that matched nothing. A fragment can also
+       * match a *different* option ("Yes" out of "Yes, I agree"), ticking the wrong box.
+       */
+      const controls = groupElements as HTMLInputElement[]
+      const keysOf = (c: HTMLInputElement) =>
+        [c.value, resolveLabel(c)].filter(Boolean).map((k) => k.toLowerCase())
+
+      const whole = value.trim().toLowerCase()
+      const matchesWhole = controls.some((c) => keysOf(c).includes(whole))
+
+      const wanted = matchesWhole
+        ? [whole]
+        : value
+            .split(',')
+            .map((v) => v.trim().toLowerCase())
+            .filter(Boolean)
 
       let applied = false
-      for (const control of groupElements as HTMLInputElement[]) {
-        const label = resolveLabel(control).toLowerCase()
-        const optionValue = control.value.toLowerCase()
-        const shouldCheck = wanted.some((w) => w === optionValue || w === label)
+      for (const control of controls) {
+        const shouldCheck = keysOf(control).some((k) => wanted.includes(k))
 
         if (schema.kind === 'radio') {
           if (shouldCheck && writeCheckedValue(control, true)) applied = true
@@ -320,7 +412,9 @@ export class GenericAdapter implements FormAdapter {
     if (element instanceof HTMLSelectElement) return writeSelectValue(element, value)
     if (element instanceof HTMLInputElement) {
       if (element.type === 'checkbox') {
-        return writeCheckedValue(element, AFFIRMATIVE.test(value.trim()))
+        const intent = readIntent(value)
+        if (intent === null) return false
+        return writeCheckedValue(element, intent)
       }
       return writeTextValue(element, value)
     }

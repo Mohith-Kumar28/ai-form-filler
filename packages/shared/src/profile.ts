@@ -43,11 +43,19 @@ export type ProfileSource = z.infer<typeof ProfileSource>
 export const Identity = z.object({
   fullName: z.string().optional(),
   preferredName: z.string().optional(),
-  email: z.string().email().optional(),
+  /**
+   * `''` is legal and means "cleared".
+   *
+   * The PATCH route documents an empty string as the way to clear a field, but a bare
+   * `.email()` rejects it — so email was the one field a user could set and never unset,
+   * and every later save of the whole identity failed validation with no way out from the UI.
+   */
+  email: z.union([z.literal(''), z.string().email()]).optional(),
   phone: z.string().optional(),
   location: z.string().optional(),
   /** Keyed by platform: `linkedin`, `github`, `website`, `twitter`, ... */
-  links: z.record(z.string(), z.string().url()).default({}),
+  /** Same as email: `''` clears a link rather than failing the whole profile save. */
+  links: z.record(z.string(), z.union([z.literal(''), z.string().url()])).default({}),
   workAuthorization: z.string().optional(),
   pronouns: z.string().optional(),
 })

@@ -8,5 +8,6 @@ import type { FeedbackRequestEntriesItem } from './feedbackRequestEntriesItem';
 
 export interface FeedbackRequest {
   origin: string;
+  /** @maxItems 25 */
   entries: FeedbackRequestEntriesItem[];
 }

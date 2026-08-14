@@ -4,6 +4,9 @@ import { signIn, signOut } from '../lib/auth.js'
 import { registerFillPort, runFillFlow } from '../lib/fill-port.js'
 import { toResult } from '../lib/messaging.js'
 
+/** Where the most recent finished fill is parked for the side panel to pick up. */
+export const LAST_FILL_KEY = 'aff:lastFill'
+
 export default defineBackground(() => {
   registerFillPort()
 
@@ -53,6 +56,21 @@ export default defineBackground(() => {
             void chrome.tabs
               .sendMessage(tabId, { type: 'fill/event', event })
               .catch(() => undefined)
+
+            /**
+             * Keep the finished plan so Review has something to open.
+             *
+             * A fill started from the page dock usually runs with the panel **closed**, so
+             * the broadcast above reaches nobody — and pressing Review then opened a panel
+             * with no result in it, landing the user back on the sources list. Session
+             * storage rather than local: this holds the user's actual answers, and they
+             * should not outlive the browser session that produced them.
+             */
+            if (event.type === 'complete') {
+              void chrome.storage.session
+                .set({ [LAST_FILL_KEY]: { tabId, plan: event.plan, report: event.report } })
+                .catch(() => undefined)
+            }
           })
           return null
         }).then(sendResponse)

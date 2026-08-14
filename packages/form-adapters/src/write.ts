@@ -58,7 +58,14 @@ export function writeTextValue(el: ValueElement, value: string): boolean {
   }
   notifyChange(el)
   simulateVisit(el)
-  return el.value === value
+
+  /**
+   * Success means the value is still there *and* the node is still in the document.
+   *
+   * A write into a node the page has already discarded reads back correctly and means
+   * nothing — `el.value === value` is true on a detached input.
+   */
+  return el.isConnected && el.value === value
 }
 
 /**
@@ -68,7 +75,55 @@ export function writeTextValue(el: ValueElement, value: string): boolean {
  * but on real forms `value` is often an opaque id (`"opt_3"`) while the label is the only
  * meaningful string — so a model that answers with the visible text still succeeds.
  */
+/** Finds the option a written answer refers to, by value then by visible text. */
+function matchSelectOption(
+  options: HTMLOptionElement[],
+  value: string,
+): HTMLOptionElement | undefined {
+  const wanted = value.trim().toLowerCase()
+  return (
+    options.find((o) => o.value === value) ??
+    options.find((o) => o.text.trim() === value.trim()) ??
+    options.find((o) => o.value.trim().toLowerCase() === wanted) ??
+    options.find((o) => o.text.trim().toLowerCase() === wanted) ??
+    options.find((o) => o.text.trim().toLowerCase().includes(wanted) && wanted.length > 2)
+  )
+}
+
+/**
+ * A `<select multiple>` can hold several options, and `el.value` can only ever express one.
+ *
+ * Multi-selects were detected as `multiselect` and then written through the scalar path, so
+ * at most one option was ever selected — and under a comma-separated answer the whole string
+ * matched nothing, so usually none were. Success requires every requested option to land.
+ */
+function writeMultiSelectValue(el: HTMLSelectElement, value: string): boolean {
+  const options = [...el.options]
+
+  // Whole value first: an option's own text may contain a comma.
+  const whole = matchSelectOption(options, value)
+  const tokens = whole
+    ? [value]
+    : value
+        .split(',')
+        .map((v) => v.trim())
+        .filter(Boolean)
+
+  const matched = tokens
+    .map((token) => matchSelectOption(options, token))
+    .filter((option): option is HTMLOptionElement => option !== undefined)
+
+  if (matched.length === 0) return false
+
+  for (const option of options) option.selected = matched.includes(option)
+  notifyChange(el)
+
+  return el.isConnected && matched.every((option) => option.selected)
+}
+
 export function writeSelectValue(el: HTMLSelectElement, value: string): boolean {
+  if (el.multiple) return writeMultiSelectValue(el, value)
+
   const options = [...el.options]
   const wanted = value.trim().toLowerCase()
 
@@ -86,7 +141,7 @@ export function writeSelectValue(el: HTMLSelectElement, value: string): boolean 
   else el.value = match.value
 
   notifyChange(el)
-  return el.value === match.value
+  return el.isConnected && el.value === match.value
 }
 
 /**
@@ -100,7 +155,7 @@ export function writeCheckedValue(el: HTMLInputElement, shouldCheck: boolean): b
   if (el.checked !== shouldCheck) {
     el.click()
   }
-  return el.checked === shouldCheck
+  return el.isConnected && el.checked === shouldCheck
 }
 
 /**
@@ -115,5 +170,12 @@ export function writeContentEditable(el: HTMLElement, value: string): boolean {
   el.textContent = value
   notifyChange(el)
   el.dispatchEvent(new Event('blur', { bubbles: true }))
-  return el.textContent === value
+
+  /**
+   * `isConnected` matters most here. Writing `textContent` on an outer editable **destroys
+   * every node inside it**, so a nested editable detected as its own field is detached by
+   * the time it is written — and `textContent === value` still reads true on a node in no
+   * document, reporting success for a write nobody will ever see.
+   */
+  return el.isConnected && el.textContent === value
 }
