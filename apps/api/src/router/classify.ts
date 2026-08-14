@@ -154,19 +154,23 @@ export interface RoutedForm {
   counts: Record<FillTier, number>
 }
 
-export function classifyForm(fields: FieldSchema[], quality: 'auto' | 'high' = 'auto'): RoutedForm {
+/**
+ * The field's kind decides its tier, and nothing else does.
+ *
+ * There was a user-facing "take more care with written answers" toggle that escalated every
+ * generative field to tier 3. It was removed: tier 3 is Gemini 2.5 Pro at $1.25/$10 per MTok
+ * against Flash's $0.30/$2.50, so one checkbox quadrupled the cost of a form on our own key —
+ * and it asked the user to make a judgement they have no information for. Essays already route
+ * to tier 3 on their own, which is the case the toggle was really for; a short text answer does
+ * not get better from a bigger model, it just costs four times more.
+ */
+export function classifyForm(fields: FieldSchema[]): RoutedForm {
   const counts: Record<FillTier, number> = { 0: 0, 1: 0, 2: 0, 3: 0 }
 
   const classifications = fields.map((field) => {
-    const base = classifyField(field)
-
-    // `high` escalates generative work to the frontier model. Tier 0 stays tier 0 — there is
-    // no quality to be gained from asking a model what the user's own email address is, and
-    // tier 1 is a constrained choice where a bigger model changes nothing.
-    const tier: FillTier = quality === 'high' && base.tier >= 2 ? 3 : base.tier
-
-    counts[tier] += 1
-    return { ...base, tier }
+    const classification = classifyField(field)
+    counts[classification.tier] += 1
+    return classification
   })
 
   return { classifications, counts }

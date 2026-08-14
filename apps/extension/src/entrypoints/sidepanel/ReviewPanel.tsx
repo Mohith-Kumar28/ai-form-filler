@@ -265,6 +265,14 @@ function AnswerCard({
   const dirty = draft.trim() !== value.trim()
   const tone = scoreTone(row.confidence, row.inferred)
   const isChoice = row.options.length > 0
+  /**
+   * The same test the header counts as "worth checking", so the buttons and the count agree.
+   *
+   * An inference or a low score is a guess about this person. Everything else came from their
+   * own profile or their own past answer, and asking them to ratify their own data is work
+   * with no product on the other end.
+   */
+  const needsCheck = row.inferred || row.confidence < REVIEW_CONFIDENCE_THRESHOLD
   const selected = new Set(
     value
       .split(',')
@@ -411,33 +419,39 @@ function AnswerCard({
         ) : (
           <>
             {/*
-              A verdict on every answer, not only the doubtful ones.
-              
-              Confidence is the model's opinion of itself, and a fluent paragraph it was sure
-              about can still be wrong — which is exactly the answer a user most wants to
-              reject. Restricting the pair to low-confidence cards meant the ones that read
-              most convincingly were the hardest to argue with.
-              
-              Both do real work: one records the answer as a fact worth reusing, the other
-              takes it off the form so it cannot be submitted by accident.
+              One button, on the answers that are actually in doubt.
+
+              This used to be a "That's right" / "That's wrong" pair on every card, on the
+              argument that a fluent high-confidence answer can still be wrong. True — but a
+              verdict prompt is not what that user needs, the editor below is, and it is always
+              there. What the pair actually produced was eleven decisions on an eleven-field
+              form, which is slower than filling the form and defeats the entire point.
+
+              Two asymmetries decided this:
+
+              - **Confirming only pays on a guess.** It promotes an inference to a remembered
+                fact, so the next form looks it up instead of re-deriving it and landing
+                somewhere else. On an answer that came from the profile or from a past answer
+                there is nothing to promote — it is already a fact. So the button appears only
+                where the panel already says "worth checking".
+              - **Rejecting teaches nothing, by design.** "This was wrong" without the right
+                answer is never stored, because putting it in the index the next answer is
+                retrieved from would make later answers worse. So its whole effect was blanking
+                a field the user then had to fill by hand — while dressed as the equal-weight
+                twin of a button that does real work. It is a quiet secondary action now.
+
+              Submitting the form is itself the strongest confirmation we get: the capture reads
+              every final value at submit. This button is for the handful of answers where we
+              want that on the record *before* the page is gone.
             */}
-            {verdict === 'pending' && (
-              <>
-                <button
-                  type="button"
-                  onClick={() => onResolve(row, value, 'confirmed')}
-                  className="rounded-sharp border border-verified px-2 py-0.5 text-[11.5px] font-medium text-verified transition-colors hover:bg-verified/10"
-                >
-                  That&rsquo;s right
-                </button>
-                <button
-                  type="button"
-                  onClick={() => onResolve(row, '', 'cleared')}
-                  className="rounded-sharp border border-annot px-2 py-0.5 text-[11.5px] font-medium text-annot transition-colors hover:bg-annot/10"
-                >
-                  That&rsquo;s wrong
-                </button>
-              </>
+            {verdict === 'pending' && needsCheck && (
+              <button
+                type="button"
+                onClick={() => onResolve(row, value, 'confirmed')}
+                className="rounded-sharp border border-verified px-2 py-0.5 text-[11.5px] font-medium text-verified transition-colors hover:bg-verified/10"
+              >
+                That&rsquo;s right
+              </button>
             )}
             {!isChoice && (
               <button
@@ -451,6 +465,23 @@ function AnswerCard({
             )}
             {(verdict === 'edited' || verdict === 'confirmed') && (
               <span className="measure text-[11px] text-verified">Remembered</span>
+            )}
+            {/*
+              Clearing stays available, at its real weight.
+
+              It is occasionally the right move — an answer that must not be submitted, on a
+              field the user would rather leave empty — but it is a destructive action that
+              teaches nothing, so it sits at the end as a quiet link rather than a coloured
+              button opposite a green one.
+            */}
+            {verdict === 'pending' && (
+              <button
+                type="button"
+                onClick={() => onResolve(row, '', 'cleared')}
+                className="ml-auto text-[11.5px] text-faint transition-colors hover:text-annot"
+              >
+                Clear
+              </button>
             )}
           </>
         )}

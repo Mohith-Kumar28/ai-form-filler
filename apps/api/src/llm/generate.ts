@@ -1,4 +1,11 @@
-import { ApiErrorResponse, type Fill, type FillTier, type Skip } from '@aff/shared'
+import {
+  ApiErrorResponse,
+  type Fill,
+  type FillTier,
+  isOtherChoice,
+  matchOptions,
+  type Skip,
+} from '@aff/shared'
 import { generateText, tool } from 'ai'
 import type { Env } from '../env.js'
 import { costMicroUsd, MODELS, type TokenUsage } from './models.js'
@@ -139,22 +146,28 @@ export async function generateFills(input: GenerateInput): Promise<GenerateResul
        * script, which matched nothing and left the field blank — reported as an answer.
        * Skipping instead tells the user the truth and leaves the field visibly empty.
        */
+      /**
+       * Resolved against the whole answer at once — see `matchOptions`.
+       *
+       * This used to split a multi-select answer on commas and require every fragment to be a
+       * known option. Real option labels contain commas ("AI-powered search (e.g., 'What was
+       * that red shoe I saved?')"), so a perfectly good two-option answer produced fragments
+       * that matched nothing, was rejected as "not one of the offered choices", and the field
+       * came back **blank** with the model blamed for it.
+       */
       const answersTheOptions = (fieldId: string, value: string): boolean => {
         const field = byId.get(fieldId)
         const options = field?.options ?? []
         if (options.length === 0) return true
 
-        const keys = new Set(
-          options.flatMap((o) => [o.value.toLowerCase().trim(), o.label.toLowerCase().trim()]),
-        )
+        const { chosen, leftover } = matchOptions(value, options, (o) => [o.value, o.label])
+        if (chosen.length === 0) return false
 
-        // Multiselect answers arrive comma-separated; every part has to be a real option.
-        const parts =
-          field?.kind === 'multiselect'
-            ? value.split(',').map((v) => v.trim().toLowerCase())
-            : [value.trim().toLowerCase()]
+        // "Other: a friend at the company" is one option plus the text it exists to carry.
+        if (leftover !== '' && !chosen.some((o) => isOtherChoice(o.value, o.label))) return false
 
-        return parts.every((part) => keys.has(part))
+        // One answer for a single-choice field; a multi-select may name several.
+        return field?.kind === 'multiselect' || chosen.length === 1
       }
 
       const rejected: { fieldId: string; reason: string }[] = []

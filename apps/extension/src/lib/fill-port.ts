@@ -42,7 +42,7 @@ async function askContentScript<R extends ContentRequest>(
  */
 export async function runFillFlow(
   tabId: number,
-  options: { quality: 'auto' | 'high'; overwriteExisting: boolean },
+  options: { overwriteExisting: boolean },
   emit: (event: FillPortEvent) => void,
   isCancelled: () => boolean = () => false,
 ): Promise<void> {
@@ -62,7 +62,6 @@ export async function runFillFlow(
 
     const plan = (await fillForm({
       form,
-      quality: options.quality,
       overwriteExisting: options.overwriteExisting,
     })) as FillPlan
 
@@ -121,7 +120,7 @@ export function registerFillPort(): void {
       void (async () => {
         await runFillFlow(
           request.tabId,
-          { quality: request.quality, overwriteExisting: request.overwriteExisting },
+          { overwriteExisting: request.overwriteExisting },
           emit,
           () => cancelled,
         )

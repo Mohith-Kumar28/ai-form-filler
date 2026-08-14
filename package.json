@@ -40,6 +40,7 @@
     "db:reset": "pnpm --filter @aff/api run db:reset",
     "db:query": "pnpm --filter @aff/api run db:query",
     "db:costs": "pnpm --filter @aff/api run db:costs",
+    "db:migrate:learned": "pnpm --filter @aff/api exec node scripts/migrate-learned-to-memory.mjs",
     "//6-contract": "\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 contract and codegen \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500",
     "api:generate": "pnpm --filter @aff/extension run api:generate",
     "api:spec": "pnpm --filter @aff/api run openapi:emit",

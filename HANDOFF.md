@@ -52,6 +52,12 @@ every form on earth. Form structure goes in the user message.
 
 **Guard:** integration test asserting `cache_read_input_tokens > 0` on a second identical call.
 
+**Currently inert, and load-bearing anyway.** All three tiers in `MODELS` are Gemini with
+`supportsCaching: false`, so nothing is cached today and *every* prompt token is billed at full
+input price. That makes prompt size a direct cost, which is why `PROFILE_DOC` holds only what
+does not grow with use. The invariant above still governs: the moment a
+tier moves to an Anthropic model, a per-form schema would silently cost 10×.
+
 ### 2.2 Quota is enforced server-side, before any provider call
 
 Every free-tier call spends our money. The extension never decides whether a request is
@@ -128,24 +134,45 @@ wiped by `clean: true` on every run. The three things a spec cannot express live
 ```
 
 The feedback loop is what makes the product compound, and **where an answer is stored decides
-whether it ever comes back.** Every entry goes to exactly one store:
+whether it ever comes back.** Two destinations, and the split is deliberately narrow:
 
 | Answer | Store | Read back by |
 |---|---|---|
 | Identity — phone, email, name, location, links | `Profile.identity` typed slots | Tier 0 lookup. No model call, no retrieval. |
-| Short constrained answers — dropdowns, radios, multi-selects, one-liners | `Profile.learned`, keyed by the question | Recall (exact question match, no model call), and the cached prompt prefix on every fill. |
-| Prose — essays, paragraphs | Supermemory | Semantic retrieval against differently-worded questions. |
+| Everything else — choices, short answers, essays | Supermemory | One semantic search **per question**, at fill time. |
 
-Getting this wrong does not fail loudly; it stores the answer somewhere nothing reads. That
-was the original bug in two parts: identity values were written only to memory, which tier 0
-never searches, and *everything* non-identity went to memory as prose — where a six-character
-dropdown answer never outranks a résumé passage against a whole form's worth of labels. The
-product could learn a typed phone number and could not learn "iOS".
+Identity is the one thing a memory layer structurally cannot do for us: retrieval returns
+passages, and a passage is not a value you can type into an email field. It is also a fixed
+nine-slot schema the user edits by hand, so it does not grow with use.
 
-Reading the page is the adapter's job, not the extension's (`FormAdapter.readValue`,
-symmetrical with `applyValue`). A helper that understood native controls only returned `null`
-for every ARIA widget on Google Forms and read just the first control of a native radio group,
-so no choice field on any site could be learned.
+**The trap this replaced, recorded because it cost two rewrites.** Short answers were not coming
+back — a dropdown answer like "iOS" was learned and then never retrieved, however many times the
+user picked it. The diagnosis was "search cannot rank a six-character answer against a résumé",
+and the fix was a third store: `profile.learned`, question→answer, with an exact-match lookup and
+a block compiled into `PROFILE_DOC`.
+
+Both the diagnosis and the fix were wrong.
+
+- **The real cause was the query.** Retrieval ran *once per form*, with every field label
+  concatenated into a single string. That is meaningless to an embedding index: it returns
+  passages near the average of the form and specific to nothing. One search per question — which
+  is what the index is built for — makes a short answer findable immediately.
+- **The third store then cost more than it bought.** 80 answers is ~2,000 tokens (~13,000 with
+  long multi-selects), and no model in `MODELS` supports explicit caching, so it was billed at
+  full input price on every call of every fill and grew with every submission: $0.015–$0.10 per
+  form against a whole-form budget of ~$0.008. Its exact-match lookup fired only when a later
+  form asked a question in byte-identical words, which across different sites is rare.
+
+What survived from that work, and matters: **reading the page is the adapter's job**
+(`FormAdapter.readValue`, symmetrical with `applyValue`). A helper that understood native
+controls only returned `null` for every ARIA widget on Google Forms and read just the first
+control of a native radio group, so no choice field on any site could be learned at all. And
+`matchOptions` in `@aff/shared` resolves an answer against an option list without splitting on
+commas — option labels contain them, and splitting silently dropped selections while reporting
+success, in three separate places.
+
+`scripts/migrate-learned-to-memory.mjs` moves any remaining `learned` rows into Supermemory and
+drops the field. Run once per environment: `pnpm db:migrate:learned [--remote]`.
 
 ### The tier router — the core cost lever
 
@@ -153,7 +180,7 @@ Most fields on a real form are deterministic and must never reach a model.
 
 | Tier | Trigger | Handler | ~Cost/form |
 |---|---|---|---|
-| **0** | Label/autocomplete matches identity pattern (name, email, phone, URL, DOB, address), **or the user has answered this exact question before** | Pure lookup from `Identity`, then from `Profile.learned`. **No LLM.** | **$0** |
+| **0** | Label/autocomplete matches identity pattern (name, email, phone, URL, DOB, address) | Pure lookup from `Identity`. **No LLM.** | **$0** |
 | **1** | Enumerable choice — select/radio with fixed options | Gemini 2.5 Flash Lite ($0.10/$0.40 per MTok) | ~$0.0016 |
 | **2** | Short free text, `maxLength < 300` or single-line | Gemini 2.5 Flash ($0.30/$2.50) | ~$0.006 |
 | **3** | Textarea, or label matches essay heuristics (`why`, `describe`, `tell us`, `cover letter`) | Gemini 2.5 Pro, with memory retrieval | ~$0.01 |
@@ -162,9 +189,11 @@ A 50-form free tier costs roughly **$0.30/user** if most fields land in tiers 0�
 router matters more than the model choice** — that's the difference between $0.008 and $0.05
 per form.
 
-A user-facing quality slider (`quality: 'auto' | 'high'`) can force-escalate generative
-fields to tier 3. Tier 0 stays tier 0 either way — there is no quality gain from asking a
-model what your own email address is.
+**No quality slider.** There was a `quality: 'auto' | 'high'` toggle ("take more care with
+written answers") that escalated every generative field to tier 3. Removed: tier 3 is $1.25/$10
+per MTok against tier 2's $0.30/$2.50, so one checkbox quadrupled the cost of a form on our own
+key — and it asked the user to make a judgement they have no basis for. Essays route to tier 3 on
+their own, which is the only case it was ever really for.
 
 **Caching economics caveat:** a 5-minute cache write bills at 1.25×, so a user who fills
 exactly one form and leaves is marginally *more* expensive than no caching. Break-even is two

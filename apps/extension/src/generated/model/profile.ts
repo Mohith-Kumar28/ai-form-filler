@@ -6,13 +6,11 @@
  */
 import type { ProfileCustom } from './profileCustom';
 import type { ProfileIdentity } from './profileIdentity';
-import type { ProfileLearnedItem } from './profileLearnedItem';
 import type { ProfileSourcesItem } from './profileSourcesItem';
 
 export interface Profile {
   identity: ProfileIdentity;
   custom?: ProfileCustom;
-  learned?: ProfileLearnedItem[];
   sources?: ProfileSourcesItem[];
   /** @minimum 0 */
   version?: number;

@@ -103,7 +103,7 @@ describe('tier assignment', () => {
   })
 })
 
-describe('quality escalation', () => {
+describe('classifyForm', () => {
   const fields = [
     field({ id: 'a', label: 'Email address' }),
     field({ id: 'b', label: 'Country', kind: 'select', options: [] }),
@@ -111,19 +111,22 @@ describe('quality escalation', () => {
     field({ id: 'd', label: 'Why us?', kind: 'longtext' }),
   ]
 
-  it('auto mode assigns one tier per field and counts them', () => {
-    const { classifications, counts } = classifyForm(fields, 'auto')
+  it('assigns one tier per field and counts them', () => {
+    const { classifications, counts } = classifyForm(fields)
     expect(classifications.map((c) => c.tier)).toEqual([0, 1, 2, 3])
     expect(counts).toEqual({ 0: 1, 1: 1, 2: 1, 3: 1 })
   })
 
-  it('high mode escalates generative fields but never tier 0 or 1', () => {
-    const { classifications, counts } = classifyForm(fields, 'high')
-    // Tier 0 stays free; tier 1 stays constrained; only tier 2 climbs to 3.
-    expect(classifications.map((c) => c.tier)).toEqual([0, 1, 3, 3])
-    expect(counts[0]).toBe(1)
-    expect(counts[1]).toBe(1)
-    expect(counts[3]).toBe(2)
+  it('never escalates a field past the tier its kind earns', () => {
+    /**
+     * There was a "take more care with written answers" toggle that pushed every generative
+     * field to tier 3. Tier 3 is Gemini 2.5 Pro at four times Flash's price, so one checkbox
+     * quadrupled the cost of a form on our own key — and a short text answer is not better for
+     * it. Essays reach tier 3 on their own, which is the only case that ever wanted it.
+     */
+    const { counts } = classifyForm(fields)
+    expect(counts[3]).toBe(1)
+    expect(counts[2]).toBe(1)
   })
 })
 

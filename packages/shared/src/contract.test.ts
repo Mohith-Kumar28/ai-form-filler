@@ -28,10 +28,15 @@ describe('FormSchema', () => {
 })
 
 describe('FillRequest', () => {
-  it('defaults to the auto tier router rather than force-escalating', () => {
+  it('leaves existing values alone unless asked', () => {
     const parsed = FillRequest.parse({ form: minimalForm })
-    expect(parsed.quality).toBe('auto')
     expect(parsed.overwriteExisting).toBe(false)
+  })
+
+  it('carries no quality override — the tier router owns model choice', () => {
+    // A "take more care" toggle used to push generative fields to a model costing 4× more, on
+    // our key, for a judgement the user has no information to make.
+    expect('quality' in FillRequest.parse({ form: minimalForm })).toBe(false)
   })
 })
 

@@ -97,12 +97,6 @@ export type FillPlan = z.infer<typeof FillPlan>
 
 export const FillRequest = z.object({
   form: FormSchema,
-  /**
-   * User-facing quality slider. `auto` runs the tier router; `high` force-escalates every
-   * generative field to tier 3. Deterministic fields stay tier 0 either way — there is no
-   * quality gain from asking a model what your own email address is.
-   */
-  quality: z.enum(['auto', 'high']).default('auto'),
   /** Refill fields that already have a value. */
   overwriteExisting: z.boolean().default(false),
 })

@@ -5,10 +5,8 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { FillRequestForm } from './fillRequestForm';
-import type { FillRequestQuality } from './fillRequestQuality';
 
 export interface FillRequest {
   form: FillRequestForm;
-  quality?: FillRequestQuality;
   overwriteExisting?: boolean;
 }

@@ -117,7 +117,7 @@ export function useFill() {
   }, [])
 
   const start = useCallback(
-    async (options: { quality: 'auto' | 'high'; overwriteExisting: boolean }) => {
+    async (options: { overwriteExisting: boolean }) => {
       const [tab] = await chrome.tabs.query({ active: true, currentWindow: true })
       if (!tab?.id) {
         setState({
@@ -166,7 +166,6 @@ export function useFill() {
       const message: FillPortRequest = {
         type: 'start',
         tabId: tab.id,
-        quality: options.quality,
         overwriteExisting: options.overwriteExisting,
       }
       port.postMessage(message)

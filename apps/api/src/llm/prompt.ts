@@ -111,9 +111,15 @@ export interface UserMessageInput {
   classifications: Classification[]
   pageContext?: string | undefined
   origin: string
-  /** Past answers retrieved by BM25. Only supplied for tier-3 batches. */
-  /** Semantically-retrieved passages from the user's source documents. */
-  sourceChunks?: { text: string; source: string; score: number }[]
+  /**
+   * Passages retrieved for each individual question, keyed by field id.
+   *
+   * Per question rather than per form: one search for a whole form's worth of labels returns
+   * passages that are near the average of the form and right for none of it. Keeping the
+   * association means the model is told *which* question each passage was found for, instead
+   * of being handed one undifferentiated pile for twenty fields.
+   */
+  retrieved?: Map<string, { text: string; source: string; score: number }[]>
 }
 
 /**
@@ -129,11 +135,31 @@ export function buildUserMessage(input: UserMessageInput): string {
    * that is trusted. Fencing them alongside the page's text would tell the model to treat
    * the user's own writing as suspect, which is the opposite of what the fence is for.
    */
-  if (input.sourceChunks && input.sourceChunks.length > 0) {
+  const blocks: string[] = []
+  /**
+   * A passage is printed once, under the first question that retrieved it.
+   *
+   * Neighbouring questions on a form retrieve overlapping passages, and repeating a résumé
+   * paragraph under each of five questions would spend five times the tokens to say one thing.
+   */
+  const alreadyShown = new Set<string>()
+
+  for (const field of input.fields) {
+    const chunks = input.retrieved?.get(field.id)
+    if (!chunks || chunks.length === 0) continue
+
+    const fresh = chunks.filter((chunk) => !alreadyShown.has(chunk.text))
+    for (const chunk of fresh) alreadyShown.add(chunk.text)
+    if (fresh.length === 0) continue
+
+    blocks.push(
+      `For "${field.label}":\n${fresh.map((c) => `[${c.source}]\n${c.text}`).join('\n\n')}`,
+    )
+  }
+
+  if (blocks.length > 0) {
     parts.push(
-      `Relevant passages from this person's own documents and past answers. Where a passage is their own writing, reuse its substance and voice; do not copy verbatim if the question differs:\n${input.sourceChunks
-        .map((c) => `[${c.source}]\n${c.text}`)
-        .join('\n\n')}`,
+      `Relevant passages from this person's own documents and past answers, retrieved for each question. Where a passage is their own writing, reuse its substance and voice; do not copy verbatim if the question differs. A passage found for one question may still inform another:\n\n${blocks.join('\n\n')}`,
     )
   }
 

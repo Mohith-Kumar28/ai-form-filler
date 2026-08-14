@@ -48,7 +48,7 @@ export default defineBackground(() => {
           const tabId = _sender.tab?.id
           if (!tabId) throw new Error('No tab to fill')
 
-          await runFillFlow(tabId, { quality: 'auto', overwriteExisting: false }, (event) => {
+          await runFillFlow(tabId, { overwriteExisting: false }, (event) => {
             // Two receivers, two channels. `runtime.sendMessage` reaches an open side panel;
             // `tabs.sendMessage` reaches the content script's dock, which is what actually
             // shows progress on the page. Neither having a listener is a normal state.

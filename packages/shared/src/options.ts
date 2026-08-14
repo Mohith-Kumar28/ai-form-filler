@@ -48,6 +48,18 @@ function indexOfWord(haystack: string, needle: string): number {
   return -1
 }
 
+/**
+ * Whether an option is a form's free-text "Other" escape hatch.
+ *
+ * It is the one option whose answer is *meant* to contain text the form never offered, so
+ * "Other: a friend at the company" has to be legal wherever an unmatched remainder would
+ * otherwise be rejected. Without this the strict check turns every "Other" answer into a
+ * skipped field — and Google renders the label as "Other:", trailing colon included.
+ */
+export function isOtherChoice(...keys: (string | undefined)[]): boolean {
+  return keys.some((key) => /^other\b/i.test((key ?? '').trim().replace(/:\s*$/, '')))
+}
+
 export interface OptionMatch<T> {
   /** The options named by the answer, in the order they were matched. */
   chosen: T[]

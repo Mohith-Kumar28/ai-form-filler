@@ -1,4 +1,3 @@
-import { useState } from 'react'
 import type { Account } from '../../generated/model/index.js'
 import type { FillState } from '../../lib/use-fill.js'
 import { STAGE_LABEL } from '../../lib/use-fill.js'
@@ -27,10 +26,8 @@ export function FillPanel({
 }: {
   account: Account
   state: FillState
-  start: (options: { quality: 'auto' | 'high'; overwriteExisting: boolean }) => void
+  start: (options: { overwriteExisting: boolean }) => void
 }) {
-  const [highQuality, setHighQuality] = useState(false)
-
   const outOfQuota = account.quota.used >= account.quota.limit
   const disabled = !account.profileReady || outOfQuota || state.status === 'running'
 
@@ -44,22 +41,10 @@ export function FillPanel({
    */
   return (
     <div className="flex flex-col gap-2">
-      {state.status === 'idle' && account.profileReady && (
-        <label className="flex cursor-pointer items-center gap-2 text-[12px] text-muted">
-          <input
-            type="checkbox"
-            checked={highQuality}
-            onChange={(e) => setHighQuality(e.target.checked)}
-            className="size-3.5 accent-[var(--color-pen)]"
-          />
-          Take more care with written answers
-        </label>
-      )}
-
       <button
         type="button"
         disabled={disabled}
-        onClick={() => start({ quality: highQuality ? 'high' : 'auto', overwriteExisting: false })}
+        onClick={() => start({ overwriteExisting: false })}
         className="flex w-full items-center justify-center gap-2 rounded-sharp bg-pen py-2.5 text-[13px] font-medium text-page transition-opacity hover:opacity-90 disabled:opacity-40"
       >
         {state.status === 'running' ? (

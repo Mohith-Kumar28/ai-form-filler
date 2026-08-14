@@ -1,21 +1,14 @@
-import type {
-  Fill,
-  FillPlan,
-  FillRequest,
-  FillTier,
-  Identity,
-  LearnedAnswer,
-  Skip,
-} from '@aff/shared'
+import type { Fill, FillPlan, FillRequest, FillTier, Identity, Skip } from '@aff/shared'
 import { ApiErrorResponse } from '@aff/shared'
 import { and, eq, sql } from 'drizzle-orm'
 import { fillLog, profileDocs, profileSources } from '../db/schema.js'
 import type { Env } from '../env.js'
 import { generateFills } from '../llm/generate.js'
+import { compileProfileDoc } from '../profile/compile.js'
 import { classifyForm } from '../router/classify.js'
-import { resolveLearned } from '../router/recall.js'
 import { resolveTier0 } from '../router/tier0.js'
 import type { Db } from './account.js'
+import { emptyProfile, recompileProfile } from './profile.js'
 import { gatherFillContext } from './retrieval.js'
 
 export interface FillContext {
@@ -71,26 +64,42 @@ export async function runFill(
     )
   }
 
-  let structured: { identity: Identity; learned: LearnedAnswer[] } = {
-    identity: { links: {} },
-    learned: [],
-  }
+  let structured: { identity: Identity } = { identity: { links: {} } }
   try {
-    const parsed = JSON.parse(docRow.structured) as {
-      identity?: Identity
-      learned?: LearnedAnswer[]
-    }
-    structured = {
-      identity: parsed.identity ?? { links: {} },
-      // Absent on every profile written before learned answers existed.
-      learned: parsed.learned ?? [],
-    }
+    const parsed = JSON.parse(docRow.structured) as { identity?: Identity }
+    structured = { identity: parsed.identity ?? { links: {} } }
   } catch {
     // A corrupt structured blob costs us tier-0 answers, not the whole request — the model
     // tiers can still read the same facts out of the profile document.
   }
 
   const identity = structured.identity
+
+  /**
+   * A stored document compiled by older code is rebuilt before it is used.
+   *
+   * `PROFILE_DOC` is written once and re-read on every fill, so a change to what the compiler
+   * emits does not reach an existing profile until something else happens to trigger a
+   * recompile — a profile edit, a new source. When learned answers were removed from the
+   * document, every profile already in the database kept shipping them in every prompt, which
+   * is the exact cost this was meant to remove, and nothing anywhere would have said so.
+   *
+   * Compiling is a pure string build plus one hash over data already loaded, so checking costs
+   * nothing measurable. `recompileProfile` no-ops when the bytes match, so the write only
+   * happens on a genuine change — and this now self-heals for any future compiler change
+   * rather than needing a backfill script per release.
+   */
+  const compiled = await compileProfileDoc({ ...emptyProfile(), ...structured, sources: [] })
+  let profileDoc = docRow.doc
+
+  if (compiled.doc !== docRow.doc) {
+    await recompileProfile(ctx.db, ctx.userId)
+    profileDoc = compiled.doc
+    console.debug('[aff] profile document rebuilt by a newer compiler', {
+      wasTokens: docRow.tokens,
+      nowTokens: compiled.estimatedTokens,
+    })
+  }
 
   // Fields the user has already filled are left alone unless explicitly asked otherwise.
   const candidates = request.overwriteExisting
@@ -116,62 +125,65 @@ export async function runFill(
     }
   }
 
-  const { classifications, counts } = classifyForm(candidates, request.quality)
+  const { classifications, counts } = classifyForm(candidates)
   const labels = new Map(candidates.map((f) => [f.id, f.label]))
   const tier0 = resolveTier0(identity, classifications, labels)
 
   const byId = new Map(candidates.map((f) => [f.id, f]))
 
-  /**
-   * Questions the user has answered before are answered from what they chose, not re-decided.
-   *
-   * Runs after identity and before any model call, because it is the same kind of thing: a
-   * lookup with a definite answer. Everything it resolves is a model call that does not happen
-   * and — more to the point — an answer that cannot come back different from last time.
-   */
-  const recalled = resolveLearned(structured.learned, byId, tier0.unresolved)
-
-  // Honest accounting: a field classified as tier 1 but answered by recall cost nothing, and
-  // fill_log is how we find out whether the free tier is affordable.
-  for (const fill of recalled.fills) {
-    const original = classifications.find((c) => c.fieldId === fill.fieldId)
-    if (original && original.tier !== 0) {
-      counts[original.tier] -= 1
-      counts[0] += 1
-    }
-  }
-
   const batches: { tier: Exclude<FillTier, 0>; fieldIds: string[] }[] = []
 
-  for (const tier of [1, 2, 3] as const) {
-    const fieldIds = recalled.unresolved.filter((c) => c.tier === tier).map((c) => c.fieldId)
+  for (const tier of [1, 2] as const) {
+    const fieldIds = tier0.unresolved.filter((c) => c.tier === tier).map((c) => c.fieldId)
     if (fieldIds.length > 0) batches.push({ tier, fieldIds })
   }
 
   /**
-   * One retrieval for the whole form, shared by every tier.
+   * Essays get a call each; everything else is batched.
    *
-   * It used to run for tier 3 only, because the profile document carried everything else
-   * inline. It no longer does — history, projects, opinions, and the user's past answers all
-   * live in memory now — so a tier-1 question like "which of these do you use?" needs
-   * retrieval just as much as an essay does.
+   * A constrained choice and a short text answer do not compete for attention — the model picks
+   * an option and moves on, and batching them is what keeps a 20-field form to a couple of
+   * calls. An essay is the opposite: it wants the whole context window pointed at one question,
+   * and sharing a call with four other essays measurably flattens all five into the same
+   * paragraph shape.
    *
-   * Gathered once rather than per batch: the batches are three slices of the same form about
-   * the same person, so three searches would return heavily overlapping passages and pay
-   * three round trips for it.
+   * Bounded, because tier 3 is the frontier model and a page of thirty textareas would
+   * otherwise be thirty frontier calls on our own key. Past the cap the remainder is batched —
+   * degraded, but not a surprise invoice.
+   */
+  const MAX_SOLO_ESSAYS = 6
+  const essays = tier0.unresolved.filter((c) => c.tier === 3).map((c) => c.fieldId)
+
+  for (const fieldId of essays.slice(0, MAX_SOLO_ESSAYS)) {
+    batches.push({ tier: 3, fieldIds: [fieldId] })
+  }
+  const overflow = essays.slice(MAX_SOLO_ESSAYS)
+  if (overflow.length > 0) {
+    console.debug('[aff] essay batch overflow', { solo: MAX_SOLO_ESSAYS, batched: overflow.length })
+    batches.push({ tier: 3, fieldIds: overflow })
+  }
+
+  /**
+   * One search per question, all of them concurrent.
+   *
+   * This used to be a single search whose query was every field label concatenated — the wrong
+   * shape for an embedding index, which then returned six passages near the average of the form
+   * and specific to nothing. See `gatherFillContext`.
+   *
+   * Gathered here rather than inside each batch so a question searched once is not searched
+   * again by the tier that happens to own it.
    */
   const context =
     batches.length > 0
       ? await gatherFillContext({
           env: ctx.env,
           userId: ctx.userId,
-          // Only what a model still has to answer. Including recalled questions would spend
-          // the form's one search budget retrieving context for fields already settled.
-          questions: recalled.unresolved
-            .map((c) => labels.get(c.fieldId) ?? '')
-            .filter((label) => label !== ''),
+          questions: tier0.unresolved.map((c) => ({
+            fieldId: c.fieldId,
+            question: labels.get(c.fieldId) ?? '',
+          })),
         })
-      : { sourceChunks: [] }
+      : { byField: new Map() }
 
   const results = await Promise.all(
     batches.map(async (batch) => {
@@ -181,14 +193,14 @@ export async function runFill(
 
       return generateFills({
         tier: batch.tier,
-        profileDoc: docRow.doc,
+        profileDoc,
         env: ctx.env,
         userId: ctx.userId,
         fields,
         classifications,
         origin: request.form.origin,
         pageContext: request.form.pageContext,
-        sourceChunks: context.sourceChunks,
+        retrieved: context.byField,
       })
     }),
   )
@@ -201,12 +213,10 @@ export async function runFill(
    * handed the schema separately and any new producer would have quietly omitted it. The
    * review panel needs it to route a confirmation to the right store.
    */
-  const fills: Fill[] = [...tier0.fills, ...recalled.fills, ...results.flatMap((r) => r.fills)].map(
-    (fill) => {
-      const kind = byId.get(fill.fieldId)?.kind
-      return kind ? { ...fill, kind } : fill
-    },
-  )
+  const fills: Fill[] = [...tier0.fills, ...results.flatMap((r) => r.fills)].map((fill) => {
+    const kind = byId.get(fill.fieldId)?.kind
+    return kind ? { ...fill, kind } : fill
+  })
   const skipped: Skip[] = [...alreadyFilled, ...tier0.skipped, ...results.flatMap((r) => r.skipped)]
 
   const usage = results.reduce(

@@ -70,7 +70,7 @@ export { FILL_PORT } from './constants.js'
  * one context that can use it.
  */
 export type FillPortRequest =
-  | { type: 'start'; tabId: number; quality: 'auto' | 'high'; overwriteExisting: boolean }
+  | { type: 'start'; tabId: number; overwriteExisting: boolean }
   | { type: 'cancel' }
 
 /**

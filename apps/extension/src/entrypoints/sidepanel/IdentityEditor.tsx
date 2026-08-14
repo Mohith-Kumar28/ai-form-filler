@@ -5,7 +5,7 @@ import {
   getGetProfileQueryKey,
   usePatchProfile,
 } from '../../generated/endpoints/profile/profile.js'
-import type { LearnedAnswer, Profile, ProfileIdentity } from '../../generated/model/index.js'
+import type { Profile, ProfileIdentity } from '../../generated/model/index.js'
 import { IDENTITY_FIELDS } from '../../lib/identity-fields.js'
 
 /**
@@ -19,18 +19,16 @@ export function IdentityEditor({ profile }: { profile: Profile }) {
   const queryClient = useQueryClient()
   const [draft, setDraft] = useState<ProfileIdentity>(profile.identity)
   const [custom, setCustom] = useState<Record<string, string>>(profile.custom ?? {})
-  const [learned, setLearned] = useState<LearnedAnswer[]>(profile.learned ?? [])
   const [newKey, setNewKey] = useState('')
   const [dirty, setDirty] = useState(false)
 
-  // Adding a source can extract new identity fields server-side, and submitting a form adds
-  // learned answers. Adopt them, but never clobber an edit in progress.
+  // Adding a source can extract new identity fields server-side. Adopt them, but never
+  // clobber an edit in progress.
   useEffect(() => {
     if (dirty) return
     setDraft(profile.identity)
     setCustom(profile.custom ?? {})
-    setLearned(profile.learned ?? [])
-  }, [profile.identity, profile.custom, profile.learned, dirty])
+  }, [profile.identity, profile.custom, dirty])
 
   /**
    * What was sent, so a save cannot discard what was typed while it was in flight.
@@ -78,7 +76,7 @@ export function IdentityEditor({ profile }: { profile: Profile }) {
       onSubmit={(e) => {
         e.preventDefault()
         submitted.current = draft
-        save.mutate({ data: { identity: draft, custom, learned } })
+        save.mutate({ data: { identity: draft, custom } })
       }}
     >
       <dl>
@@ -213,79 +211,6 @@ export function IdentityEditor({ profile }: { profile: Profile }) {
           </button>
         </div>
       </section>
-
-      {/*
-        The verso page: what the notebook wrote down by watching.
-
-        Shown for the same reason the facing page is editable — these answers ride in every
-        prompt, so one that is wrong is wrong on every future form. A memory the user cannot
-        read or correct is not a memory, it is a liability. Newest first: the answer just
-        learned is the one someone comes here to check.
-      */}
-      {learned.length > 0 && (
-        <section className="border-b border-rule px-4 py-3">
-          <h3 className="text-[11px] font-semibold uppercase tracking-[0.08em] text-faint">
-            Learned from your forms
-          </h3>
-          <p className="mt-0.5 text-[11.5px] text-muted">
-            Answers you gave, reused when a form asks again.
-          </p>
-
-          <dl className="mt-2">
-            {[...learned].reverse().map((entry) => (
-              <div
-                key={entry.question}
-                className="grid grid-cols-[1fr_auto] items-baseline gap-x-2 py-1"
-              >
-                <dt
-                  className="col-span-2 truncate text-[11px] text-faint"
-                  title={entry.origin ? `Learned on ${entry.origin}` : entry.question}
-                >
-                  {entry.question}
-                </dt>
-                <dd>
-                  <input
-                    aria-label={entry.question}
-                    value={entry.answer}
-                    onChange={(e) => {
-                      setDirty(true)
-                      setLearned((prev) =>
-                        prev.map((row) =>
-                          row.question === entry.question
-                            ? { ...row, answer: e.target.value }
-                            : row,
-                        ),
-                      )
-                    }}
-                    className={input}
-                  />
-                </dd>
-                <button
-                  type="button"
-                  aria-label={`Forget ${entry.question}`}
-                  onClick={() => {
-                    setDirty(true)
-                    setLearned((prev) => prev.filter((row) => row.question !== entry.question))
-                  }}
-                  className="rounded-sharp p-1 text-faint transition-colors hover:text-annot"
-                >
-                  <svg
-                    viewBox="0 0 16 16"
-                    className="size-3"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="1.5"
-                    strokeLinecap="round"
-                  >
-                    <title>Forget</title>
-                    <path d="M4 4l8 8M12 4l-8 8" />
-                  </svg>
-                </button>
-              </div>
-            ))}
-          </dl>
-        </section>
-      )}
 
       <div className="sticky bottom-0 flex items-center gap-2 border-t border-rule bg-page px-4 py-2">
         <button

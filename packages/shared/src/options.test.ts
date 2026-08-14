@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { matchOptions } from './options.js'
+import { isOtherChoice, matchOptions } from './options.js'
 
 /**
  * The comma bug, pinned.
@@ -101,5 +101,21 @@ describe('matching without splitting the wrong thing', () => {
 
   it('handles an empty answer without inventing a selection', () => {
     expect(matchOptions('', ['iOS'], keysOf)).toEqual({ chosen: [], leftover: '' })
+  })
+})
+
+describe('isOtherChoice', () => {
+  it("recognises the free-text escape hatch, including Google's trailing colon", () => {
+    // Without this, a strict "every part must be an offered option" check turns every
+    // "Other: a friend at the company" answer into a skipped field.
+    expect(isOtherChoice('Other:')).toBe(true)
+    expect(isOtherChoice('other')).toBe(true)
+    expect(isOtherChoice('__other_option__', 'Other:')).toBe(true)
+  })
+
+  it('does not mistake an ordinary option for it', () => {
+    expect(isOtherChoice('Others in my team')).toBe(false)
+    expect(isOtherChoice('iOS')).toBe(false)
+    expect(isOtherChoice(undefined)).toBe(false)
   })
 })
