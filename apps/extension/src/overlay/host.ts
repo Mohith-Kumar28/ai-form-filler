@@ -104,12 +104,92 @@ ${overlayVariables(':host')}
   to   { opacity: 1; scale: 1; }
 }
 
-/* Progress while a fill runs: the seal fills clockwise as fields land. */
-.seal[data-progress] {
+/* Determinate: the seal fills clockwise as fields land. */
+.seal[data-progress="determinate"] {
   background:
     conic-gradient(var(--aff-ink) calc(var(--progress, 0) * 1turn), transparent 0),
     var(--aff-leaf);
   border-color: var(--aff-ink);
+}
+
+/*
+  Indeterminate: a sweep, for the part of a fill nobody can measure.
+
+  The model call is ten to twenty seconds and reports nothing until it returns, so a
+  determinate ring spent that whole time frozen at zero — which is indistinguishable from a
+  seal that has stopped working, and was read as exactly that. A sweep claims progress is
+  happening without claiming to know how much, which is the truth.
+*/
+.seal[data-progress="indeterminate"] {
+  border-color: var(--aff-ink);
+}
+
+.seal[data-progress="indeterminate"]::after {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  border-radius: 50%;
+  background: conic-gradient(from 0turn, transparent 0 58%, var(--aff-ink) 100%);
+  mask: radial-gradient(farthest-side, transparent calc(100% - 2.5px), #000 calc(100% - 2.5px));
+  animation: seal-sweep 900ms linear infinite;
+}
+
+@keyframes seal-sweep {
+  to { rotate: 1turn; }
+}
+
+/* ── The progress slip ────────────────────────────────────────────────────
+   What is happening, on the field the person pressed. Shown only while the
+   page is still: once values start landing, the typing and the marks are a
+   better account of the work than any panel could be.                       */
+.slip-stages { padding: 4px 0; }
+
+.slip-stage {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 11px;
+  font-size: 12.5px;
+  color: var(--aff-ink3);
+}
+
+.slip-stage[data-state="done"] { color: var(--aff-ink2); }
+.slip-stage[data-state="active"] { color: var(--aff-ink); font-weight: 500; }
+
+.slip-stage-dot {
+  width: 12px;
+  height: 12px;
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.slip-stage-dot::before {
+  content: "";
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--aff-guilloche);
+}
+
+.slip-stage[data-state="done"] .slip-stage-dot::before { background: var(--aff-ink2); }
+
+.slip-stage[data-state="active"] .slip-stage-dot::before {
+  background: var(--aff-query);
+  animation: impress-dot 1400ms cubic-bezier(0.2, 0, 0, 1) infinite;
+}
+
+@keyframes impress-dot {
+  0%, 100% { scale: 0.7; opacity: 0.55; }
+  45% { scale: 1.25; opacity: 1; }
+}
+
+.slip-stage-count { margin-left: auto; font-variant-numeric: tabular-nums; font-size: 11.5px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .seal[data-progress="indeterminate"]::after,
+  .slip-stage[data-state="active"] .slip-stage-dot::before { animation: none; }
 }
 
 /* ── The slip ─────────────────────────────────────────────────────────────
@@ -280,7 +360,8 @@ ${overlayVariables(':host')}
   position: absolute;
   inset: 2px;
   border: 1px solid color-mix(in oklch, var(--aff-leaf) 30%, transparent);
-  border-radius: 1px;
+  /* Square, because a keyline inset 2px inside a 2px corner is concentric at zero. */
+  border-radius: 0;
   pointer-events: none;
 }
 .slip-btn-plate:hover { opacity: 0.9; }

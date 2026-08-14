@@ -20,6 +20,15 @@ export type Request =
    * its most expensive one. See `enforceQuota` in the Worker.
    */
   | { type: 'overlay/requestFill'; scope: 'form' | 'field'; fieldId?: string }
+  /**
+   * Stop a fill started from the page.
+   *
+   * The panel's fill runs over a port whose disconnect is the cancel signal; a page-initiated
+   * one is a one-shot message with no channel to close, so it needs its own. Without this the
+   * Stop button only hid the progress popover while the fill carried on and wrote its answers
+   * in anyway — a control that says stop and does not stop.
+   */
+  | { type: 'overlay/cancelFill' }
   /** The chip's Review action, opening the panel on the judgement calls. */
   | { type: 'overlay/openPanel' }
   | { type: 'form/detected'; form: FormSchema }

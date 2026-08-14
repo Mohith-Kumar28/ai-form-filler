@@ -59,7 +59,11 @@ export interface SealHandle {
   element: HTMLButtonElement
   /** Viewport rect of the field it is attached to, for anchoring the slip. */
   anchorRect: () => Rect | null
-  setProgress: (ratio: number | null) => void
+  /**
+   * `null` clears it, a number fills the ring clockwise, and `'sweeping'` is the honest state
+   * for the model call — which reports nothing until it returns.
+   */
+  setProgress: (ratio: number | 'sweeping' | null) => void
   setExpanded: (expanded: boolean) => void
   destroy: () => void
 }
@@ -120,7 +124,12 @@ export function mountSeal(element: HTMLElement, onOpen: () => void): SealHandle 
         seal.style.removeProperty('--progress')
         return
       }
-      seal.setAttribute('data-progress', '')
+      if (ratio === 'sweeping') {
+        seal.setAttribute('data-progress', 'indeterminate')
+        seal.style.removeProperty('--progress')
+        return
+      }
+      seal.setAttribute('data-progress', 'determinate')
       seal.style.setProperty('--progress', String(Math.max(0, Math.min(1, ratio))))
     },
     setExpanded: (expanded) => seal.setAttribute('aria-expanded', String(expanded)),

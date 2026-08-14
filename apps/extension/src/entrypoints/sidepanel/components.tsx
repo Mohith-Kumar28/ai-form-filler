@@ -115,7 +115,7 @@ const VARIANTS: Record<Variant, string> = {
     was a filled rectangle indistinguishable from every secondary control in the build, which
     is exactly what the direction contract promised it would not be.
   */
-  plate: `relative bg-ink text-stock border border-ink hover:opacity-90 active:translate-y-px ${DISABLED_PLATE} before:pointer-events-none before:absolute before:inset-[3px] before:rounded-[1px] before:border before:border-stock/30 before:content-[''] disabled:before:border-transparent`,
+  plate: `relative bg-ink text-stock border border-ink hover:opacity-90 active:translate-y-px ${DISABLED_PLATE} before:pointer-events-none before:absolute before:inset-[3px] before:border before:border-stock/30 before:content-[''] disabled:before:border-transparent`,
   struck: `border border-ink text-ink hover:bg-ink/8 active:translate-y-px ${DISABLED_PLATE}`,
   quiet:
     'border border-transparent text-ink2 hover:bg-guilloche-soft hover:text-ink disabled:text-ink3',

@@ -153,7 +153,7 @@ Two directions were refused by name in the direction contract and remain refused
 
 **Key Characteristics:**
 - Ruled registers, never cards; hairlines carry all structure.
-- Fourteen tokens per scheme, both schemes authored, neither derived from the other.
+- Sixteen tokens per scheme, both schemes authored, neither derived from the other.
 - One accent (vermilion) with one meaning: inference. Faults speak amber, uncertainty speaks petrol.
 - 2px radius on struck controls, full circle for seals, nothing in between.
 - 4px vertical rhythm; 13px body on a 400px column.
@@ -226,7 +226,7 @@ The rhythm is 4px. Rows are 16px horizontal / 12px vertical padding with a 10px 
 
 There are no breakpoints. The width is fixed by the Chrome side panel and the system does not pretend otherwise; the only responsive behaviour is vertical, and it is handled by growth (`AutoTextarea` sizes to its content so a 900-character answer is not read through a four-line window) and by truncation on single-line row titles.
 
-Navigation is a nine-screen push/pop stack, not a router. Depth is the only spatial state.
+Navigation is a seven-screen push/pop stack, not a router — home, filling, review, sources, addSource, sourceDetail, profile. Depth is the only spatial state. Welcome sits outside the stack as a first-run leaf, rendered in place of the whole app rather than pushed onto it.
 
 ### Named Rules
 
@@ -250,7 +250,7 @@ The panel is flat. Depth is tonal and structural: `leaf` lifts a band off `stock
 
 Two radii and no scale between them. `2px` (`--radius-doc`) on everything struck — buttons, inputs, chips, stamps, menus, marks, skeleton bars. Full circle for seals: the field seal (18px), the portrait oval on Home (28px), the Welcome mark (36px). A credential has no rounded fields; the only curve on a document is a seal, and a seal is a full circle.
 
-Borders are 1px and semantic: `ink` for a struck control that is available, `guilloche` for an input or a container edge, `endorse` or `query` or `alert` for a stamp in that register. The one deliberate double-line is the plate's inset keyline — a 1px rule at 3px inset in `stock/30` — which is what makes a primary action read as a struck plate rather than a filled rectangle, and it is repeated verbatim on the overlay's primary button (2px inset) so one plate reads across both surfaces.
+Borders are 1px and semantic: `ink` for a struck control that is available, `guilloche` for an input or a container edge, `endorse` or `query` or `alert` for a stamp in that register. The one deliberate double-line is the plate's inset keyline — a 1px rule at 3px inset in `stock/30` — which is what makes a primary action read as a struck plate rather than a filled rectangle, and it is repeated on the overlay's primary button at 2px inset so one plate reads across both surfaces. Both keylines are square: a rule set 2px or 3px inside a 2px corner is concentric at zero radius, so the inner line takes none.
 
 The only ornament is the guilloche: three co-prime Lissajous rings (23, 19 and 29 lobes) at roughly a tenth of their radius, stroked at 0.65px, generated at runtime from the token colour. High lobe count and shallow amplitude are the point — the eye must see a ring first and the pattern second; at higher amplitude a rose curve renders as a daisy, and at 0.4px stroke it dissolves below a device pixel on the dark ground.
 
@@ -293,21 +293,21 @@ Loading is unissued stock: the *shape* of the row that is coming, shimmered acro
 A 2px-radius outline in `endorse` on an `endorse-wash` ground, carrying the 16px stamp glyph and the word CONCLUDED in the 9.5px mono stamp register. It arrives with `endorse-in`: 320ms from -4° at 1.18 scale, settling at -1.5° and full size, because that is what pressing a stamp onto paper looks like. Its sibling is the UNSURE stamp — the same geometry in `query`, no wash, carrying the confidence figure. A stated answer carries neither.
 
 ### The field seal and marks (signature, on-page)
-On someone else's page the identity is carried by three things and no typeface: an 18px circular seal anchored inside the focused field (ink border, leaf ground, no dock, no persistent launcher, and hover darkens but never expands); the endorsement slip, a `leaf` panel with a masthead, the question set as a field caption, and the same inset-keyline plate as the panel; and the field marks, drawn as a 2px spread ring. Marks are the trust rule made visible: `printed` and `failed` settle and clear over 1.5s, while `endorsed` and `unsure` persist until the person acts on them. Auto-filled content that becomes indistinguishable from typed content is how a confident wrong answer gets submitted.
+On someone else's page the identity is carried by three things and no typeface: an 18px circular seal anchored inside the focused field (ink border, leaf ground, no dock, no persistent launcher, and hover darkens but never expands); the slip, a `leaf` panel with a masthead, the question set as a field caption, and the same inset-keyline plate as the panel — one component in four shapes: a menu of what can be done to this field, a progress slip whose three stages (reading the page, generating, applying) resolve in place so it neither re-animates nor moves, a done slip that gives the page-initiated flow the ending it never had, and the review slip carrying the endorsement stamp; and the field marks, drawn as a 2px spread ring. Marks are the trust rule made visible: `printed` and `failed` settle and clear over 1.5s, while `endorsed` and `unsure` persist until the person acts on them. Auto-filled content that becomes indistinguishable from typed content is how a confident wrong answer gets submitted.
 
 ### Icons
 Authored on a 16px grid, one 1.5px stroke, butt caps and mitre joins, `currentColor`, no fill, no library. The cap and join choice is the whole character: a rounded stroke reads as a UI icon library, a mitred one reads as engraving.
 
 ### Motion
-One easing (`cubic-bezier(0.2, 0, 0, 1)`) and four durations: 120–160ms for hovers and the seal, 200ms for a screen leaf, 240–260ms for a row settling or a plate landing, 320ms for a stamp. Everything the overlay anchors to a field is positioned with the standalone `translate` property and animated with standalone `scale` and `rotate` — never the `transform` shorthand, because a keyframe with `fill-mode: both` holds its final value forever and outranks the inline placement, which parks every seal and stamp at the top-left of the page. `host.test.ts` enforces this.
+One easing (`cubic-bezier(0.2, 0, 0, 1)`) and four durations: 120–160ms for hovers and the seal, 200ms for a screen leaf, 240–260ms for a row settling or a plate landing, 320ms for a stamp. Two loops carry work that is still running, and neither is a spinner: `impress` (1400ms) swells a mark and lets it settle on the beat of the work — it is the Filling screen's active indicator, and as `impress-dot` the progress slip's active stage — and `seal-sweep` (900ms linear) rotates a masked conic arc around the field seal for the stretch of a fill nobody can measure, where a determinate ring sits frozen at zero and reads as broken. Everything the overlay anchors to a field is positioned with the standalone `translate` property and animated with standalone `scale` and `rotate` — never the `transform` shorthand, because a keyframe with `fill-mode: both` holds its final value forever and outranks the inline placement, which parks every seal and stamp at the top-left of the page. `host.test.ts` enforces this.
 
-Reduced motion removes every animation on both surfaces, including — with the project's single `!important` — the browser's own default view-transition cross-fade. Marks that must persist still persist; the request is about movement, not information.
+Reduced motion removes every animation on both surfaces — `strike`, `endorse-in`, `settle`, `awaiting`, `impress`, the seal sweep and the progress dot, including — with the project's single `!important` — the browser's own default view-transition cross-fade. Marks that must persist still persist; the request is about movement, not information.
 
 ## Do's and Don'ts
 
 ### Do:
 - **Do** add new colours to `src/lib/tokens.ts` and nowhere else. `tokens.test.ts` fails the build if `tailwind.css` diverges, and the overlay reads the same module.
-- **Do** author both schemes by eye against their own ground. Fourteen tokens, two real palettes.
+- **Do** author both schemes by eye against their own ground. Sixteen tokens, two real palettes.
 - **Do** reserve vermilion for inference, amber for faults and destruction, petrol for uncertainty and focus.
 - **Do** leave a stated answer unmarked.
 - **Do** set every vertical measure on the 4px rhythm and separate content with hairlines.

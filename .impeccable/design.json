@@ -232,6 +232,20 @@
           "oklch(88% 0.032 195)",
           "oklch(94% 0.03 195)"
         ]
+      },
+      "shadow-near": {
+        "role": "neutral",
+        "displayName": "Contact Shadow",
+        "canonical": "oklch(20% 0.03 190 / 0.14)",
+        "darkCounterpart": "oklch(0% 0 0 / 0.4)",
+        "note": "The near layer of the system's only elevation. Ink-hued in light because a shadow belongs to the material casting it; near-black and far heavier in dark, where a light shadow on a near-black ground separates nothing. No tonal ramp: an alpha token stepped through lightness would be an invented scale."
+      },
+      "shadow-far": {
+        "role": "neutral",
+        "displayName": "Cast Shadow",
+        "canonical": "oklch(20% 0.03 190 / 0.26)",
+        "darkCounterpart": "oklch(0% 0 0 / 0.6)",
+        "note": "The cast layer, always paired with shadow-near and never used alone. Exactly three surfaces float: the panel's overflow menu, the on-page slip, and the field seal (near only)."
       }
     },
     "typographyMeta": {
@@ -267,23 +281,23 @@
     "shadows": [
       {
         "name": "menu-lift",
-        "value": "0 6px 20px -6px oklch(0% 0 0 / 0.28), 0 1px 2px oklch(0% 0 0 / 0.12)",
+        "value": "0 6px 20px -6px var(--color-shadow-far), 0 1px 2px var(--color-shadow-near)",
         "purpose": "The overflow menu, the only floating surface inside the panel."
       },
       {
         "name": "slip-lift",
-        "value": "0 8px 28px -8px oklch(0% 0 0 / 0.3), 0 1px 3px oklch(0% 0 0 / 0.14)",
-        "purpose": "The on-page endorsement slip, floating over a site we do not control."
+        "value": "0 8px 28px -8px var(--aff-shadow-far), 0 1px 3px var(--aff-shadow-near)",
+        "purpose": "The on-page slip, floating over a site we do not control. Token-hued rather than a black literal, which is what left it with no visible elevation on a dark host page."
       },
       {
         "name": "seal-lift",
-        "value": "0 1px 4px oklch(0% 0 0 / 0.2)",
-        "purpose": "The 18px field seal, so it survives any host page background."
+        "value": "0 1px 4px var(--aff-shadow-near)",
+        "purpose": "The 18px field seal — the near layer only, so it survives any host page background without looking lifted off it."
       },
       {
         "name": "mark-ring",
         "value": "0 0 0 2px var(--mark-color)",
-        "purpose": "A field outline drawn as spread shadow so it never affects layout or intercepts a click."
+        "purpose": "Not elevation: a field outline drawn as spread shadow so it never affects layout or intercepts a click."
       }
     ],
     "motion": [
@@ -311,6 +325,16 @@
         "name": "endorse-in",
         "value": "320ms",
         "purpose": "The stamp being pressed: in at -4deg / 1.18 scale, settling at -1.5deg / 1. The on-page tab uses the same duration from -6deg / 1.3 to square."
+      },
+      {
+        "name": "impress",
+        "value": "1400ms",
+        "purpose": "The refusal of a spinner: a mark swells to full and settles, looping on the beat of the work. The Filling screen's active indicator, and as impress-dot the progress slip's active stage."
+      },
+      {
+        "name": "seal-sweep",
+        "value": "900ms linear",
+        "purpose": "A masked conic arc rotating around the field seal for the part of a fill nobody can measure. A determinate ring spends the model call frozen at zero and reads as broken."
       }
     ],
     "breakpoints": [
@@ -326,9 +350,9 @@
       "name": "Plate Button",
       "kind": "button",
       "refersTo": "button-plate",
-      "description": "The primary action, struck as a plate. The inset keyline is what makes it a plate rather than a filled rectangle.",
+      "description": "The primary action, struck as a plate. The inset keyline is what makes it a plate rather than a filled rectangle, and it is square: a rule set 3px inside a 2px corner is concentric at zero radius.",
       "html": "<button class=\"ds-btn-plate\">Fill this form</button>",
-      "css": ".ds-btn-plate { position: relative; display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 8px 14px; border: 1px solid var(--color-ink, oklch(23% 0.035 178)); border-radius: 2px; background: var(--color-ink, oklch(23% 0.035 178)); color: var(--color-stock, oklch(96.5% 0.009 168)); font-family: Archivo, ui-sans-serif, system-ui, sans-serif; font-size: 13px; font-weight: 500; cursor: pointer; transition: opacity 150ms cubic-bezier(0.2,0,0,1), transform 150ms cubic-bezier(0.2,0,0,1); } .ds-btn-plate::before { content: \"\"; position: absolute; inset: 3px; border: 1px solid color-mix(in oklch, var(--color-stock, oklch(96.5% 0.009 168)) 30%, transparent); border-radius: 1px; pointer-events: none; } .ds-btn-plate:hover { opacity: 0.9; } .ds-btn-plate:active { transform: translateY(1px); } .ds-btn-plate:focus-visible { outline: 2px solid var(--color-query, oklch(45% 0.1 195)); outline-offset: 1px; } .ds-btn-plate:disabled { background: transparent; color: var(--color-ink3, oklch(46% 0.024 178)); border-color: var(--color-guilloche, oklch(87% 0.022 168)); transform: none; cursor: default; } .ds-btn-plate:disabled::before { border-color: transparent; }"
+      "css": ".ds-btn-plate { position: relative; display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 8px 14px; border: 1px solid var(--color-ink, oklch(23% 0.035 178)); border-radius: 2px; background: var(--color-ink, oklch(23% 0.035 178)); color: var(--color-stock, oklch(96.5% 0.009 168)); font-family: Archivo, ui-sans-serif, system-ui, sans-serif; font-size: 13px; font-weight: 500; cursor: pointer; transition: opacity 150ms cubic-bezier(0.2,0,0,1), transform 150ms cubic-bezier(0.2,0,0,1); } .ds-btn-plate::before { content: \"\"; position: absolute; inset: 3px; border: 1px solid color-mix(in oklch, var(--color-stock, oklch(96.5% 0.009 168)) 30%, transparent); border-radius: 0; pointer-events: none; } .ds-btn-plate:hover { opacity: 0.9; } .ds-btn-plate:active { transform: translateY(1px); } .ds-btn-plate:focus-visible { outline: 2px solid var(--color-query, oklch(45% 0.1 195)); outline-offset: 1px; } .ds-btn-plate:disabled { background: transparent; color: var(--color-ink3, oklch(46% 0.024 178)); border-color: var(--color-guilloche, oklch(87% 0.022 168)); transform: none; cursor: default; } .ds-btn-plate:disabled::before { border-color: transparent; }"
     },
     {
       "name": "Struck Button",
@@ -384,7 +408,7 @@
       "refersTo": "seal",
       "description": "The on-page affordance: an 18px circular seal anchored inside the focused field. No dock, no pill, no persistent launcher. Hover darkens; it never expands.",
       "html": "<button class=\"ds-seal\" aria-label=\"Fill this field\"><svg viewBox=\"0 0 16 16\" fill=\"none\" stroke=\"currentColor\" aria-hidden=\"true\"><circle cx=\"8\" cy=\"8\" r=\"6.75\" stroke-width=\"1.5\"/><path d=\"M8 2.6 9.9 6.1 13.4 8 9.9 9.9 8 13.4 6.1 9.9 2.6 8 6.1 6.1z\" stroke-width=\"1\"/><circle cx=\"8\" cy=\"8\" r=\"1.6\" stroke-width=\"1\"/></svg></button>",
-      "css": ".ds-seal { display: flex; align-items: center; justify-content: center; width: 18px; height: 18px; padding: 0; border: 1px solid var(--color-ink, oklch(23% 0.035 178)); border-radius: 50%; background: var(--color-leaf, oklch(99.2% 0.004 168)); color: var(--color-ink, oklch(23% 0.035 178)); box-shadow: 0 1px 4px oklch(0% 0 0 / 0.2); cursor: pointer; transition: color 140ms cubic-bezier(0.2,0,0,1), background-color 140ms cubic-bezier(0.2,0,0,1); } .ds-seal svg { width: 12px; height: 12px; display: block; } .ds-seal:hover, .ds-seal[aria-expanded=\"true\"] { background: var(--color-ink, oklch(23% 0.035 178)); color: var(--color-leaf, oklch(99.2% 0.004 168)); } .ds-seal:focus-visible { outline: 2px solid var(--color-query, oklch(45% 0.1 195)); outline-offset: 1px; }"
+      "css": ".ds-seal { display: flex; align-items: center; justify-content: center; width: 18px; height: 18px; padding: 0; border: 1px solid var(--color-ink, oklch(23% 0.035 178)); border-radius: 50%; background: var(--color-leaf, oklch(99.2% 0.004 168)); color: var(--color-ink, oklch(23% 0.035 178)); box-shadow: 0 1px 4px var(--color-shadow-near, oklch(20% 0.03 190 / 0.14)); cursor: pointer; transition: color 140ms cubic-bezier(0.2,0,0,1), background-color 140ms cubic-bezier(0.2,0,0,1); } .ds-seal svg { width: 12px; height: 12px; display: block; } .ds-seal:hover, .ds-seal[aria-expanded=\"true\"] { background: var(--color-ink, oklch(23% 0.035 178)); color: var(--color-leaf, oklch(99.2% 0.004 168)); } .ds-seal:focus-visible { outline: 2px solid var(--color-query, oklch(45% 0.1 195)); outline-offset: 1px; }"
     },
     {
       "name": "Awaiting Row",
@@ -398,9 +422,17 @@
       "name": "Overflow Menu",
       "kind": "nav",
       "refersTo": "button-quiet",
-      "description": "The one floating surface inside the panel, and one of only three shadows in the system.",
+      "description": "The one floating surface inside the panel, and one of only three things in the system that take a shadow.",
       "html": "<div class=\"ds-menu\"><button class=\"ds-menu-item\" role=\"menuitem\">Re-read source</button><button class=\"ds-menu-item ds-menu-item-danger\" role=\"menuitem\">Remove</button></div>",
-      "css": ".ds-menu { min-width: 9.5rem; overflow: hidden; border: 1px solid var(--color-guilloche, oklch(87% 0.022 168)); border-radius: 2px; background: var(--color-leaf, oklch(99.2% 0.004 168)); box-shadow: 0 6px 20px -6px oklch(0% 0 0 / 0.28), 0 1px 2px oklch(0% 0 0 / 0.12); font-family: Archivo, ui-sans-serif, system-ui, sans-serif; animation: ds-strike 260ms cubic-bezier(0.2,0,0,1) both; } .ds-menu-item { display: block; width: 100%; padding: 8px 12px; border: 0; background: transparent; text-align: left; font: inherit; font-size: 12.5px; color: var(--color-ink, oklch(23% 0.035 178)); cursor: pointer; transition: background-color 150ms cubic-bezier(0.2,0,0,1); } .ds-menu-item:hover { background: var(--color-guilloche-soft, oklch(93% 0.014 168)); } .ds-menu-item-danger { color: var(--color-alert, oklch(47% 0.13 62)); } .ds-menu-item:focus-visible { outline: 2px solid var(--color-query, oklch(45% 0.1 195)); outline-offset: -2px; } @keyframes ds-strike { from { opacity: 0; transform: translateY(3px); } to { opacity: 1; transform: none; } } @media (prefers-reduced-motion: reduce) { .ds-menu { animation: none; } }"
+      "css": ".ds-menu { min-width: 9.5rem; overflow: hidden; border: 1px solid var(--color-guilloche, oklch(87% 0.022 168)); border-radius: 2px; background: var(--color-leaf, oklch(99.2% 0.004 168)); box-shadow: 0 6px 20px -6px var(--color-shadow-far, oklch(20% 0.03 190 / 0.26)), 0 1px 2px var(--color-shadow-near, oklch(20% 0.03 190 / 0.14)); font-family: Archivo, ui-sans-serif, system-ui, sans-serif; animation: ds-strike 260ms cubic-bezier(0.2,0,0,1) both; } .ds-menu-item { display: block; width: 100%; padding: 8px 12px; border: 0; background: transparent; text-align: left; font: inherit; font-size: 12.5px; color: var(--color-ink, oklch(23% 0.035 178)); cursor: pointer; transition: background-color 150ms cubic-bezier(0.2,0,0,1); } .ds-menu-item:hover { background: var(--color-guilloche-soft, oklch(93% 0.014 168)); } .ds-menu-item-danger { color: var(--color-alert, oklch(47% 0.13 62)); } .ds-menu-item:focus-visible { outline: 2px solid var(--color-query, oklch(45% 0.1 195)); outline-offset: -2px; } @keyframes ds-strike { from { opacity: 0; transform: translateY(3px); } to { opacity: 1; transform: none; } } @media (prefers-reduced-motion: reduce) { .ds-menu { animation: none; } }"
+    },
+    {
+      "name": "Progress Slip",
+      "kind": "custom",
+      "refersTo": "row",
+      "description": "The on-page slip in its working shape: three stages that resolve in place, so the slip neither re-animates nor moves while the page is still. Shown only until values start landing — after that the typing and the field marks are the better account.",
+      "html": "<div class=\"ds-slip\"><div class=\"ds-slip-head\"><span class=\"ds-slip-mark\"><svg viewBox=\"0 0 16 16\" fill=\"none\" stroke=\"currentColor\" aria-hidden=\"true\"><circle cx=\"8\" cy=\"8\" r=\"6.75\" stroke-width=\"1.5\"/><path d=\"M8 2.6 9.9 6.1 13.4 8 9.9 9.9 8 13.4 6.1 9.9 2.6 8 6.1 6.1z\" stroke-width=\"1\"/></svg></span><span class=\"ds-slip-name\">Form Filler</span></div><div class=\"ds-slip-question\">9 fields on this page</div><div class=\"ds-slip-stages\"><div class=\"ds-slip-stage\" data-state=\"done\"><span class=\"ds-slip-dot\"></span><span>Reading the page</span></div><div class=\"ds-slip-stage\" data-state=\"active\"><span class=\"ds-slip-dot\"></span><span>Working out the answers</span></div><div class=\"ds-slip-stage\"><span class=\"ds-slip-dot\"></span><span>Writing them in</span></div></div></div>",
+      "css": ".ds-slip { min-width: 190px; max-width: 280px; overflow: hidden; border: 1px solid var(--color-guilloche, oklch(87% 0.022 168)); border-radius: 2px; background: var(--color-leaf, oklch(99.2% 0.004 168)); color: var(--color-ink, oklch(23% 0.035 178)); font-family: Archivo, ui-sans-serif, system-ui, sans-serif; font-size: 13px; line-height: 1.45; box-shadow: 0 8px 28px -8px var(--color-shadow-far, oklch(20% 0.03 190 / 0.26)), 0 1px 3px var(--color-shadow-near, oklch(20% 0.03 190 / 0.14)); animation: ds-slip-in 160ms cubic-bezier(0.2,0,0,1) both; } .ds-slip-head { display: flex; align-items: center; gap: 6px; padding: 7px 11px; border-bottom: 1px solid var(--color-guilloche, oklch(87% 0.022 168)); background: var(--color-stock, oklch(96.5% 0.009 168)); } .ds-slip-mark svg { width: 13px; height: 13px; display: block; color: var(--color-ink, oklch(23% 0.035 178)); } .ds-slip-name { font-stretch: 80%; font-weight: 600; font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--color-ink3, oklch(46% 0.024 178)); } .ds-slip-question { padding: 8px 11px 4px; font-size: 12.5px; color: var(--color-ink2, oklch(38% 0.03 178)); } .ds-slip-stages { padding: 4px 0 8px; } .ds-slip-stage { display: flex; align-items: center; gap: 8px; padding: 6px 11px; font-size: 12.5px; color: var(--color-ink3, oklch(46% 0.024 178)); } .ds-slip-stage[data-state=\"done\"] { color: var(--color-ink2, oklch(38% 0.03 178)); } .ds-slip-stage[data-state=\"active\"] { color: var(--color-ink, oklch(23% 0.035 178)); font-weight: 500; } .ds-slip-dot { width: 12px; height: 12px; flex: none; display: flex; align-items: center; justify-content: center; } .ds-slip-dot::before { content: \"\"; width: 5px; height: 5px; border-radius: 50%; background: var(--color-guilloche, oklch(87% 0.022 168)); } .ds-slip-stage[data-state=\"done\"] .ds-slip-dot::before { background: var(--color-ink2, oklch(38% 0.03 178)); } .ds-slip-stage[data-state=\"active\"] .ds-slip-dot::before { background: var(--color-query, oklch(45% 0.1 195)); animation: ds-impress-dot 1400ms cubic-bezier(0.2,0,0,1) infinite; } @keyframes ds-slip-in { from { opacity: 0; scale: 0.94; } to { opacity: 1; scale: 1; } } @keyframes ds-impress-dot { 0%, 100% { scale: 0.7; opacity: 0.55; } 45% { scale: 1.25; opacity: 1; } } @media (prefers-reduced-motion: reduce) { .ds-slip { animation: none; } .ds-slip-stage[data-state=\"active\"] .ds-slip-dot::before { animation: none; } }"
     }
   ],
   "narrative": {
@@ -408,7 +440,7 @@
     "overview": "A credential exists to vouch for a person to a stranger who has to decide whether to trust it. It does that with a grammar for degrees of certainty that is structural, not decorative: the printed fields are what the issuer read, and an endorsement is something applied afterwards, in a second ink, by a second hand. This product has exactly that problem — a stated fact and a judgement call must be told apart at a glance, at 400px, in both schemes — so the world is not a metaphor laid over the interface, it is the interface's actual mechanism.\n\nThe surface is dense, ruled and flat. Content is delimited by hairlines rather than boxed in cards; text sits on a safety-tint stock that is deliberately neither cream nor white; every vertical measure is a multiple of 4px, because a document is set on a ruled bed. Two registers of one typeface do the work of two families: Archivo at 80% width for tracked condensed caps on every field label, Archivo at normal width for prose, and Chivo Mono for quantities that must align. The dark scheme is not an inversion but a second physical scene — a passport page under a desk lamp with the room dark — which is why its hairlines and its engine-turned ground sit at different distances from the ground than the light scheme's do.\n\nTwo directions were refused by name in the direction contract and remain refused: the AI-panel card grid on near-black with a violet glow, and the white minimal app shell that is its predictable opposite. There is one accent, vermilion, and it has one meaning. There is no other ornament except the guilloche, which appears twice in the entire build.",
     "keyCharacteristics": [
       "Ruled registers, never cards; hairlines carry all structure.",
-      "Fourteen tokens per scheme, both schemes authored, neither derived from the other.",
+      "Sixteen tokens per scheme, both schemes authored, neither derived from the other.",
       "One accent (vermilion) with one meaning: inference. Faults speak amber, uncertainty speaks petrol.",
       "2px radius on struck controls, full circle for seals, nothing in between.",
       "4px vertical rhythm; 13px body on a 400px column.",
@@ -463,7 +495,7 @@
     ],
     "dos": [
       "Do add new colours to `src/lib/tokens.ts` and nowhere else. `tokens.test.ts` fails the build if `tailwind.css` diverges, and the overlay reads the same module.",
-      "Do author both schemes by eye against their own ground. Fourteen tokens, two real palettes.",
+      "Do author both schemes by eye against their own ground. Sixteen tokens, two real palettes.",
       "Do reserve vermilion for inference, amber for faults and destruction, petrol for uncertainty and focus.",
       "Do leave a stated answer unmarked.",
       "Do set every vertical measure on the 4px rhythm and separate content with hairlines.",

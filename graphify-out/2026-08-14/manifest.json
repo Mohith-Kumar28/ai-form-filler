@@ -265,13 +265,13 @@
     "semantic_hash": ""
   },
   "apps/extension/src/entrypoints/background.ts": {
-    "mtime": 1786709613.0520937,
-    "ast_hash": "1fb8a8a8c7f8b2bef52868048254a1b2",
+    "mtime": 1786711410.2812998,
+    "ast_hash": "406b96c0f24b36fb615df6d4983f73d2",
     "semantic_hash": ""
   },
   "apps/extension/src/entrypoints/content.ts": {
-    "mtime": 1786710277.4590976,
-    "ast_hash": "6095ba16e1cdfd055465eb8b5b836ae3",
+    "mtime": 1786711406.953452,
+    "ast_hash": "ada0e59d4d1698889db2c98b834f8a4e",
     "semantic_hash": ""
   },
   "apps/extension/src/entrypoints/sidepanel/App.tsx": {
@@ -585,8 +585,8 @@
     "semantic_hash": ""
   },
   "apps/extension/src/overlay/host.ts": {
-    "mtime": 1786710277.4588897,
-    "ast_hash": "65406671d0f285a67c334af3bd93a353",
+    "mtime": 1786711182.1013293,
+    "ast_hash": "a242c3c06a6b29150489a6d9c796bf17",
     "semantic_hash": ""
   },
   "apps/extension/src/overlay/overlay.test.ts": {
@@ -745,8 +745,8 @@
     "semantic_hash": ""
   },
   "packages/shared/src/messages.ts": {
-    "mtime": 1786709595.6212556,
-    "ast_hash": "31703bbd0c8a0cd14f7c9c68526655a1",
+    "mtime": 1786711385.3975065,
+    "ast_hash": "463c71f99c6fe1bfe9e019677825115f",
     "semantic_hash": ""
   },
   "packages/shared/src/profile.ts": {
@@ -780,8 +780,8 @@
     "semantic_hash": ""
   },
   "DESIGN.md": {
-    "mtime": 1786710135.5563593,
-    "ast_hash": "bbce46b609dfc1248b4ff894a2270ce6",
+    "mtime": 1786710968.4986484,
+    "ast_hash": "9c639c802eee7bc2780f227d64795605",
     "semantic_hash": ""
   },
   "HANDOFF.md": {
@@ -850,8 +850,8 @@
     "semantic_hash": ""
   },
   "apps/extension/gallery/overlay.ts": {
-    "mtime": 1786709720.4204483,
-    "ast_hash": "bfc8a2da1d4d145be15b34eb35eb6d36",
+    "mtime": 1786711431.494536,
+    "ast_hash": "15f68ae112ab547e360245bab4175601",
     "semantic_hash": ""
   },
   "apps/extension/gallery/stub-chrome.ts": {
@@ -865,8 +865,8 @@
     "semantic_hash": ""
   },
   "apps/extension/src/entrypoints/sidepanel/components.tsx": {
-    "mtime": 1786710234.9275203,
-    "ast_hash": "e9fa260518edb4beafcf24b3a67453f7",
+    "mtime": 1786710885.8576474,
+    "ast_hash": "a51144addf85eadb89ee489d91f3f67a",
     "semantic_hash": ""
   },
   "apps/extension/src/entrypoints/sidepanel/navigation.tsx": {
@@ -880,8 +880,8 @@
     "semantic_hash": ""
   },
   "apps/extension/src/entrypoints/sidepanel/screens/Filling.tsx": {
-    "mtime": 1786709347.1422584,
-    "ast_hash": "ec12db5a05fe903930891397b3627c05",
+    "mtime": 1786710858.7484243,
+    "ast_hash": "1d7d1b2eb1e894860d96fe2bde604557",
     "semantic_hash": ""
   },
   "apps/extension/src/entrypoints/sidepanel/screens/Home.tsx": {
@@ -945,8 +945,8 @@
     "semantic_hash": ""
   },
   "apps/extension/src/lib/tokens.ts": {
-    "mtime": 1786710314.6059701,
-    "ast_hash": "397b2460e7017a8ee5399a08245e75ac",
+    "mtime": 1786710885.8569548,
+    "ast_hash": "c60ad0985b128b85a157b128fb19b036",
     "semantic_hash": ""
   },
   "apps/extension/src/lib/use-active-page.ts": {
@@ -960,8 +960,8 @@
     "semantic_hash": ""
   },
   "apps/extension/src/overlay/field-seal.ts": {
-    "mtime": 1786708430.4726188,
-    "ast_hash": "782cba6733b3e5162aba43aa216f6a85",
+    "mtime": 1786711299.4697475,
+    "ast_hash": "5410e1f76348106d3cb0a0f87ca0a74b",
     "semantic_hash": ""
   },
   "apps/extension/src/overlay/host.test.ts": {
@@ -980,8 +980,8 @@
     "semantic_hash": ""
   },
   "apps/extension/src/overlay/slip.ts": {
-    "mtime": 1786710251.9335237,
-    "ast_hash": "ecf4de20813ee8fa368edab7025a7c19",
+    "mtime": 1786711277.0887969,
+    "ast_hash": "c631991c1334052b8d13df9656113fa0",
     "semantic_hash": ""
   },
   "skills-lock.json": {
@@ -1005,8 +1005,8 @@
     "semantic_hash": ""
   },
   "apps/extension/gallery/overlay.html": {
-    "mtime": 1786708615.5724866,
-    "ast_hash": "2456d46b73e047d5dfc5b7a81743a3cb",
+    "mtime": 1786711431.5142226,
+    "ast_hash": "665687d9dae3bb9e9ebb233dc1ebb294",
     "semantic_hash": ""
   }
 }

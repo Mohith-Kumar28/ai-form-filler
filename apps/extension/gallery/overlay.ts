@@ -37,6 +37,17 @@ mountSlip({
   onClose: () => undefined,
 })
 
+// The wait: what the page shows while the model is thinking and nothing else moves.
+mountSlip({
+  kind: 'progress',
+  anchor: rectOf(field('auth')),
+  label: 'Autofill',
+  stage: 'generating',
+  fieldCount: 12,
+  onSelect: () => undefined,
+  onClose: () => undefined,
+})
+
 mountSlip({
   kind: 'review',
   anchor: rectOf(field('why')),

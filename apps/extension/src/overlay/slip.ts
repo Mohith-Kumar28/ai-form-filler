@@ -36,6 +36,8 @@ export interface SlipHandle {
   element: HTMLElement
   close: () => void
   contains: (node: Node) => boolean
+  /** Advances a progress slip in place, so it neither re-animates nor moves. */
+  setStage: (stage: ProgressStage) => void
 }
 
 interface SlipOptions {
@@ -79,7 +81,38 @@ export const REWRITE_STYLES = [
   { key: 'detailed', label: 'More detail' },
 ] as const
 
-export type SlipSpec = MenuSlip | ReviewSlip
+/**
+ * What is happening, on the field the person pressed.
+ *
+ * Shown only while the page is still — detection and the model call. Once values start
+ * landing, the typing animation and the field marks are a better account of the work than any
+ * panel could give, and a fixed popover would only fight the scrolling they cause.
+ */
+interface ProgressSlip extends SlipOptions {
+  kind: 'progress'
+  label: string
+  stage: ProgressStage
+  fieldCount: number
+}
+
+/** The one thing the page-initiated flow never had: an ending. */
+interface DoneSlip extends SlipOptions {
+  kind: 'done'
+  label: string
+  written: number
+  total: number
+  worthChecking: number
+}
+
+export type ProgressStage = 'detecting' | 'generating' | 'applying'
+
+const STAGES: { key: ProgressStage; label: string }[] = [
+  { key: 'detecting', label: 'Reading the page' },
+  { key: 'generating', label: 'Writing your answers' },
+  { key: 'applying', label: 'Filling the form' },
+]
+
+export type SlipSpec = MenuSlip | ReviewSlip | ProgressSlip | DoneSlip
 
 function escapeHtml(value: string): string {
   return value.replace(
@@ -162,6 +195,41 @@ export function mountSlip(spec: SlipSpec): SlipHandle {
             )}</div>`
           : ''
       }
+    `
+  } else if (spec.kind === 'progress') {
+    slip.innerHTML = `
+      ${masthead}
+      <div class="slip-question">${
+        spec.fieldCount > 0
+          ? `${spec.fieldCount} field${spec.fieldCount === 1 ? '' : 's'} on this page`
+          : 'Working through the form'
+      }</div>
+      <div class="slip-stages">
+        ${STAGES.map(
+          (stage) =>
+            `<div class="slip-stage" data-stage="${stage.key}"><span class="slip-stage-dot"></span><span>${stage.label}</span></div>`,
+        ).join('')}
+      </div>
+      <button type="button" class="slip-item slip-item-quiet" data-id="cancel">
+        <span>Stop</span>
+      </button>
+    `
+  } else if (spec.kind === 'done') {
+    slip.innerHTML = `
+      ${masthead}
+      <div class="slip-question">${spec.written} of ${spec.total} filled${
+        spec.worthChecking > 0
+          ? ` · ${spec.worthChecking} worth checking`
+          : ' · nothing needs a second look'
+      }</div>
+      <div class="slip-actions">
+        ${
+          spec.worthChecking > 0
+            ? '<button type="button" class="slip-btn slip-btn-plate" data-id="review">Review</button>'
+            : ''
+        }
+        <button type="button" class="slip-btn" data-id="dismiss">Done</button>
+      </div>
     `
   } else {
     const stampClass = spec.concluded ? 'slip-stamp' : 'slip-stamp slip-stamp-unsure'
@@ -358,9 +426,21 @@ export function mountSlip(spec: SlipSpec): SlipHandle {
 
   slip.addEventListener('keydown', onKey)
 
+  const setStage = (stage: ProgressStage) => {
+    const reached = STAGES.findIndex((candidate) => candidate.key === stage)
+    for (const [index, candidate] of STAGES.entries()) {
+      const node = slip.querySelector<HTMLElement>(`[data-stage="${candidate.key}"]`)
+      if (!node) continue
+      node.dataset.state = index < reached ? 'done' : index === reached ? 'active' : 'ahead'
+    }
+  }
+
+  if (spec.kind === 'progress') setStage(spec.stage)
+
   return {
     element: slip,
     close: () => slip.remove(),
     contains: (node) => slip.contains(node),
+    setStage,
   }
 }

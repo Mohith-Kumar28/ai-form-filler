@@ -45,6 +45,8 @@ export default defineContentScript({
     let lastPlan: FillPlan | null = null
     /** Local edits made in a review slip, before they are written back. */
     const slipDrafts = new Map<string, string>()
+    /** Where the fill was asked for, so its progress and its ending land on that field. */
+    let fillAnchor: HTMLElement | null = null
 
     void isMuted(location.origin).then((value) => {
       muted = value
@@ -366,8 +368,79 @@ export default defineContentScript({
 
       filling = true
       clearMarks()
-      seal?.setProgress(0)
+      fillAnchor = element ?? sealedElement
+      // Sweeping, not zero. Detection and the model call report nothing measurable, and a ring
+      // frozen at 0% for fifteen seconds is indistinguishable from a seal that has died.
+      seal?.setProgress('sweeping')
+      showProgress('detecting')
       void chrome.runtime.sendMessage({ type: 'overlay/requestFill', scope, fieldId })
+    }
+
+    /**
+     * The account of a fill, on the field it was asked for.
+     *
+     * Only while the page is still. Once `applying` starts, values are being typed in and
+     * fields are taking marks, which is a better account of the work than a popover — and a
+     * fixed panel would only fight the scrolling that the typing causes.
+     */
+    function showProgress(stage: 'detecting' | 'generating'): void {
+      const anchor = fillAnchor
+      if (!anchor?.isConnected) return
+
+      if (slip?.element.dataset.kind === 'progress') {
+        slip.setStage(stage)
+        return
+      }
+
+      closeSlip()
+      const box = anchor.getBoundingClientRect()
+      const handle = mountSlip({
+        kind: 'progress',
+        anchor: { top: box.top, left: box.left, width: box.width, height: box.height },
+        label: 'Autofill',
+        stage,
+        fieldCount: detection?.form.fields.length ?? 0,
+        onSelect: (id) => {
+          if (id === 'cancel') {
+            // Tells the worker to stop, not just this popover to go away.
+            void chrome.runtime.sendMessage({ type: 'overlay/cancelFill' })
+            filling = false
+            fillAnchor = null
+            seal?.setProgress(null)
+            closeSlip()
+          }
+        },
+        onClose: closeSlip,
+      })
+      handle.element.dataset.kind = 'progress'
+      setSlip(handle)
+    }
+
+    /** The ending the page-initiated flow never had. */
+    function showDone(report: ApplyReport, plan: FillPlan): void {
+      const anchor = fillAnchor
+      if (!anchor?.isConnected) return
+
+      const worthChecking = plan.fills.filter(
+        (fill) => fill.inferred || fill.confidence < REVIEW_CONFIDENCE_THRESHOLD,
+      ).length
+
+      closeSlip()
+      const box = anchor.getBoundingClientRect()
+      const handle = mountSlip({
+        kind: 'done',
+        anchor: { top: box.top, left: box.left, width: box.width, height: box.height },
+        label: 'Autofill',
+        written: report.applied.length,
+        total: plan.fills.length,
+        worthChecking,
+        onSelect: (id) => {
+          closeSlip()
+          if (id === 'review') void chrome.runtime.sendMessage({ type: 'overlay/openPanel' })
+        },
+        onClose: closeSlip,
+      })
+      setSlip(handle)
     }
 
     /**
@@ -398,6 +471,38 @@ export default defineContentScript({
           onClose: closeSlip,
         }),
       )
+    }
+
+    /**
+     * Which element a field's mark should outline.
+     *
+     * `DetectedField.element` is the group's *first* option for a radio or checkbox set,
+     * because writing one means clicking one of several nodes. Marking that element drew the
+     * stamp around option 1 of a 1-to-10 scale while the answer it was reporting on was 8 —
+     * the mark and the value pointed at different things, which is worse than no mark, since
+     * the whole promise of a mark is that it tells you where to look.
+     *
+     * A choice question is one answer, so it takes one mark: the smallest element that
+     * contains every option.
+     */
+    function markTargetFor(field: {
+      element: HTMLElement
+      groupElements?: HTMLElement[]
+    }): HTMLElement {
+      const group = field.groupElements
+      if (!group || group.length < 2) return field.element
+
+      let ancestor = field.element.parentElement
+      while (ancestor && !group.every((node) => ancestor?.contains(node))) {
+        ancestor = ancestor.parentElement
+      }
+
+      // Never the page itself: a group whose only common ancestor is <body> is a detection
+      // artefact, and outlining the document would be worse than outlining one option.
+      if (!ancestor || ancestor === document.body || ancestor === document.documentElement) {
+        return field.element
+      }
+      return ancestor
     }
 
     /* ── marks ─────────────────────────────────────────────────────────── */
@@ -439,7 +544,7 @@ export default defineContentScript({
 
         marks.set(
           fill.fieldId,
-          mountFieldMark(field.element, () => openReview(fill.fieldId)),
+          mountFieldMark(markTargetFor(field), () => openReview(fill.fieldId)),
         )
 
         animated.push({
@@ -595,18 +700,32 @@ export default defineContentScript({
 
           case 'fill/event': {
             const event = request.event
-            if (event.type === 'progress' && event.total > 0) {
-              seal?.setProgress(event.done / event.total)
+            if (event.type === 'progress') {
+              if (event.stage === 'applying') {
+                /*
+                  The page starts moving here: values are typed in and fields take marks, one
+                  after another. The popover closes and lets that be the account of the work,
+                  rather than sitting at fixed coordinates while the page scrolls out from
+                  under it.
+                */
+                closeSlip()
+                seal?.setProgress(event.total > 0 ? event.done / event.total : 'sweeping')
+              } else {
+                seal?.setProgress('sweeping')
+                showProgress(event.stage)
+              }
             } else if (event.type === 'error') {
               filling = false
               seal?.setProgress(null)
               clearMarks()
               // Say so, on the field they pressed. Swallowing this is what made a quota
               // failure, an expired session and a genuine bug all look like a dead button.
-              showFieldError(sealedElement ?? undefined, event.error.message)
+              showFieldError(fillAnchor ?? sealedElement ?? undefined, event.error.message)
+              fillAnchor = null
             } else if (event.type === 'complete') {
               filling = false
               seal?.setProgress(null)
+              showDone(event.report, event.plan)
             }
             return false
           }

@@ -7,6 +7,15 @@ import { toResult } from '../lib/messaging.js'
 /** Where the most recent finished fill is parked for the side panel to pick up. */
 export const LAST_FILL_KEY = 'aff:lastFill'
 
+/**
+ * Tabs whose page-initiated fill has been stopped.
+ *
+ * The panel's fill is cancelled by disconnecting its port; a page fill is a one-shot message,
+ * so the worker has to hold the flag itself. Keyed by tab because two tabs can be filling at
+ * once and one stopping must not stop the other.
+ */
+const cancelledFills = new Set<number>()
+
 export default defineBackground(() => {
   registerFillPort()
 
@@ -54,30 +63,48 @@ export default defineBackground(() => {
               : {}),
           }
 
-          await runFillFlow(tabId, options, (event) => {
-            // Two receivers, two channels. `runtime.sendMessage` reaches an open side panel;
-            // `tabs.sendMessage` reaches the content script. Neither having a listener is a
-            // normal state.
-            void chrome.runtime.sendMessage({ type: 'fill/event', event }).catch(() => undefined)
-            void chrome.tabs
-              .sendMessage(tabId, { type: 'fill/event', event })
-              .catch(() => undefined)
+          cancelledFills.delete(tabId)
 
-            /**
-             * Keep the finished plan so Review has something to open.
-             *
-             * A fill started from the page dock usually runs with the panel **closed**, so
-             * the broadcast above reaches nobody — and pressing Review then opened a panel
-             * with no result in it, landing the user back on the sources list. Session
-             * storage rather than local: this holds the user's actual answers, and they
-             * should not outlive the browser session that produced them.
-             */
-            if (event.type === 'complete') {
-              void chrome.storage.session
-                .set({ [LAST_FILL_KEY]: { tabId, plan: event.plan, report: event.report } })
+          await runFillFlow(
+            tabId,
+            options,
+            (event) => {
+              // Two receivers, two channels. `runtime.sendMessage` reaches an open side panel;
+              // `tabs.sendMessage` reaches the content script. Neither having a listener is a
+              // normal state.
+              void chrome.runtime.sendMessage({ type: 'fill/event', event }).catch(() => undefined)
+              void chrome.tabs
+                .sendMessage(tabId, { type: 'fill/event', event })
                 .catch(() => undefined)
-            }
-          })
+
+              /**
+               * Keep the finished plan so Review has something to open.
+               *
+               * A fill started from the page dock usually runs with the panel **closed**, so
+               * the broadcast above reaches nobody — and pressing Review then opened a panel
+               * with no result in it, landing the user back on the sources list. Session
+               * storage rather than local: this holds the user's actual answers, and they
+               * should not outlive the browser session that produced them.
+               */
+              if (event.type === 'complete') {
+                void chrome.storage.session
+                  .set({ [LAST_FILL_KEY]: { tabId, plan: event.plan, report: event.report } })
+                  .catch(() => undefined)
+              }
+            },
+            () => cancelledFills.has(tabId),
+          )
+
+          cancelledFills.delete(tabId)
+          return null
+        }).then(sendResponse)
+        return true
+
+      /** Stop a page-initiated fill. See `overlay/cancelFill`. */
+      case 'overlay/cancelFill':
+        void toResult(async () => {
+          const tabId = _sender.tab?.id
+          if (tabId !== undefined) cancelledFills.add(tabId)
           return null
         }).then(sendResponse)
         return true
