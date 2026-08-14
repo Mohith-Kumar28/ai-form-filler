@@ -32,6 +32,8 @@ interface Row {
   confidence: number
   inferred: boolean
   options: string[]
+  /** Forwarded with a verdict so the server files a choice and an essay differently. */
+  kind?: FillPlan['fills'][number]['kind']
   reasoning?: string
 }
 
@@ -74,6 +76,7 @@ export function ReviewPanel({
     confidence: f.confidence,
     inferred: f.inferred ?? false,
     options: f.options ?? [],
+    ...(f.kind ? { kind: f.kind } : {}),
     ...(f.reasoning ? { reasoning: f.reasoning } : {}),
   }))
 
@@ -144,6 +147,7 @@ export function ReviewPanel({
           entries: [
             {
               label: row.label,
+              ...(row.kind ? { kind: row.kind } : {}),
               proposed: row.value,
               accepted: next,
               edited: verdict === 'edited',

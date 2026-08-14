@@ -2,7 +2,7 @@ import { type DetectionResult, detectPageForm } from '@aff/form-adapters'
 import type { ApplyReport, ContentRequest, FillPortEvent } from '@aff/shared'
 import { isAuthError, REVIEW_CONFIDENCE_THRESHOLD } from '@aff/shared/constants'
 import { type AnimatedFill, runFillAnimation } from '../overlay/animate.js'
-import { createFeedbackCapture, readFieldValue } from '../overlay/feedback.js'
+import { createFeedbackCapture, displayValueOf } from '../overlay/feedback.js'
 import {
   type DockHandle,
   type FieldMarker,
@@ -236,13 +236,25 @@ export default defineContentScript({
         detection.form.fields.map((field) => ({
           fieldId: field.id,
           label: field.label,
+          kind: field.kind,
           ...(field.section ? { section: field.section } : {}),
           ...(field.hint ? { hint: field.hint } : {}),
-          proposed: written.get(field.id) ?? '',
+          /**
+           * Recorded as the page displays it, not as the model said it.
+           *
+           * `readValue` reports option labels, so comparing against a raw option value made
+           * every choice field on a form whose values differ from its labels look edited.
+           */
+          proposed: displayValueOf(field, written.get(field.id) ?? ''),
         })),
-        (fieldId) => {
-          const element = detection.elements.get(fieldId)?.element
-          return element ? readFieldValue(element) : null
+        {
+          // The adapter that wrote the field is the one that can read it back — see
+          // `FormAdapter.readValue`. Sniffing the element here missed every non-native widget.
+          read: (fieldId) => {
+            const field = detection.elements.get(fieldId)
+            return field ? detection.adapter.readValue(field) : null
+          },
+          isAlive: (fieldId) => detection.elements.get(fieldId)?.element.isConnected === true,
         },
       )
 

@@ -4,10 +4,12 @@
  * AI Form Filler API
  * OpenAPI spec version: 0.1.0
  */
+import type { FeedbackRequestEntriesItemKind } from './feedbackRequestEntriesItemKind';
 
 export type FeedbackRequestEntriesItem = {
   /** @maxLength 400 */
   label: string;
+  kind?: FeedbackRequestEntriesItemKind;
   /** @maxLength 200 */
   section?: string;
   /** @maxLength 400 */

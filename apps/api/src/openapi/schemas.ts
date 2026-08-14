@@ -5,6 +5,7 @@ import {
   FillPlan as FillPlanBase,
   FillRequest as FillRequestBase,
   Identity as IdentityBase,
+  LearnedAnswer as LearnedAnswerBase,
   Profile as ProfileBase,
   ProfileSource as ProfileSourceBase,
   SourceKind as SourceKindBase,
@@ -21,6 +22,7 @@ import { z } from '@hono/zod-openapi'
 
 export const Identity = IdentityBase.openapi('Identity')
 export const ProfileSource = ProfileSourceBase.openapi('ProfileSource')
+export const LearnedAnswer = LearnedAnswerBase.openapi('LearnedAnswer')
 export const Profile = ProfileBase.openapi('Profile')
 export const SourceKind = SourceKindBase.openapi('SourceKind')
 export const Account = AccountBase.openapi('Account')
@@ -45,6 +47,14 @@ export const ProfilePatch = z
     identity: Identity.optional(),
     /** The user's own key/value facts. Replaced wholesale, like any array field. */
     custom: z.record(z.string(), z.string()).optional(),
+    /**
+     * Remembered answers, replaced wholesale.
+     *
+     * Writable so the user can correct or forget one. A store that only ever grows and that
+     * the user cannot see into is not a memory, it is a liability — these answers are in
+     * every prompt, so a wrong one is wrong on every future form until it can be removed.
+     */
+    learned: z.array(LearnedAnswer).optional(),
   })
   .openapi('ProfilePatch')
 

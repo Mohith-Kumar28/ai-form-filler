@@ -4,6 +4,7 @@
  * AI Form Filler API
  * OpenAPI spec version: 0.1.0
  */
+import type { FillPlanFillsItemKind } from './fillPlanFillsItemKind';
 import type { FillPlanFillsItemTier } from './fillPlanFillsItemTier';
 
 export type FillPlanFillsItem = {
@@ -19,4 +20,5 @@ export type FillPlanFillsItem = {
   reasoning?: string;
   inferred?: boolean;
   options?: string[];
+  kind?: FillPlanFillsItemKind;
 };

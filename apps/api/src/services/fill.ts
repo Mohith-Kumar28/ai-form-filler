@@ -1,10 +1,19 @@
-import type { Fill, FillPlan, FillRequest, FillTier, Identity, Skip } from '@aff/shared'
+import type {
+  Fill,
+  FillPlan,
+  FillRequest,
+  FillTier,
+  Identity,
+  LearnedAnswer,
+  Skip,
+} from '@aff/shared'
 import { ApiErrorResponse } from '@aff/shared'
 import { and, eq, sql } from 'drizzle-orm'
 import { fillLog, profileDocs, profileSources } from '../db/schema.js'
 import type { Env } from '../env.js'
 import { generateFills } from '../llm/generate.js'
 import { classifyForm } from '../router/classify.js'
+import { resolveLearned } from '../router/recall.js'
 import { resolveTier0 } from '../router/tier0.js'
 import type { Db } from './account.js'
 import { gatherFillContext } from './retrieval.js'
@@ -62,15 +71,26 @@ export async function runFill(
     )
   }
 
-  let identity: Identity = { links: {} }
+  let structured: { identity: Identity; learned: LearnedAnswer[] } = {
+    identity: { links: {} },
+    learned: [],
+  }
   try {
-    identity = (JSON.parse(docRow.structured) as { identity?: Identity }).identity ?? {
-      links: {},
+    const parsed = JSON.parse(docRow.structured) as {
+      identity?: Identity
+      learned?: LearnedAnswer[]
+    }
+    structured = {
+      identity: parsed.identity ?? { links: {} },
+      // Absent on every profile written before learned answers existed.
+      learned: parsed.learned ?? [],
     }
   } catch {
     // A corrupt structured blob costs us tier-0 answers, not the whole request — the model
     // tiers can still read the same facts out of the profile document.
   }
+
+  const identity = structured.identity
 
   // Fields the user has already filled are left alone unless explicitly asked otherwise.
   const candidates = request.overwriteExisting
@@ -101,10 +121,30 @@ export async function runFill(
   const tier0 = resolveTier0(identity, classifications, labels)
 
   const byId = new Map(candidates.map((f) => [f.id, f]))
+
+  /**
+   * Questions the user has answered before are answered from what they chose, not re-decided.
+   *
+   * Runs after identity and before any model call, because it is the same kind of thing: a
+   * lookup with a definite answer. Everything it resolves is a model call that does not happen
+   * and — more to the point — an answer that cannot come back different from last time.
+   */
+  const recalled = resolveLearned(structured.learned, byId, tier0.unresolved)
+
+  // Honest accounting: a field classified as tier 1 but answered by recall cost nothing, and
+  // fill_log is how we find out whether the free tier is affordable.
+  for (const fill of recalled.fills) {
+    const original = classifications.find((c) => c.fieldId === fill.fieldId)
+    if (original && original.tier !== 0) {
+      counts[original.tier] -= 1
+      counts[0] += 1
+    }
+  }
+
   const batches: { tier: Exclude<FillTier, 0>; fieldIds: string[] }[] = []
 
   for (const tier of [1, 2, 3] as const) {
-    const fieldIds = tier0.unresolved.filter((c) => c.tier === tier).map((c) => c.fieldId)
+    const fieldIds = recalled.unresolved.filter((c) => c.tier === tier).map((c) => c.fieldId)
     if (fieldIds.length > 0) batches.push({ tier, fieldIds })
   }
 
@@ -125,7 +165,9 @@ export async function runFill(
       ? await gatherFillContext({
           env: ctx.env,
           userId: ctx.userId,
-          questions: tier0.unresolved
+          // Only what a model still has to answer. Including recalled questions would spend
+          // the form's one search budget retrieving context for fields already settled.
+          questions: recalled.unresolved
             .map((c) => labels.get(c.fieldId) ?? '')
             .filter((label) => label !== ''),
         })
@@ -151,7 +193,20 @@ export async function runFill(
     }),
   )
 
-  const fills: Fill[] = [...tier0.fills, ...results.flatMap((r) => r.fills)]
+  /**
+   * Every fill carries the kind of field it answered.
+   *
+   * Stamped in one place rather than in each producer: tier 0 and the recall step see
+   * classifications, and the generators see their own batch, so each would have had to be
+   * handed the schema separately and any new producer would have quietly omitted it. The
+   * review panel needs it to route a confirmation to the right store.
+   */
+  const fills: Fill[] = [...tier0.fills, ...recalled.fills, ...results.flatMap((r) => r.fills)].map(
+    (fill) => {
+      const kind = byId.get(fill.fieldId)?.kind
+      return kind ? { ...fill, kind } : fill
+    },
+  )
   const skipped: Skip[] = [...alreadyFilled, ...tier0.skipped, ...results.flatMap((r) => r.skipped)]
 
   const usage = results.reduce(

@@ -1,4 +1,4 @@
-import type { FieldKind, FieldOption, FieldSchema } from '@aff/shared'
+import { type FieldKind, type FieldOption, type FieldSchema, matchOptions } from '@aff/shared'
 import { resolveHint, resolveLabel, resolveSection } from './label.js'
 import type { DetectedField, DetectedForm, FormAdapter } from './types.js'
 import {
@@ -376,29 +376,21 @@ export class GenericAdapter implements FormAdapter {
       }
 
       /**
-       * The whole answer is tried before splitting on commas.
+       * Resolved against the whole answer at once — see `matchOptions`.
        *
        * Option labels contain commas — "Social media (X, Facebook, etc.)" is ordinary — and
-       * splitting first turned them into fragments that matched nothing. A fragment can also
-       * match a *different* option ("Yes" out of "Yes, I agree"), ticking the wrong box.
+       * splitting on them first turned one label into fragments that matched nothing, while a
+       * fragment could match a *different* option ("Yes" out of "Yes, I agree").
        */
       const controls = groupElements as HTMLInputElement[]
-      const keysOf = (c: HTMLInputElement) =>
-        [c.value, resolveLabel(c)].filter(Boolean).map((k) => k.toLowerCase())
-
-      const whole = value.trim().toLowerCase()
-      const matchesWhole = controls.some((c) => keysOf(c).includes(whole))
-
-      const wanted = matchesWhole
-        ? [whole]
-        : value
-            .split(',')
-            .map((v) => v.trim().toLowerCase())
-            .filter(Boolean)
+      const { chosen } = matchOptions(value, controls, (c) =>
+        [c.value === 'on' ? '' : c.value, resolveLabel(c)].filter(Boolean),
+      )
+      const wantedNodes = new Set(chosen)
 
       let applied = false
       for (const control of controls) {
-        const shouldCheck = keysOf(control).some((k) => wanted.includes(k))
+        const shouldCheck = wantedNodes.has(control)
 
         if (schema.kind === 'radio') {
           if (shouldCheck && writeCheckedValue(control, true)) applied = true
@@ -422,5 +414,57 @@ export class GenericAdapter implements FormAdapter {
     if (element.isContentEditable) return writeContentEditable(element, value)
 
     return false
+  }
+
+  /**
+   * The mirror of `applyValue`, and it must stay one.
+   *
+   * Every branch here answers a branch above: what we can write, we can read back. The
+   * group case is the one that was wrong for the entire life of the learning loop — reading
+   * `element` alone means reading `groupElements[0]`, so choosing any option other than the
+   * first read as "nothing selected" and a multi-select could never report more than one box.
+   */
+  readValue(field: DetectedField): string | null {
+    const { element, schema, groupElements } = field
+
+    if (groupElements && groupElements.length > 0) {
+      const controls = groupElements as HTMLInputElement[]
+      const checked = controls.filter((control) => control.checked)
+      if (checked.length === 0) return null
+
+      // A lone checkbox is a yes/no question — its `value` is usually the HTML default "on",
+      // which is not an answer. `applyValue` reads intent, so intent is what we report.
+      if (schema.kind === 'checkbox') return 'yes'
+
+      // Labels, not values: these strings become remembered answers and reach a prompt.
+      return (
+        checked
+          .map((control) => resolveLabel(control) || (control.value === 'on' ? '' : control.value))
+          .filter(Boolean)
+          .join(', ') || null
+      )
+    }
+
+    if (element instanceof HTMLSelectElement) {
+      const selected = [...element.selectedOptions]
+        // An empty value is the "Select one…" placeholder, excluded from the options we
+        // offer and equally not an answer when read back.
+        .filter((option) => option.value !== '')
+        .map((option) => option.text.trim())
+        .filter(Boolean)
+      return selected.length > 0 ? selected.join(', ') : null
+    }
+
+    if (element instanceof HTMLInputElement) {
+      if (element.type === 'checkbox' || element.type === 'radio') {
+        return element.checked ? element.value || 'yes' : null
+      }
+      return element.value || null
+    }
+
+    if (element instanceof HTMLTextAreaElement) return element.value || null
+    if (element.isContentEditable) return element.textContent?.trim() || null
+
+    return null
   }
 }

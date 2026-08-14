@@ -5,9 +5,11 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { Identity } from './identity';
+import type { LearnedAnswer } from './learnedAnswer';
 import type { ProfilePatchCustom } from './profilePatchCustom';
 
 export interface ProfilePatch {
   identity?: Identity;
   custom?: ProfilePatchCustom;
+  learned?: LearnedAnswer[];
 }

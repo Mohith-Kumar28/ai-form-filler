@@ -186,6 +186,28 @@
             },
             "default": {}
           },
+          "learned": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "question": {
+                  "type": "string",
+                  "maxLength": 200
+                },
+                "answer": {
+                  "type": "string",
+                  "maxLength": 300
+                },
+                "origin": {
+                  "type": "string",
+                  "maxLength": 200
+                }
+              },
+              "required": ["question", "answer"]
+            },
+            "default": []
+          },
           "sources": {
             "type": "array",
             "items": {
@@ -254,6 +276,12 @@
             "additionalProperties": {
               "type": "string"
             }
+          },
+          "learned": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LearnedAnswer"
+            }
           }
         }
       },
@@ -307,6 +335,24 @@
             "type": "string"
           }
         }
+      },
+      "LearnedAnswer": {
+        "type": "object",
+        "properties": {
+          "question": {
+            "type": "string",
+            "maxLength": 200
+          },
+          "answer": {
+            "type": "string",
+            "maxLength": 300
+          },
+          "origin": {
+            "type": "string",
+            "maxLength": 200
+          }
+        },
+        "required": ["question", "answer"]
       },
       "AddSourceResponse": {
         "type": "object",
@@ -401,6 +447,23 @@
                     "type": "string"
                   },
                   "default": []
+                },
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "text",
+                    "longtext",
+                    "email",
+                    "tel",
+                    "url",
+                    "number",
+                    "date",
+                    "select",
+                    "radio",
+                    "checkbox",
+                    "multiselect",
+                    "file"
+                  ]
                 }
               },
               "required": ["fieldId", "value", "confidence", "tier"]
@@ -609,6 +672,23 @@
                 "label": {
                   "type": "string",
                   "maxLength": 400
+                },
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "text",
+                    "longtext",
+                    "email",
+                    "tel",
+                    "url",
+                    "number",
+                    "date",
+                    "select",
+                    "radio",
+                    "checkbox",
+                    "multiselect",
+                    "file"
+                  ]
                 },
                 "section": {
                   "type": "string",

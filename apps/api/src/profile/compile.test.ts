@@ -17,6 +17,7 @@ function profile(overrides: Partial<Profile> = {}): Profile {
   return {
     identity: { links: {} },
     custom: {},
+    learned: [],
     sources: [],
     version: 0,
     ...overrides,

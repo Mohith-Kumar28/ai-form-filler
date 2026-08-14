@@ -1,4 +1,4 @@
-import type { FieldKind, FieldOption, FieldSchema } from '@aff/shared'
+import { type FieldKind, type FieldOption, type FieldSchema, matchOptions } from '@aff/shared'
 import type { DetectedField, DetectedForm, FormAdapter } from './types.js'
 import { writeTextValue } from './write.js'
 
@@ -305,34 +305,32 @@ export class GoogleFormsAdapter implements FormAdapter {
 
     if (schema.kind === 'multiselect' && groupElements) {
       /**
-       * The whole answer is tried before splitting on commas.
+       * Resolved against the whole answer at once — see `matchOptions`.
        *
-       * Option labels contain commas — this form has "Documents (PDFs, notes, etc.)" — and
-       * splitting first shattered them into fragments that matched nothing, leaving the
-       * option permanently unfillable. Worse, a fragment can match a *different* option
-       * ("Yes" out of "Yes, I agree"), ticking the wrong box.
+       * This used to try the undivided string and then fall back to splitting on commas, which
+       * is wrong for exactly the labels this form has: "AI-powered search (e.g., 'What was
+       * that red shoe I saved?')" splits into fragments that match nothing, so an answer
+       * naming it plus one other option checked only the other one — and returned `true`. A
+       * user who picked three features got one, silently.
        */
-      const asWhole = matchOption(groupElements, value)
-      const wanted = asWhole
-        ? [value.trim().toLowerCase()]
-        : value
-            .split(',')
-            .map((v) => v.trim().toLowerCase())
-            .filter((v) => v.length > 0)
+      const { chosen, leftover } = matchOptions(value, groupElements, (node) => optionKeys(node))
+
+      if (leftover !== '') {
+        // Partial application still beats leaving the question empty, but it must be visible.
+        console.debug('[aff] part of a multi-select answer matched no option', {
+          wanted: value,
+          unmatched: leftover,
+          available: groupElements.map((node) => node.getAttribute('aria-label')),
+        })
+      }
 
       const scope = scopeOf(groupElements[0] ?? element)
       const chosenKeys: string[][] = []
       let applied = false
+      const wantedNodes = new Set(chosen)
 
       for (const option of groupElements) {
-        /**
-         * Matched on every key the option can be identified by, including its visible text.
-         * This used to compare `data-value` and `aria-label` only, while the single-select
-         * path already matched on text content — so a model answering with the words a
-         * human reads selected radios correctly and silently checked nothing here.
-         */
-        const keys = optionKeys(option).map((k) => k.toLowerCase())
-        const shouldCheck = wanted.some((w) => keys.includes(w) || keys.some((k) => k === w))
+        const shouldCheck = wantedNodes.has(option)
         const isChecked = option.getAttribute('aria-checked') === 'true'
 
         // Clicking toggles, so only click when the state actually needs to change.
@@ -366,6 +364,72 @@ export class GoogleFormsAdapter implements FormAdapter {
 
     return false
   }
+
+  /**
+   * Reads Google's own widgets back.
+   *
+   * Nothing here is a native control, which is why the extension's old DOM-sniffing reader
+   * returned `null` for every radio, checkbox and dropdown on the site — the learning loop
+   * saw typed answers and nothing else. State lives in `aria-checked` / `aria-selected`.
+   *
+   * Re-read from the question's scope rather than through `groupElements`, for the same
+   * reason `isChosen` does: Google replaces these nodes when it re-renders after a selection,
+   * so a reference captured at detection time can be detached by the time the user submits.
+   */
+  readValue(field: DetectedField): string | null {
+    const { schema, element, groupElements } = field
+
+    if (schema.kind === 'radio' || schema.kind === 'multiselect') {
+      const role = schema.kind === 'radio' ? 'radio' : 'checkbox'
+      const scope = scopeOf(groupElements?.[0] ?? element)
+
+      const chosen = [...scope.querySelectorAll<HTMLElement>(`[role="${role}"]`)]
+        .filter((node) => node.getAttribute('aria-checked') === 'true')
+        .map((node) => answerFor(node))
+        .filter(Boolean)
+
+      return chosen.length > 0 ? chosen.join(', ') : null
+    }
+
+    if (schema.kind === 'select') {
+      const selected = [...element.querySelectorAll<HTMLElement>('[role="option"]')].find(
+        (node) => node.getAttribute('aria-selected') === 'true',
+      )
+      if (!selected) return null
+
+      const label = answerFor(selected)
+      // "Choose" is the placeholder Google leaves selected until the user picks something.
+      return label === '' || label === 'Choose' ? null : label
+    }
+
+    if (element instanceof HTMLInputElement || element instanceof HTMLTextAreaElement) {
+      return element.value || null
+    }
+
+    return null
+  }
+}
+
+/**
+ * What a chosen option means as an answer.
+ *
+ * "Other" is the exception: the option itself says nothing, and the real answer is in the
+ * companion text box. Reported in the `Other: <text>` shape `matchOption` and `writeOtherText`
+ * already understand, so a remembered answer round-trips back onto the next form.
+ */
+function answerFor(node: HTMLElement): string {
+  const keys = optionKeys(node)
+  const label = (node.getAttribute('aria-label') || keys[keys.length - 1] || keys[0] || '')
+    .replace(/:\s*$/, '')
+    .trim()
+
+  if (!isOtherOption(node)) return label
+
+  const box = (scopeOf(node) as ParentNode).querySelector<HTMLInputElement>(
+    'input[aria-label*="Other" i], input[type="text"]',
+  )
+  const text = box?.value.trim() ?? ''
+  return text === '' ? label : `Other: ${text}`
 }
 
 /**

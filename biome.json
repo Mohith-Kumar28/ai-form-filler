@@ -14,7 +14,8 @@
       "!**/.wrangler",
       "!**/src/generated",
       "!**/migrations",
-      "!**/fixtures"
+      "!**/fixtures",
+      "!graphify-out"
     ]
   },
   "formatter": {

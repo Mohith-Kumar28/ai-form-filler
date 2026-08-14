@@ -80,10 +80,49 @@ export type Identity = z.infer<typeof Identity>
  * Everything else — history, projects, voice, opinions — is retrieved from memory at fill
  * time, ranked against the question actually being asked.
  */
+/**
+ * One question the user has answered before, and what they answered.
+ *
+ * The third store, and the one the product was missing. Identity covers a fixed set of
+ * contact slots; memory covers prose. Neither could hold "which device do you use? → iOS": too
+ * specific to be an identity slot, too short to survive semantic retrieval against a résumé.
+ * So the answer was learned, stored, and never seen again — the user picked iOS on every
+ * single form.
+ *
+ * Keyed by the question because that is how it will be asked again. Rendered into the cached
+ * profile prefix, so a repeat question is answered from what the user chose last time rather
+ * than from whatever a search happened to return.
+ */
+export const LearnedAnswer = z.object({
+  /**
+   * The question as asked, normalised for whitespace. Doubles as the identity of the row.
+   *
+   * Both caps here sit deliberately **above** what the write path allows (see
+   * `MAX_LEARNED_QUESTION_CHARS` and `MAX_CHOICE_FACT_CHARS`). A stored row that exceeded its
+   * schema would fail validation on every later profile save, and the user could not clear it
+   * from the UI — the failure mode `email` already carries a scar from. The write path is where
+   * size is enforced; this is only a sanity bound.
+   */
+  question: z.string().max(400),
+  answer: z.string().max(1000),
+  /** The site it was learned on, shown in the UI so a remembered answer is traceable. */
+  origin: z.string().max(200).optional(),
+})
+export type LearnedAnswer = z.infer<typeof LearnedAnswer>
+
 export const Profile = z.object({
   identity: Identity,
   /** Facts the user typed: visa status, dietary needs, t-shirt size, notice period. */
   custom: z.record(z.string(), z.string()).default({}),
+  /**
+   * Answers learned from submitted forms, newest last.
+   *
+   * Deliberately **not** length-capped in the schema. The write path bounds it (see
+   * `MAX_LEARNED_ANSWERS`), and a stored array that outgrew a schema cap would fail
+   * validation on every later profile save with no way for the user to clear it — the same
+   * failure mode `email` already carries a scar from.
+   */
+  learned: z.array(LearnedAnswer).default([]),
   sources: z.array(ProfileSource).default([]),
   /** Bumped on every recompile. The extension uses it to invalidate its cached copy. */
   version: z.number().int().nonnegative().default(0),

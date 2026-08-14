@@ -11,6 +11,7 @@ export function emptyProfile(): Omit<Profile, 'sources'> {
   return {
     identity: { links: {} },
     custom: {},
+    learned: [],
     version: 0,
   }
 }

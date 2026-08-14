@@ -122,12 +122,30 @@ wiped by `clean: true` on every run. The three things a spec cannot express live
       ↓
 [content script] apply with staggered animation → user reviews/edits → confirm
       ↓
-[Worker] POST /v1/feedback → accepted answers are written back to memory
+[content script] on submit, adapter.readValue() every field → only what differs
+      ↓
+[Worker] POST /v1/feedback → routed to one of three stores (below)
 ```
 
-The feedback loop is what makes the product compound: every accepted answer is stored as
-memory, so the next form retrieves the user's own past writing alongside their documents —
-ranked together in one index rather than merged from two.
+The feedback loop is what makes the product compound, and **where an answer is stored decides
+whether it ever comes back.** Every entry goes to exactly one store:
+
+| Answer | Store | Read back by |
+|---|---|---|
+| Identity — phone, email, name, location, links | `Profile.identity` typed slots | Tier 0 lookup. No model call, no retrieval. |
+| Short constrained answers — dropdowns, radios, multi-selects, one-liners | `Profile.learned`, keyed by the question | Recall (exact question match, no model call), and the cached prompt prefix on every fill. |
+| Prose — essays, paragraphs | Supermemory | Semantic retrieval against differently-worded questions. |
+
+Getting this wrong does not fail loudly; it stores the answer somewhere nothing reads. That
+was the original bug in two parts: identity values were written only to memory, which tier 0
+never searches, and *everything* non-identity went to memory as prose — where a six-character
+dropdown answer never outranks a résumé passage against a whole form's worth of labels. The
+product could learn a typed phone number and could not learn "iOS".
+
+Reading the page is the adapter's job, not the extension's (`FormAdapter.readValue`,
+symmetrical with `applyValue`). A helper that understood native controls only returned `null`
+for every ARIA widget on Google Forms and read just the first control of a native radio group,
+so no choice field on any site could be learned.
 
 ### The tier router — the core cost lever
 
@@ -135,7 +153,7 @@ Most fields on a real form are deterministic and must never reach a model.
 
 | Tier | Trigger | Handler | ~Cost/form |
 |---|---|---|---|
-| **0** | Label/autocomplete matches identity pattern (name, email, phone, URL, DOB, address) | Pure lookup from `Identity`. **No LLM.** | **$0** |
+| **0** | Label/autocomplete matches identity pattern (name, email, phone, URL, DOB, address), **or the user has answered this exact question before** | Pure lookup from `Identity`, then from `Profile.learned`. **No LLM.** | **$0** |
 | **1** | Enumerable choice — select/radio with fixed options | Gemini 2.5 Flash Lite ($0.10/$0.40 per MTok) | ~$0.0016 |
 | **2** | Short free text, `maxLength < 300` or single-line | Gemini 2.5 Flash ($0.30/$2.50) | ~$0.006 |
 | **3** | Textarea, or label matches essay heuristics (`why`, `describe`, `tell us`, `cover letter`) | Gemini 2.5 Pro, with memory retrieval | ~$0.01 |

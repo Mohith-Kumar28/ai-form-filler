@@ -24,6 +24,28 @@ export interface FormAdapter {
   detectForms(root: Document | ShadowRoot): DetectedForm[]
   /** Returns true if the value was verifiably applied. */
   applyValue(field: DetectedField, value: string): Promise<boolean> | boolean
+  /**
+   * What the field holds right now, in the same vocabulary `applyValue` accepts, or `null`
+   * for a field the user has not answered.
+   *
+   * **Reading is an adapter concern, exactly like writing.** This started life as a helper in
+   * the extension that sniffed the DOM — `instanceof HTMLSelectElement`, `element.checked` —
+   * and it silently returned `null` for every widget that is not a native control. On Google
+   * Forms that is every radio, checkbox and dropdown, and on a native radio group it read
+   * only the *first* radio's checked state. The consequence was not a visible failure: the
+   * learning loop simply never saw a choice the user made, on any site, so the product could
+   * not learn "iOS" or a multi-select while learning a typed phone number fine.
+   *
+   * The asymmetry was the bug. An adapter that knows how to click a div into a checked state
+   * is the only thing that knows how to read that state back, so the contract now demands
+   * both and a new adapter cannot forget the second half.
+   *
+   * Returns human-readable option **labels** rather than opaque values: these strings become
+   * remembered answers and reach a prompt, where "United States" carries meaning and
+   * "opt_1" carries none. Multiple selections are joined with ", " — the same shape
+   * `applyValue` parses.
+   */
+  readValue(field: DetectedField): string | null
 }
 
 /** Everything the content script hands to the background worker, plus the local element map. */

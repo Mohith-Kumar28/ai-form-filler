@@ -139,6 +139,32 @@ export class AtsAdapter extends GenericAdapter {
     if (!input) return false
     return driveReactSelect(input, value)
   }
+
+  /**
+   * react-select keeps its committed choice in `__single-value` / `__multi-value` nodes, not
+   * in the backing input — whose value is the *search text*, cleared after a selection. So the
+   * generic reader saw an empty string on a field the user had plainly answered.
+   *
+   * This is the same state `driveReactSelect` verifies against, which keeps write and read
+   * looking at one source of truth.
+   */
+  override readValue(field: DetectedField): string | null {
+    if (!isReactSelect(field.element)) return super.readValue(field)
+
+    const control = field.element.matches(REACT_SELECT_CONTROL)
+      ? field.element
+      : field.element.closest(REACT_SELECT_CONTROL)
+
+    const shown = [
+      ...(control?.querySelectorAll<HTMLElement>(
+        '[class*="__single-value"], [class*="__multi-value"]',
+      ) ?? []),
+    ]
+      .map((node) => node.textContent?.trim() ?? '')
+      .filter(Boolean)
+
+    return shown.length > 0 ? shown.join(', ') : null
+  }
 }
 
 /** The label of the currently-selected option, if the widget already has one. */

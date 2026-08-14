@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { FormSchema } from './form.js'
+import { FieldKind, FormSchema } from './form.js'
 
 /**
  * Which handler produced a value. Set server-side by the router; surfaced in the UI so
@@ -48,6 +48,15 @@ export const Fill = z.object({
    *choice from an unavailable one.
    */
   options: z.array(z.string()).default([]),
+  /**
+   * The widget this answers.
+   *
+   * Carried so a verdict from the review panel is routed the same way a submitted answer is:
+   * a confirmed dropdown is a durable fact for the profile, a confirmed essay is voice for
+   * memory. Without it the panel had to guess from whether options were present, and a
+   * confirmation of a short paragraph was filed as a fact about the person.
+   */
+  kind: FieldKind.optional(),
 })
 export type Fill = z.infer<typeof Fill>
 
@@ -110,6 +119,19 @@ export const FeedbackRequest = z.object({
     .array(
       z.object({
         label: z.string().max(400),
+        /**
+         * The widget this answer came from.
+         *
+         * Decides *where* the answer is stored, which is the difference between an answer that
+         * comes back on the next form and one that does not. A constrained choice — a
+         * dropdown, a radio, a multi-select — is a durable fact about this person and goes
+         * into the profile, where it is read directly on every fill. Prose is voice and goes
+         * to semantic memory, where it is retrieved against questions worded differently.
+         *
+         * Optional because the review panel reports single answers without a widget in hand;
+         * length is the fallback signal there.
+         */
+        kind: FieldKind.optional(),
         /**
          * The surrounding section and any help text.
          *
