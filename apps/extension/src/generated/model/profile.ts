@@ -8,6 +8,7 @@ import type { ProfileCustom } from './profileCustom';
 import type { ProfileEducationItem } from './profileEducationItem';
 import type { ProfileExperienceItem } from './profileExperienceItem';
 import type { ProfileIdentity } from './profileIdentity';
+import type { ProfilePreferencesItem } from './profilePreferencesItem';
 import type { ProfileSourcesItem } from './profileSourcesItem';
 import type { ProfileStyle } from './profileStyle';
 
@@ -18,6 +19,8 @@ export interface Profile {
   skills?: string[];
   custom?: ProfileCustom;
   style: ProfileStyle;
+  preferences?: ProfilePreferencesItem[];
+  summary?: string;
   sources?: ProfileSourcesItem[];
   /** @minimum 0 */
   version?: number;

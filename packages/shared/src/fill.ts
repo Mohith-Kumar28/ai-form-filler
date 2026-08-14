@@ -13,16 +13,33 @@ import { FormSchema } from './form.js'
 export const FillTier = z.union([z.literal(0), z.literal(1), z.literal(2), z.literal(3)])
 export type FillTier = z.infer<typeof FillTier>
 
-/** Below this, the UI marks a fill amber and asks the user to review before submitting. */
-export const REVIEW_CONFIDENCE_THRESHOLD = 0.7
+// Defined in constants.ts (zod-free) so the content script can read it without pulling
+// zod into a bundle that loads on every page. Re-exported here for callers that already
+// import from this module.
+export { REVIEW_CONFIDENCE_THRESHOLD } from './constants.js'
 
 export const Fill = z.object({
   fieldId: z.string(),
+  /**
+   * The question this answers, carried on the fill itself.
+   *
+   * Without it a result is a list of opaque ids: the side panel reviews answers long after
+   * the form schema is gone, and the page that owns the labels is a different context.
+   */
+  label: z.string().default(''),
   value: z.string(),
   confidence: z.number().min(0).max(1),
   tier: FillTier,
   /** Short justification, shown on hover. Absent for tier 0 — a direct lookup needs none. */
   reasoning: z.string().optional(),
+  /**
+   * True when the answer comes from an inferred preference rather than a stated fact.
+   *
+   * Distinct from low confidence: the model can be quite sure about an inference. The UI
+   * marks these so a judgement call made on the user's behalf is always visible before
+   * they submit it.
+   */
+  inferred: z.boolean().default(false),
 })
 export type Fill = z.infer<typeof Fill>
 

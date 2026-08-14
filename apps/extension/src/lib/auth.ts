@@ -9,12 +9,27 @@ import { readLocal, removeLocal, writeLocal } from './storage.js'
  * callback-only, so it needs wrapping to be awaited.
  */
 function getAuthToken(interactive: boolean): Promise<string | undefined> {
-  return new Promise((resolve) => {
+  return new Promise((resolve, reject) => {
     chrome.identity.getAuthToken({ interactive }, (result) => {
-      // Reading `lastError` is what marks it handled; skipping this logs an unchecked-error
-      // warning on every non-interactive miss, which is a normal signed-out state.
-      void chrome.runtime.lastError
-      resolve(typeof result === 'string' ? result : result?.token)
+      // `lastError` must be read to mark it handled, but the value matters: on an
+      // interactive call it carries the actual reason Chrome refused — a client id that
+      // doesn't match this extension, an unconfigured consent screen, a revoked grant.
+      // Discarding it turns every one of those into a misleading "user dismissed it".
+      const error = chrome.runtime.lastError
+
+      const token = typeof result === 'string' ? result : result?.token
+      if (token) {
+        resolve(token)
+        return
+      }
+
+      // A non-interactive miss is just the signed-out state, not a failure.
+      if (!interactive) {
+        resolve(undefined)
+        return
+      }
+
+      reject(new Error(error?.message ?? 'Google sign-in was dismissed'))
     })
   })
 }
@@ -27,7 +42,7 @@ function getAuthToken(interactive: boolean): Promise<string | undefined> {
 export async function signIn(): Promise<Account> {
   const accessToken = await getAuthToken(true)
   if (!accessToken) {
-    throw new Error('Google sign-in was dismissed')
+    throw new Error('Google returned no token')
   }
 
   const { token, account } = await signInWithGoogle({ accessToken })

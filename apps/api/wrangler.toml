@@ -3,27 +3,90 @@ main = "src/index.ts"
 compatibility_date = "2026-08-01"
 compatibility_flags = ["nodejs_compat"]
 
-# Non-secret config. Secrets (GOOGLE_CLIENT_ID, JWT_SECRET, OPENROUTER_API_KEY,
-# ANTHROPIC_API_KEY, STRIPE_*) are set with `wrangler secret put` and never live here.
+# ─────────────────────────────────────────────────────────────────────────────
+# Default (development) environment — used by `wrangler dev`.
+#
+# Secrets are NEVER in this file. Locally they come from `.dev.vars` (gitignored);
+# in deployed environments from `wrangler secret put`. Run `pnpm secrets:list` to
+# see which ones each environment needs.
+# ─────────────────────────────────────────────────────────────────────────────
+
 [vars]
 ENVIRONMENT = "development"
 
 [[d1_databases]]
 binding = "DB"
 database_name = "aff-db"
-database_id = "PLACEHOLDER_RUN_WRANGLER_D1_CREATE"
+# Fill from `pnpm db:create`. `wrangler dev --local` ignores it; a real deploy does not.
+database_id = "81953412-9f82-417a-8a7d-69b3d69a1ee1"
 migrations_dir = "migrations"
 
 # Sliding-window rate-limit counters. KV's native TTL does the expiry for us.
 [[kv_namespaces]]
 binding = "RATE_LIMIT"
-id = "PLACEHOLDER_RUN_WRANGLER_KV_CREATE"
+id = "6d59a27f6f2c418396ea28f231d08682"
 
-# Uploaded resumes and images. Parsed to text at ingest; the originals stay here so a
-# user can re-download them and so we can re-parse after a parser improvement.
-[[r2_buckets]]
-binding = "UPLOADS"
-bucket_name = "aff-uploads"
+# Renders a URL in a real headless browser and returns clean markdown. Used at ingest so a
+# JS-driven portfolio or profile page yields readable prose instead of stripped-tag soup.
+# The binding needs no API token, unlike the REST endpoint.
+[browser]
+binding = "BROWSER"
 
 [observability]
+enabled = true
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Staging — `pnpm deploy:staging`
+#
+# Bindings are NOT inherited by named environments in wrangler. Every binding an
+# environment needs must be repeated in its own block, or the Worker deploys with
+# that binding simply missing and fails at runtime rather than at deploy time.
+# ─────────────────────────────────────────────────────────────────────────────
+
+[env.staging]
+name = "aff-api-staging"
+
+[env.staging.vars]
+ENVIRONMENT = "production"
+
+[[env.staging.d1_databases]]
+binding = "DB"
+database_name = "aff-db-staging"
+database_id = "PLACEHOLDER_STAGING_D1_ID"
+migrations_dir = "migrations"
+
+[[env.staging.kv_namespaces]]
+binding = "RATE_LIMIT"
+id = "PLACEHOLDER_STAGING_KV_ID"
+
+[env.staging.browser]
+binding = "BROWSER"
+
+[env.staging.observability]
+enabled = true
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Production — `pnpm deploy`
+# ─────────────────────────────────────────────────────────────────────────────
+
+[env.production]
+name = "aff-api"
+
+[env.production.vars]
+ENVIRONMENT = "production"
+
+[[env.production.d1_databases]]
+binding = "DB"
+database_name = "aff-db"
+database_id = "81953412-9f82-417a-8a7d-69b3d69a1ee1"
+migrations_dir = "migrations"
+
+[[env.production.kv_namespaces]]
+binding = "RATE_LIMIT"
+id = "6d59a27f6f2c418396ea28f231d08682"
+
+[env.production.browser]
+binding = "BROWSER"
+
+[env.production.observability]
 enabled = true

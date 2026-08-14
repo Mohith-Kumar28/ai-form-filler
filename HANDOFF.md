@@ -65,7 +65,7 @@ to `fill_log` after.
 
 ```
 apps/
-  api/                Hono on Cloudflare Workers — D1, KV, R2
+  api/                Hono on Cloudflare Workers — D1, KV, Browser Rendering
   extension/          WXT + React 19 + Tailwind v4 (MV3)
 packages/
   shared/             Zod contract imported by both sides
@@ -106,9 +106,9 @@ wiped by `clean: true` on every run. The three things a spec cannot express live
 | Extension framework | **WXT 0.20** | 2026 market leader; Vite-based, actively maintained, cross-browser. Plasmo has maintenance concerns; CRXJS development has slowed. |
 | Server state | **TanStack Query + chrome.storage persister** | MV3 service workers are torn down aggressively and the side panel unmounts on close — an in-memory cache is empty on every open. |
 | Backend | **Hono on Workers** | Edge latency, generous free tier, trivial Stripe webhooks. |
-| Database | **D1 + Drizzle** | SQLite at the edge. FTS5 gives BM25 retrieval with no vector store. |
-| Retrieval | **BM25 over D1 FTS5** | No embedding model, no vector DB, no re-index pipeline. A profile that fits in 10k tokens retrieves *worse* with RAG than by just sending it all. |
-| LLM access | **Vercel AI SDK + OpenRouter** | One interface, per-tier model swap without touching call sites. |
+| Database | **D1 + Drizzle** | SQLite at the edge. Holds accounts, the compiled profile, quota, and the cost log — not documents. |
+| Memory | **Supermemory** | Owns ingestion of every format (PDF, image, audio, video, and URLs it scrapes itself), storage of originals, and semantic retrieval. Replaced an R2 bucket, a Cloudflare AI Search index, a PDF parser, and a BM25 answer bank — four hand-built parts doing one job worse. |
+| LLM access | **Vercel AI SDK + Cloudflare AI Gateway (Unified Billing)** | One interface, per-tier model swap without touching call sites, and no provider accounts — credits sit with Cloudflare. |
 | Auth | **chrome.identity Google OAuth → server JWT** | One click, no password UI. |
 
 ### The fill pipeline (phase 3 — not yet built)
@@ -122,11 +122,12 @@ wiped by `clean: true` on every run. The three things a spec cannot express live
       ↓
 [content script] apply with staggered animation → user reviews/edits → confirm
       ↓
-[Worker] POST /v1/feedback → accepted answers enter the answer bank
+[Worker] POST /v1/feedback → accepted answers are written back to memory
 ```
 
-The feedback loop is what makes the product compound: every accepted answer becomes future
-BM25 retrieval context.
+The feedback loop is what makes the product compound: every accepted answer is stored as
+memory, so the next form retrieves the user's own past writing alongside their documents —
+ranked together in one index rather than merged from two.
 
 ### The tier router — the core cost lever
 
@@ -137,7 +138,7 @@ Most fields on a real form are deterministic and must never reach a model.
 | **0** | Label/autocomplete matches identity pattern (name, email, phone, URL, DOB, address) | Pure lookup from `Identity`. **No LLM.** | **$0** |
 | **1** | Enumerable choice — select/radio with fixed options | Gemini 2.5 Flash Lite ($0.10/$0.40 per MTok) | ~$0.0016 |
 | **2** | Short free text, `maxLength < 300` or single-line | Gemini 2.5 Flash ($0.30/$2.50) | ~$0.006 |
-| **3** | Textarea, or label matches essay heuristics (`why`, `describe`, `tell us`, `cover letter`) | Claude Opus 5 ($5/$25), cached, with answer bank | ~$0.04 |
+| **3** | Textarea, or label matches essay heuristics (`why`, `describe`, `tell us`, `cover letter`) | Gemini 2.5 Pro, with memory retrieval | ~$0.01 |
 
 A 50-form free tier costs roughly **$0.30/user** if most fields land in tiers 0–1. **The
 router matters more than the model choice** — that's the difference between $0.008 and $0.05
@@ -194,15 +195,17 @@ returns a correct `Account` with `limit: 50` and next-month `resetsAt`.
 
 - `src/profile/compile.ts` — **the deterministic `PROFILE_DOC` compiler.** SHA-256 hash, token estimate. 21 tests specifically protecting the cache invariant.
 - `src/profile/extract.ts` — heuristic identity extraction (email, phone, links) via regex. Deliberately not an LLM: those fields are *structural*, so a model adds latency, cost, and non-determinism to a solved problem.
-- `src/profile/parse.ts` — `unpdf` for PDFs (**verified working in the Workers runtime**), HTML-to-text for URLs, freeform passthrough. 200k char cap, 15 MB PDF cap.
+- `src/profile/parse.ts` — HTML-to-text for URLs and freeform passthrough, 200k char cap. No PDF parser: files go to the multimodal structuring pass and to Supermemory as-is.
+- `src/profile/structure.ts` — the ingest structuring pass. Takes text *or* a raw file; Gemini reads PDFs, scans, and photos natively, so one call replaces a PDF parser, a separate transcription call, and the "paste the text instead" dead end.
+- `src/services/supermemory.ts` — ingestion, retrieval, deletion. Every call returns `null`/`[]` on failure: memory degrades answer quality, it never fails a fill.
 - `src/services/profile.ts` — recompile-on-mutation, version bump **only when the hash changes**.
 - `src/routes/profile.ts` — GET/PATCH profile, POST/DELETE sources.
 - Side panel — Sources tab (upload/link/paste + list) and Details tab (identity editor).
 
 **Verified live:** identity auto-extraction from raw text; PDF upload through the Worker;
 version stability across no-op and reordered edits; identity merge preserving extracted
-fields; R2 object actually deleted on source deletion; all error paths returning actionable
-messages.
+fields; the stored original actually deleted on source deletion; all error paths returning
+actionable messages.
 
 ---
 
@@ -211,10 +214,8 @@ messages.
 | Table | Purpose | Notes |
 |---|---|---|
 | `users` | Accounts | Unique index on `google_sub` — email changes, subject doesn't. |
-| `profile_sources` | Uploaded/pasted sources | `extracted_text` is what feeds `PROFILE_DOC`; `r2_key` points at the original. |
+| `profile_sources` | Uploaded/pasted sources | `extracted_text` holds the structured summary that feeds `PROFILE_DOC`; `memory_id` points at the Supermemory document holding the full original. |
 | `profile_docs` | Compiled prompt prefix, one row per user | `hash` guards the caching invariant. `structured_json` holds the whole structured Profile. |
-| `answer_bank` | Accepted free-text answers | `was_edited` marks the highest-signal rows. |
-| `answer_bank_fts` | FTS5 virtual table | **Hand-written** (migration 0001) — Drizzle can't express FTS5. External-content index, so the three sync triggers are mandatory. |
 | `fill_log` | One row per fill request | Per-tier counts, token breakdown, `cost_micro_usd`, latency. **This is how you find out whether the free tier is affordable.** |
 | `quota_usage` | Monthly counters keyed `YYYY-MM` | Separate from `fill_log` so the quota check is an indexed point-read. |
 | `subscriptions` | Stripe state | Phase 6. |
@@ -239,9 +240,9 @@ concept and get real cost numbers before building any presentation layer.
 - [x] `llm/prompt.ts` — fixed global tool schema + cache breakpoint
 - [x] `llm/generate.ts` — `generateText` (not `generateObject`) over AI SDK + OpenRouter
 - [x] `llm/models.ts` — per-tier model + pricing, cost in integer micro-dollars
-- [x] BM25 retrieval from `answer_bank_fts` for tier 3
+- [x] Supermemory retrieval for tier 3
 - [x] `POST /v1/fill` with `rateLimit` (KV) + `enforceQuota` (D1) middleware
-- [x] `POST /v1/fill/feedback` → answer bank
+- [x] `POST /v1/fill/feedback` → memory
 - [x] `fill_log` written on every request, including zero-cost ones
 - [x] Content script: detect forms, build `FormSchema`, hold the `fieldId → Element` map
 - [x] Fill port protocol in the background script (progress events, disconnect handling)
@@ -259,7 +260,7 @@ trusting any per-form cost number.
 no data for rather than inventing them; `PROFILE_NOT_READY` 409 before any source exists;
 rate limiter cuts to 429 at 12/min with a `retryAfter`; quota exhaustion returns 402 carrying
 `{used, limit, resetsAt}`; feedback stores 1 of 2 entries (a bare "Yes" filtered as carrying
-no reusable signal); FTS5 triggers populate the index and BM25 ranks against it; the
+no reusable signal); the
 round-trip test writes text, select-by-visible-label, radio, checkbox, and textarea into a
 realistic form and asserts the resulting DOM.
 
@@ -286,24 +287,72 @@ A port rather than `sendMessage`: a tier-3 fill can take 10s+, and an MV3 worker
 killed mid-flight — the port's disconnect is the only reliable signal that happened. The
 side panel sends a `tabId`, never a `FormSchema`; it has no access to the page.
 
-### Phase 4 — The magic layer
+### Phase 4 — The magic layer ✅ built
 
-- [ ] Closed Shadow DOM host + Tailwind scoped inside it
-- [ ] Floating trigger that appears on form detection
-- [ ] **Single rAF-batched positioning scheduler** (§7.4) — never a per-field listener
-- [ ] `IntersectionObserver` + scroll/resize + ~1s polling backstop
-- [ ] Staggered fill animation: travelling highlight, border sweep, ~25ms/char typing capped at 400ms/field
-- [ ] Amber "needs review" state for `confidence < 0.7`; side panel opens on the first one
-- [ ] `prefers-reduced-motion: reduce` → single 150ms fade. Non-negotiable.
-- [ ] Review/edit UI; accepted values POST to `/v1/feedback`
-- [ ] Perf check: <2ms/frame main-thread with 50+ fields
+- [x] Closed Shadow DOM host with inlined styles (`overlay/host.ts`)
+- [x] Floating launcher pill, anchored to the form, appearing on detection (3+ fields)
+- [x] **Single rAF-batched positioning scheduler** (§7.4) — never a per-field listener
+- [x] `IntersectionObserver` + `ResizeObserver` + capture-phase scroll + ~1s polling backstop
+- [x] Two-phase measure: all reads, then all writes, so one forced reflow instead of N
+- [x] Staggered fill animation in DOM order, ~25ms/char typing capped at 400ms/field
+- [x] Per-field markers: active / filled / review / failed
+- [x] `prefers-reduced-motion: reduce` → immediate writes, no stagger, no typing
+- [x] Feedback capture on submit → `/v1/fill/feedback`
+- [ ] Perf check: <2ms/frame main-thread with 50+ fields ⚠️ needs a real browser
+
+**One-click path.** The launcher sends `overlay/requestFill`; the background opens the side
+panel and runs the same `runFillFlow` the panel's port uses. `sidePanel.open` must be called
+synchronously inside the message handler — Chrome only permits it during a user gesture, and
+awaiting anything first loses it.
+
+**Feedback capture** listens for `submit` in the capture phase *and* `pagehide`, because many
+real forms post via `fetch` and redirect without ever firing a submit event. It reports once
+per fill, drops cleared fields (a rejection is not an answer), and reads a select's visible
+label rather than its opaque option value — "United States" carries meaning into the answer
+bank, "opt_1" does not.
+
+### 7.10 The content script bundle is a tax on every page
+
+It loads on **every page the user visits**, so its size is not an internal concern.
+
+Importing a single runtime value from `@aff/shared` pulls all of zod in behind it — that
+alone took the content script from 11 kB to **93 kB**. Runtime constants therefore live in
+`packages/shared/src/constants.ts`, which imports nothing, and are re-exported from the
+schema modules so there is still one definition. The content script imports them via
+`@aff/shared/constants`.
+
+Check after touching content-script imports:
+
+```sh
+pnpm --filter @aff/extension build   # content.js should stay ~20 kB
+grep -c ZodError apps/extension/.output/chrome-mv3/content-scripts/content.js   # must be 0
+```
 
 ### Phase 5 — Site adapters
 
-- [ ] `google-forms.ts` — no `<form>`, no native inputs. `[role=listitem]`, `[role=radio]`, `[role=listbox]` needing click-open → click-option. Stable DOM.
-- [ ] `ats-standard.ts` — Greenhouse, Lever, Ashby. Mostly standard HTML plus `react-select` (focus input → type → wait for menu → click option; it has no writable native value) and custom file-input wrappers.
+- [x] `google-forms.ts` — ARIA-role based: `[role=listitem]` questions, `[role=radio]`/`[role=checkbox]` divs, `[role=listbox]` dropdowns needing click-open → click-option
+- [x] `ats.ts` — Greenhouse, Lever, Ashby. Extends the generic adapter; adds react-select
+- [x] Adapter registry wired in `index.ts`, most-specific-first with generic as terminal fallback
 - [ ] `workday.ts` — **stretch, 3–4 days on its own.** Nested shadow DOM, `wd-*` custom elements, multi-step wizards, aggressive re-rendering that discards early writes. Needs recursive `shadowRoot` traversal, `MutationObserver` settle-wait, per-step re-detection. If it slips, everything else still ships.
-- [ ] HTML fixtures per site in `packages/form-adapters/fixtures/`
+- [ ] Verify both against live pages ⚠️ needs a real browser
+
+**Google Forms** has no `<form>` and almost no native inputs, so the generic adapter finds a
+few stray text fields and misses every radio, checkbox, and dropdown. Everything is driven
+off ARIA roles instead — semantically correct *and* far more stable than Google's generated
+class names. Two things worth knowing: the required-question asterisk must be stripped from
+the label (the model otherwise echoes it into answers), and dropdown options only exist once
+the listbox has been clicked open, so selection is asynchronous.
+
+**react-select** is the one control the generic path genuinely cannot handle: the visible
+combobox is a div, and the backing input has no writable value. It must be driven the way a
+person does — focus, *type* (the menu filters on input, and on a long list the right option
+may not be rendered until it does), wait, then dispatch **mousedown**, which is the event
+react-select actually listens for. `.click()` alone does not reliably select.
+
+Both adapters were extended from a subclassing constraint worth noting: `GenericAdapter`'s
+members are declared as `name: string`, `matches(_url: URL)`, and
+`applyValue(): boolean | Promise<boolean>` rather than their inferred narrow types —
+otherwise every override is a type error.
 
 ### Phase 6 — Monetization and launch
 
@@ -321,7 +370,6 @@ side panel sends a `tabId`, never a `FormSchema`; it has no access to the page.
 - [ ] Vision model for image sources at ingest
 - [ ] Multi-step wizard state across page navigations
 - [ ] Firefox build (WXT supports it; `chrome.identity` needs swapping)
-- [ ] Cloudflare Vectorize if the answer bank outgrows BM25 (thousands of answers, not hundreds)
 
 ---
 
@@ -390,11 +438,12 @@ dependent), and a missing tiebreak on equal education dates.
 saving the name field wipes the auto-extracted email — silent data loss the user only
 discovers when a form fills wrong. Clear an identity field by sending `""`.
 
-### 7.7 Deleting a source must delete the R2 object
+### 7.7 Deleting a source must delete the stored original
 
 Otherwise a user who deleted their resume still has it stored with us. That's a privacy
-failure, not just wasted storage. `deleteSource` returns `orphanedR2Key`; the route awaits
-the R2 delete so a failure surfaces as a retryable 5xx.
+failure, not just wasted storage. `profile_sources.memory_id` exists for exactly this:
+`deleteSource` returns it and the route awaits `deleteDocument` so a failure surfaces as a
+retryable 5xx rather than silently leaving the document behind.
 
 ### 7.8 orval's `useQuery` / `useMutation` flags force themselves onto every operation
 
@@ -412,7 +461,8 @@ but which every call site must still narrow.
 
 - `@vitejs/plugin-react@6` requires **Vite ^8**. Pinned in `apps/extension`. Vite 7 fails with `Package subpath './internal' is not defined`.
 - `@cloudflare/vitest-pool-workers` pins an older wrangler that conflicts with `@cloudflare/workers-types@5`. Removed; add back in phase 3 for Worker integration tests, resolving versions then.
-- `pdf-parse` **cannot** run in a Worker (needs `fs`). Use `unpdf`.
+- `pdf-parse` **cannot** run in a Worker (needs `fs`). We now parse no PDFs at all — the model reads them.
+- `@supermemory/tools`' AI SDK wrapper targets `@ai-sdk/provider@4` (LanguageModelV2) while `ai@7` emits V4. It does not typecheck, and casting past it breaks at runtime. Use the REST API.
 - `drizzle-kit generate` needs a TTY for rename-vs-recreate prompts. In CI, or when non-interactive, regenerate the init migration instead (safe while pre-release).
 - `exactOptionalPropertyTypes: true` is on. `{ key: undefined }` and `{}` are different types, deliberately — an absent key means "don't change".
 

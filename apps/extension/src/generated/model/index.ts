@@ -38,6 +38,7 @@ export * from './profileIdentity';
 export * from './profileIdentityLinks';
 export * from './profilePatch';
 export * from './profilePatchCustom';
+export * from './profilePreferencesItem';
 export * from './profileResponse';
 export * from './profileSourcesItem';
 export * from './profileSourcesItemKind';

@@ -177,9 +177,12 @@ function groupLabel(controls: HTMLInputElement[]): string {
 }
 
 export class GenericAdapter implements FormAdapter {
-  readonly name = 'generic'
+  // Declared as `string`, not inferred as the literal `'generic'`, so subclasses can name
+  // themselves. Same reason `matches` takes the URL it ignores: a narrower signature here
+  // makes every override invalid.
+  readonly name: string = 'generic'
 
-  matches(): boolean {
+  matches(_url: URL): boolean {
     // The fallback for everything; the registry only reaches it when nothing else matched.
     return true
   }
@@ -277,7 +280,12 @@ export class GenericAdapter implements FormAdapter {
     return [{ root: container, fields }]
   }
 
-  applyValue(field: DetectedField, value: string): boolean {
+  /**
+   * Returns `boolean | Promise<boolean>` rather than plain `boolean` so subclasses can be
+   * async — driving a react-select means waiting on the page. The generic path is entirely
+   * synchronous, and awaiting a non-promise costs nothing.
+   */
+  applyValue(field: DetectedField, value: string): boolean | Promise<boolean> {
     const { element, schema, groupElements } = field
 
     if (groupElements && groupElements.length > 0) {

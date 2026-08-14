@@ -1,10 +1,8 @@
 import { ApiErrorResponse, type SourceKind } from '@aff/shared'
-import { extractText, getDocumentProxy } from 'unpdf'
 import { normalizeText } from './compile.js'
 
 /** Guards against a pathological upload filling the profile document and the context window. */
 const MAX_EXTRACTED_CHARS = 200_000
-const MAX_PDF_BYTES = 15 * 1024 * 1024
 
 export interface ParsedSource {
   text: string
@@ -18,39 +16,6 @@ function finish(raw: string): ParsedSource {
     return { text: normalized, truncated: false }
   }
   return { text: normalized.slice(0, MAX_EXTRACTED_CHARS), truncated: true }
-}
-
-/**
- * `unpdf` is used rather than `pdf-parse` because it ships a serverless build of pdf.js with
- * no Node built-ins — `pdf-parse` pulls in `fs` and cannot run in a Worker at all.
- */
-export async function parsePdf(bytes: ArrayBuffer): Promise<ParsedSource> {
-  if (bytes.byteLength > MAX_PDF_BYTES) {
-    throw new ApiErrorResponse('INVALID_REQUEST', 'PDF is larger than 15 MB')
-  }
-
-  try {
-    const pdf = await getDocumentProxy(new Uint8Array(bytes))
-    const { text } = await extractText(pdf, { mergePages: true })
-    const merged = Array.isArray(text) ? text.join('\n') : text
-
-    // A scanned resume extracts to nothing. Saying so beats storing an empty source that
-    // silently contributes nothing to every future fill.
-    if (normalizeText(merged).length < 20) {
-      throw new ApiErrorResponse(
-        'INVALID_REQUEST',
-        'No selectable text found — this looks like a scanned PDF. Paste the text instead.',
-      )
-    }
-
-    return finish(merged)
-  } catch (cause) {
-    if (cause instanceof ApiErrorResponse) throw cause
-    throw new ApiErrorResponse(
-      'INVALID_REQUEST',
-      `Could not read this PDF: ${cause instanceof Error ? cause.message : 'unknown error'}`,
-    )
-  }
 }
 
 /**

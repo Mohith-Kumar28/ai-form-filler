@@ -1,4 +1,5 @@
 import type { Request } from '@aff/shared'
+import { submitFeedback } from '../generated/endpoints/fill/fill.js'
 import { signIn, signOut } from '../lib/auth.js'
 import { registerFillPort, runFillFlow } from '../lib/fill-port.js'
 import { toResult } from '../lib/messaging.js'
@@ -32,27 +33,49 @@ export default defineBackground(() => {
       // token, so the extra message hop bought nothing.
 
       /**
-       * One-click fill from the page overlay.
+       * One-click fill from the page dock.
        *
-       * The side panel is opened alongside so results, low-confidence answers, and any
-       * error are visible — the launcher itself is a button, not a place to report five
-       * skipped fields. Opening it must happen synchronously in this handler: Chrome only
-       * permits `sidePanel.open` inside a user gesture, and awaiting anything first loses it.
+       * The side panel is deliberately **not** opened here. The dock now reports progress,
+       * counts, and errors on the page itself, so forcing the panel open covered the form
+       * with a surface showing nothing the user asked for. The panel opens only when they
+       * choose Review.
        */
       case 'overlay/requestFill':
         void toResult(async () => {
           const tabId = _sender.tab?.id
           if (!tabId) throw new Error('No tab to fill')
 
-          await chrome.sidePanel.open({ tabId }).catch(() => {
-            // Opening is a convenience; a failure must not abort the fill itself.
-          })
-
           await runFillFlow(tabId, { quality: 'auto', overwriteExisting: false }, (event) => {
-            // Forwarded so an open panel can follow along. No listener is a normal state,
-            // and `sendMessage` rejecting on no receiver is not an error worth surfacing.
+            // Two receivers, two channels. `runtime.sendMessage` reaches an open side panel;
+            // `tabs.sendMessage` reaches the content script's dock, which is what actually
+            // shows progress on the page. Neither having a listener is a normal state.
             void chrome.runtime.sendMessage({ type: 'fill/event', event }).catch(() => undefined)
+            void chrome.tabs
+              .sendMessage(tabId, { type: 'fill/event', event })
+              .catch(() => undefined)
           })
+          return null
+        }).then(sendResponse)
+        return true
+
+      /**
+       * Final values from a submitted form.
+       *
+       * Fire-and-forget by design: the user has already submitted and moved on, and a
+       * failure to record feedback must never surface as an error on their form.
+       */
+      case 'feedback/submit':
+        void toResult(async () => {
+          await submitFeedback(request.payload).catch(() => undefined)
+          return null
+        }).then(sendResponse)
+        return true
+
+      /** The dock's Review action — opens the panel where the judgement calls are listed. */
+      case 'overlay/openPanel':
+        void toResult(async () => {
+          const tabId = _sender.tab?.id
+          if (tabId) await chrome.sidePanel.open({ tabId })
           return null
         }).then(sendResponse)
         return true

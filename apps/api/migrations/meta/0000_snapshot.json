@@ -1,85 +1,9 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "caa4be19-3d6f-47e9-8a53-9b4c9089f5ad",
+  "id": "17279da4-36f7-4c6d-9575-adaa1c6f0d7d",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "tables": {
-    "answer_bank": {
-      "name": "answer_bank",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "text",
-          "primaryKey": true,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "user_id": {
-          "name": "user_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "label": {
-          "name": "label",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "answer": {
-          "name": "answer",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "origin": {
-          "name": "origin",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "was_edited": {
-          "name": "was_edited",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        }
-      },
-      "indexes": {
-        "answer_bank_user_idx": {
-          "name": "answer_bank_user_idx",
-          "columns": ["user_id"],
-          "isUnique": false
-        }
-      },
-      "foreignKeys": {
-        "answer_bank_user_id_users_id_fk": {
-          "name": "answer_bank_user_id_users_id_fk",
-          "tableFrom": "answer_bank",
-          "tableTo": "users",
-          "columnsFrom": ["user_id"],
-          "columnsTo": ["id"],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "checkConstraints": {}
-    },
     "fill_log": {
       "name": "fill_log",
       "columns": {
@@ -217,12 +141,16 @@
       "indexes": {
         "fill_log_user_idx": {
           "name": "fill_log_user_idx",
-          "columns": ["user_id"],
+          "columns": [
+            "user_id"
+          ],
           "isUnique": false
         },
         "fill_log_created_idx": {
           "name": "fill_log_created_idx",
-          "columns": ["created_at"],
+          "columns": [
+            "created_at"
+          ],
           "isUnique": false
         }
       },
@@ -231,8 +159,12 @@
           "name": "fill_log_user_id_users_id_fk",
           "tableFrom": "fill_log",
           "tableTo": "users",
-          "columnsFrom": ["user_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -303,8 +235,12 @@
           "name": "profile_docs_user_id_users_id_fk",
           "tableFrom": "profile_docs",
           "tableTo": "users",
-          "columnsFrom": ["user_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -359,8 +295,8 @@
           "notNull": false,
           "autoincrement": false
         },
-        "r2_key": {
-          "name": "r2_key",
+        "memory_id": {
+          "name": "memory_id",
           "type": "text",
           "primaryKey": false,
           "notNull": false,
@@ -384,7 +320,9 @@
       "indexes": {
         "profile_sources_user_idx": {
           "name": "profile_sources_user_idx",
-          "columns": ["user_id"],
+          "columns": [
+            "user_id"
+          ],
           "isUnique": false
         }
       },
@@ -393,8 +331,12 @@
           "name": "profile_sources_user_id_users_id_fk",
           "tableFrom": "profile_sources",
           "tableTo": "users",
-          "columnsFrom": ["user_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -435,15 +377,22 @@
           "name": "quota_usage_user_id_users_id_fk",
           "tableFrom": "quota_usage",
           "tableTo": "users",
-          "columnsFrom": ["user_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {
         "quota_usage_user_id_period_pk": {
-          "columns": ["user_id", "period"],
+          "columns": [
+            "user_id",
+            "period"
+          ],
           "name": "quota_usage_user_id_period_pk"
         }
       },
@@ -492,7 +441,9 @@
       "indexes": {
         "subscriptions_customer_idx": {
           "name": "subscriptions_customer_idx",
-          "columns": ["stripe_customer_id"],
+          "columns": [
+            "stripe_customer_id"
+          ],
           "isUnique": false
         }
       },
@@ -501,8 +452,12 @@
           "name": "subscriptions_user_id_users_id_fk",
           "tableFrom": "subscriptions",
           "tableTo": "users",
-          "columnsFrom": ["user_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -568,7 +523,9 @@
       "indexes": {
         "users_google_sub_idx": {
           "name": "users_google_sub_idx",
-          "columns": ["google_sub"],
+          "columns": [
+            "google_sub"
+          ],
           "isUnique": true
         }
       },

@@ -8,6 +8,7 @@ import type { FillPlanFillsItemTier } from './fillPlanFillsItemTier';
 
 export type FillPlanFillsItem = {
   fieldId: string;
+  label?: string;
   value: string;
   /**
      * @minimum 0
@@ -16,4 +17,5 @@ export type FillPlanFillsItem = {
   confidence: number;
   tier: typeof FillPlanFillsItemTier[keyof typeof FillPlanFillsItemTier];
   reasoning?: string;
+  inferred?: boolean;
 };

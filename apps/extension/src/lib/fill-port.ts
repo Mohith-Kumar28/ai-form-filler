@@ -6,7 +6,6 @@ import {
   type FillPlan,
   type FillPortEvent,
   type FillPortRequest,
-  type FormSchema,
 } from '@aff/shared'
 import { fillForm } from '../generated/endpoints/fill/fill.js'
 
@@ -131,6 +130,5 @@ export function registerFillPort(): void {
     })
   })
 }
-
 
 export type { ApplyReport }

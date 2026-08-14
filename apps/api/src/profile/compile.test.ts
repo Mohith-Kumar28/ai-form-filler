@@ -16,6 +16,7 @@ function profile(overrides: Partial<Profile> = {}): Profile {
     skills: [],
     custom: {},
     style: { exemplars: [], avoid: [] },
+    preferences: [],
     sources: [],
     version: 0,
     ...overrides,

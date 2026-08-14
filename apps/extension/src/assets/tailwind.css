@@ -1,26 +1,67 @@
 @import "tailwindcss";
 
+/*
+  THESIS: A laboratory notebook, not a dashboard. Refuses the card grid — the arrangement
+  every AI panel ships — for ruled, numbered entries with visible provenance.
+  OWN-WORLD: Deep slate ground with a raised page; hairline rules as the only container;
+  entry numbers in the margin; annotation-red marks inference, verified-green marks what was
+  stated. The grid is an alignment armature, not a drawn texture.
+  STORY: The user sees what the notebook knows, where each entry came from, and — at a
+  glance — which answers it observed versus which it concluded.
+  FIRST VIEWPORT: Identity and quota band; entries beneath with real presence; the fill
+  action anchored bottom as the one solid field on the page.
+  FORM: Laboratory notebook. Position 4 of 7 on the grounded list. Seed key b24f3290.
+  FINISH: unreviewed and undocumented is unfinished; this build ends with the finish review,
+  the verdict, and DESIGN.md
+*/
+
 @theme {
-  --color-surface: oklch(99% 0.004 260);
-  --color-surface-raised: oklch(100% 0 0);
-  --color-ink: oklch(22% 0.02 260);
-  --color-ink-muted: oklch(52% 0.02 260);
-  --color-line: oklch(92% 0.006 260);
-  --color-accent: oklch(58% 0.19 274);
-  --color-accent-soft: oklch(96% 0.03 274);
-  --color-review: oklch(72% 0.16 75);
-  --color-ok: oklch(65% 0.16 155);
+  /* Light: a cool bench-lit page, deliberately not cream. */
+  --color-ground: oklch(96.5% 0.005 240);
+  --color-page: oklch(100% 0 0);
+  --color-rule: oklch(88% 0.012 240);
+  --color-rule-soft: oklch(93% 0.008 240);
+  --color-ink: oklch(22% 0.02 255);
+  --color-muted: oklch(44% 0.018 255);
+  --color-faint: oklch(52% 0.016 255);
+
+  /* Annotation red: the correction pen. Reserved for inference and errors. */
+  --color-annot: oklch(52% 0.2 25);
+  --color-annot-wash: oklch(95% 0.035 25);
+  /* Verified green: recorded as stated. */
+  --color-verified: oklch(46% 0.14 155);
+  /* Ink blue: the pen itself — actions and focus. */
+  --color-pen: oklch(48% 0.19 262);
+  --color-pen-wash: oklch(95% 0.035 262);
+
+  --radius-sharp: 3px;
 }
 
 @media (prefers-color-scheme: dark) {
   @theme {
-    --color-surface: oklch(18% 0.015 260);
-    --color-surface-raised: oklch(23% 0.018 260);
-    --color-ink: oklch(95% 0.01 260);
-    --color-ink-muted: oklch(68% 0.02 260);
-    --color-line: oklch(31% 0.02 260);
-    --color-accent: oklch(72% 0.17 274);
-    --color-accent-soft: oklch(30% 0.06 274);
+    /*
+      A real step between ground and page, so bands read as raised surfaces rather than
+      as slightly different shades of the same murk. The previous values sat 3.5% apart
+      and the whole panel flattened into one grey field.
+    */
+    --color-ground: oklch(17% 0.014 255);
+    --color-page: oklch(22.5% 0.018 255);
+    --color-rule: oklch(34% 0.02 255);
+    --color-rule-soft: oklch(27% 0.016 255);
+
+    /*
+      Raised across the board. `faint` was oklch(56%) on a 20% ground — under 4.5:1, which
+      is why the source metadata was unreadable rather than merely quiet.
+    */
+    --color-ink: oklch(96% 0.008 255);
+    --color-muted: oklch(78% 0.014 255);
+    --color-faint: oklch(65% 0.016 255);
+
+    --color-annot: oklch(74% 0.17 28);
+    --color-annot-wash: oklch(28% 0.06 28);
+    --color-verified: oklch(76% 0.16 155);
+    --color-pen: oklch(76% 0.15 258);
+    --color-pen-wash: oklch(28% 0.06 258);
   }
 }
 
@@ -31,8 +72,72 @@ body,
 }
 
 body {
-  background: var(--color-surface);
+  background: var(--color-ground);
   color: var(--color-ink);
   font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-size: 13px;
+  line-height: 1.5;
   -webkit-font-smoothing: antialiased;
+}
+
+/*
+  The grid is an *alignment* armature, not a drawn texture.
+
+  Rendering it as visible ruling turned 600px of empty panel into a wall of boxes that
+  dominated every piece of real content — the exact gimmick risk this direction carried.
+  It survives as the 4px spacing module every rule and inset is a multiple of, which is
+  what a construction grid is actually for.
+*/
+
+/* Measured quantities only. Never a category label — that is mono as costume. */
+.measure {
+  font-family: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, monospace;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+
+@keyframes entry-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* One authored moment: entries settle in sequence, the way rows get written. */
+.entry-in {
+  animation: entry-in 280ms cubic-bezier(0.2, 0, 0, 1) both;
+}
+
+@keyframes rule-draw {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
+.rule-draw {
+  transform-origin: left;
+  animation: rule-draw 460ms cubic-bezier(0.2, 0, 0, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .entry-in,
+  .rule-draw {
+    animation: none;
+  }
+}
+
+::selection {
+  background: var(--color-pen-wash);
+}
+
+*:focus-visible {
+  outline: 2px solid var(--color-pen);
+  outline-offset: 1px;
 }

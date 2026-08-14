@@ -55,7 +55,7 @@ fillRoutes.openapi(fillRoute, async (c) => {
     {
       db,
       userId,
-      openRouterApiKey: c.env.OPENROUTER_API_KEY,
+      env: c.env,
       quotaRemaining: account.quota.limit - account.quota.used,
     },
     request,
@@ -93,6 +93,6 @@ const feedbackRoute = createRoute({
 
 fillRoutes.openapi(feedbackRoute, async (c) => {
   const payload = c.req.valid('json')
-  const recorded = await recordFeedback(drizzle(c.env.DB), c.get('userId'), payload)
+  const recorded = await recordFeedback(c.env, c.get('userId'), payload)
   return c.json({ recorded }, 200)
 })

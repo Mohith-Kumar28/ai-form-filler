@@ -3,14 +3,16 @@ import type { FillTier } from '@aff/shared'
 /**
  * Per-tier model selection and pricing.
  *
- * Prices are USD per million tokens, as listed by OpenRouter. They are used only to record
+ * Prices are USD per million tokens as billed by the provider. They are used only to record
  * cost in `fill_log` — the number that decides whether the free tier is affordable — so an
  * outdated entry produces misleading accounting rather than a wrong charge. Re-check when
  * changing a model id.
  */
 export interface ModelSpec {
-  /** OpenRouter model id. */
-  id: string
+  /** Which native API this model speaks, when routed through AI Gateway. */
+  family: 'anthropic' | 'google'
+  /** Model id as the provider's own API names it. */
+  modelId: string
   inputPerMTok: number
   outputPerMTok: number
   /** Cache reads bill at a fraction of input. Only Anthropic models support this today. */
@@ -22,7 +24,8 @@ export interface ModelSpec {
 
 export const MODELS: Record<Exclude<FillTier, 0>, ModelSpec> = {
   1: {
-    id: 'google/gemini-2.5-flash-lite',
+    family: 'google',
+    modelId: 'gemini-2.5-flash-lite',
     inputPerMTok: 0.1,
     outputPerMTok: 0.4,
     cacheReadMultiplier: 1,
@@ -30,20 +33,27 @@ export const MODELS: Record<Exclude<FillTier, 0>, ModelSpec> = {
     supportsCaching: false,
   },
   2: {
-    id: 'google/gemini-2.5-flash',
+    family: 'google',
+    modelId: 'gemini-2.5-flash',
     inputPerMTok: 0.3,
     outputPerMTok: 2.5,
     cacheReadMultiplier: 1,
     cacheWriteMultiplier: 1,
     supportsCaching: false,
   },
+  /**
+   * Long-form answers. Gemini 2.5 Pro rather than a frontier Anthropic model: at $1.25/$10
+   * it is roughly a quarter the price of Opus for prose that a reader cannot tell apart,
+   * and staying inside one provider family keeps the whole path on one API shape.
+   */
   3: {
-    id: 'anthropic/claude-opus-4.1',
-    inputPerMTok: 5,
-    outputPerMTok: 25,
-    cacheReadMultiplier: 0.1,
-    cacheWriteMultiplier: 1.25,
-    supportsCaching: true,
+    family: 'google',
+    modelId: 'gemini-2.5-pro',
+    inputPerMTok: 1.25,
+    outputPerMTok: 10,
+    cacheReadMultiplier: 1,
+    cacheWriteMultiplier: 1,
+    supportsCaching: false,
   },
 }
 

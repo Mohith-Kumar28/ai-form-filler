@@ -42,6 +42,33 @@ export function useFill() {
     return () => portRef.current?.disconnect()
   }, [])
 
+  /**
+   * Adopt a fill the panel did not start.
+   *
+   * The page dock runs fills through the background directly, so without this the panel's
+   * state stays `idle` and its Review button leads to nothing — which is exactly what it
+   * did. The background broadcasts every event on the runtime channel; listening here is
+   * what makes the panel a real destination rather than a promise.
+   */
+  useEffect(() => {
+    const onRuntimeMessage = (message: { type?: string; event?: FillPortEvent }) => {
+      if (message?.type !== 'fill/event' || !message.event) return
+      const event = message.event
+
+      if (event.type === 'progress') {
+        setState((prev) => ({ ...prev, status: 'running', stage: event.stage }))
+      } else if (event.type === 'complete') {
+        setState({ status: 'done', plan: event.plan, report: event.report })
+        void queryClient.invalidateQueries({ queryKey: getGetAccountQueryKey() })
+      } else if (event.type === 'error') {
+        setState({ status: 'error', error: event.error })
+      }
+    }
+
+    chrome.runtime.onMessage.addListener(onRuntimeMessage)
+    return () => chrome.runtime.onMessage.removeListener(onRuntimeMessage)
+  }, [queryClient])
+
   const start = useCallback(
     async (options: { quality: 'auto' | 'high'; overwriteExisting: boolean }) => {
       const [tab] = await chrome.tabs.query({ active: true, currentWindow: true })

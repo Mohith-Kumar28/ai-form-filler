@@ -30,9 +30,9 @@ export const profileSources = sqliteTable(
       .notNull()
       .default('pending'),
     error: text('error'),
-    /** R2 object key for the original upload. Null for URL and freeform sources. */
-    r2Key: text('r2_key'),
-    /** Extracted plain text. This, not the original, is what feeds PROFILE_DOC. */
+    /** Supermemory document id, so deleting a source deletes the original it stored. */
+    memoryId: text('memory_id'),
+    /** The structured summary. The full document lives in Supermemory. */
     extractedText: text('extracted_text'),
     createdAt: integer('created_at').notNull(),
   },
@@ -67,23 +67,6 @@ export const profileDocs = sqliteTable('profile_docs', {
  * Accepted free-text answers. Retrieved by BM25 (see the FTS5 virtual table in the
  * migration) and injected for tier-3 fields.
  */
-export const answerBank = sqliteTable(
-  'answer_bank',
-  {
-    id: text('id').primaryKey(),
-    userId: text('user_id')
-      .notNull()
-      .references(() => users.id, { onDelete: 'cascade' }),
-    label: text('label').notNull(),
-    answer: text('answer').notNull(),
-    origin: text('origin'),
-    /** True when the user changed our proposal — the highest-signal rows we have. */
-    wasEdited: integer('was_edited', { mode: 'boolean' }).notNull().default(false),
-    createdAt: integer('created_at').notNull(),
-  },
-  (t) => [index('answer_bank_user_idx').on(t.userId)],
-)
-
 /**
  * One row per fill request. This table answers "is the free tier affordable" — query it
  * after phase 3 before sizing PLAN_LIMITS. Instrumented from day one deliberately: the

@@ -3,11 +3,8 @@ import { z } from 'zod'
 export const Plan = z.enum(['free', 'pro'])
 export type Plan = z.infer<typeof Plan>
 
-/** Forms per calendar month. Sized from real `fill_log` data after phase 3, not from guesses. */
-export const PLAN_LIMITS: Record<Plan, number> = {
-  free: 50,
-  pro: 2000,
-}
+// Defined in constants.ts (zod-free). Sized from real `fill_log` data after phase 3.
+export { PLAN_LIMITS } from './constants.js'
 
 export const QuotaState = z.object({
   plan: Plan,

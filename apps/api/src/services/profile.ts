@@ -3,6 +3,7 @@ import { and, eq } from 'drizzle-orm'
 import { profileDocs, profileSources } from '../db/schema.js'
 import { compileProfileDoc } from '../profile/compile.js'
 import { extractIdentity, mergeIdentity } from '../profile/extract.js'
+import type { StructuredSource } from '../profile/structure.js'
 import type { Db } from './account.js'
 
 /** A Profile with no sources yet — every field explicit so the compiler's input is total. */
@@ -14,6 +15,7 @@ export function emptyProfile(): Omit<Profile, 'sources'> {
     skills: [],
     custom: {},
     style: { exemplars: [], avoid: [] },
+    preferences: [],
     version: 0,
   }
 }
@@ -191,7 +193,71 @@ export interface NewSource {
   kind: SourceKind
   label: string
   text: string
-  r2Key?: string
+  /** Supermemory document id, kept so deleting the source deletes the original too. */
+  memoryId?: string
+  /** Structured extraction from the ingest pass, merged into the profile below. */
+  structured?: StructuredSource
+}
+
+/**
+ * Folds a structured extraction into the stored profile.
+ *
+ * Union rather than replace, deduplicated by a natural key: a person adds a resume, then a
+ * portfolio, then a LinkedIn export, and each should *add* to what we know rather than
+ * overwrite it. User-entered values still win over anything extracted.
+ */
+function mergeStructured(
+  current: StructuredProfile,
+  extracted: StructuredSource,
+): StructuredProfile {
+  const identity = { ...current.identity }
+  identity.fullName ??= extracted.identity.fullName
+  identity.email ??= extracted.identity.email
+  identity.phone ??= extracted.identity.phone
+  identity.location ??= extracted.identity.location
+  identity.pronouns ??= extracted.identity.pronouns
+  identity.workAuthorization ??= extracted.identity.workAuthorization
+  identity.links = {
+    ...Object.fromEntries(extracted.identity.links.map((l) => [l.platform, l.url])),
+    ...current.identity.links,
+  }
+
+  const dedupe = <T>(items: T[], key: (item: T) => string): T[] => {
+    const seen = new Map<string, T>()
+    for (const item of items) {
+      const k = key(item).toLowerCase().trim()
+      if (k && !seen.has(k)) seen.set(k, item)
+    }
+    return [...seen.values()]
+  }
+
+  return {
+    ...current,
+    identity,
+    education: dedupe(
+      [...current.education, ...extracted.education],
+      (e) => `${e.institution}|${e.degree ?? ''}`,
+    ),
+    experience: dedupe(
+      [...current.experience, ...extracted.experience],
+      (e) => `${e.company}|${e.title}`,
+    ),
+    skills: dedupe([...current.skills, ...extracted.skills], (s) => s),
+    custom: {
+      ...Object.fromEntries(extracted.facts.map((f) => [f.key, f.value])),
+      ...current.custom,
+    },
+    preferences: dedupe([...current.preferences, ...extracted.preferences], (p) => p.topic),
+    style: {
+      ...current.style,
+      // Cap the exemplars: they go into every tier-3 prompt, so an unbounded list would
+      // grow the cached prefix without improving voice matching.
+      exemplars: dedupe([...current.style.exemplars, ...extracted.writingSamples], (x) =>
+        x.slice(0, 60),
+      ).slice(0, 5),
+    },
+    summary: current.summary ?? extracted.summary,
+  }
 }
 
 /**
@@ -206,16 +272,21 @@ export async function addSource(db: Db, userId: string, source: NewSource): Prom
     userId,
     kind: source.kind,
     label: source.label,
+    memoryId: source.memoryId ?? null,
     status: 'ready',
-    r2Key: source.r2Key ?? null,
     extractedText: source.text,
     createdAt: Date.now(),
   })
 
-  const structured = await loadStructured(db, userId)
-  const identity = mergeIdentity(structured.identity, extractIdentity(source.text))
+  const current = await loadStructured(db, userId)
 
-  return updateStructured(db, userId, { identity })
+  // The LLM pass is authoritative when it ran; the regex extractor is the fallback for
+  // sources that were ingested without it.
+  const merged = source.structured
+    ? mergeStructured(current, source.structured)
+    : { ...current, identity: mergeIdentity(current.identity, extractIdentity(source.text)) }
+
+  return updateStructured(db, userId, merged)
 }
 
 /**
@@ -229,13 +300,13 @@ export async function deleteSource(
   db: Db,
   userId: string,
   sourceId: string,
-): Promise<{ profile: Profile; orphanedR2Key: string | null }> {
+): Promise<{ profile: Profile; memoryId: string | null }> {
   const deleted = await db
     .delete(profileSources)
     // Scoped by userId as well as id — without it, any authenticated user could delete
     // another user's source by guessing an id.
     .where(and(eq(profileSources.id, sourceId), eq(profileSources.userId, userId)))
-    .returning({ id: profileSources.id, r2Key: profileSources.r2Key })
+    .returning({ id: profileSources.id, memoryId: profileSources.memoryId })
 
   const row = deleted[0]
   if (!row) {
@@ -243,5 +314,5 @@ export async function deleteSource(
   }
 
   await recompileProfile(db, userId)
-  return { profile: await getProfile(db, userId), orphanedR2Key: row.r2Key }
+  return { profile: await getProfile(db, userId), memoryId: row.memoryId }
 }

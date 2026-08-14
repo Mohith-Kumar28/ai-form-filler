@@ -1,20 +1,50 @@
 # Copy to `.dev.vars` (gitignored) for local `wrangler dev`.
-# In production these are set with `wrangler secret put <NAME>`.
+#
+# IMPORTANT: `.dev.vars` is LOCAL ONLY. `wrangler deploy` does NOT upload it.
+# Deployed environments need each value pushed separately:
+#     pnpm secrets:push                    # reads this file, pushes to production
+#     wrangler secret put NAME --env staging
 
-# OAuth 2.0 Client ID of type "Chrome Extension" from Google Cloud Console.
-# Must match the `oauth2.client_id` in the extension manifest.
+# ── Auth ────────────────────────────────────────────────────────────────────
+# OAuth 2.0 Client ID, type "Chrome Extension", from Google Cloud Console.
+# Must match `manifest.oauth2.client_id` in apps/extension/wxt.config.ts exactly.
 GOOGLE_CLIENT_ID=000000000000-xxxxxxxxxxxxxxxxxxxxxxxxxxxx.apps.googleusercontent.com
 
-# HMAC key for our own session JWTs. Generate with:
-#   openssl rand -base64 48
+# HMAC key for our own session JWTs.  Generate with:  openssl rand -base64 48
 JWT_SECRET=replace-me
 
-# chrome-extension://<id> — find the id at chrome://extensions with dev mode on.
+# chrome-extension://<id> — the only origin CORS admits in production.
+# Find the id at chrome://extensions with Developer mode on.
 EXTENSION_ORIGIN=chrome-extension://replace-me
 
-OPENROUTER_API_KEY=sk-or-v1-replace-me
-ANTHROPIC_API_KEY=sk-ant-replace-me
+# ── Inference: Cloudflare AI Gateway, Unified Billing ───────────────────────
+#
+# The only inference credential. No Anthropic account, no Google account, no
+# OpenRouter — load credits into Cloudflare and it settles with the providers.
+# One invoice, and request logs and analytics come free with the gateway.
+#
+# Swapping models means editing an id in src/llm/models.ts. Never a new key.
+#
+#   Dashboard → AI → AI Gateway → create a gateway → copy the API endpoint
+AI_GATEWAY_URL=https://gateway.ai.cloudflare.com/v1/REPLACE_ACCOUNT_ID/REPLACE_GATEWAY_NAME
 
-# Phase 6 only.
+# Cloudflare API token with the "AI Gateway Run" permission.
+#   Dashboard → My Profile → API Tokens → Create Token
+AI_GATEWAY_TOKEN=replace-me
+
+# ── Memory: Supermemory ─────────────────────────────────────────────────────
+#
+# REQUIRED. Owns ingestion of every format (PDF, image, audio, video, and URLs,
+# which it scrapes and re-crawls itself), storage of the originals, and semantic
+# retrieval at fill time — including the user's own past answers, which is what
+# makes the writing voice compound.
+#
+# This replaced an R2 bucket, a Cloudflare AI Search index, a PDF parser, and a
+# BM25 answer bank in D1. Deleting a source deletes its document here too.
+#
+#   console.supermemory.ai -> API Keys -> create
+SUPERMEMORY_API_KEY=replace-me
+
+# ── Billing (phase 6, unused until then) ────────────────────────────────────
 STRIPE_SECRET_KEY=
 STRIPE_WEBHOOK_SECRET=

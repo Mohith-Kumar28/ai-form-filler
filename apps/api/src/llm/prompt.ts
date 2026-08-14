@@ -43,7 +43,12 @@ export const SubmitFillsSchema = z.object({
       reasoning: z
         .string()
         .optional()
-        .describe('One short clause naming the profile fact this came from.'),
+        .describe('One short clause naming the profile fact or preference this came from.'),
+      inferred: z
+        .boolean()
+        .describe(
+          'True when the answer comes from a preference or judgement about this person rather than something the profile states outright.',
+        ),
     }),
   ),
   skipped: z
@@ -65,7 +70,9 @@ export type SubmitFillsInput = z.infer<typeof SubmitFillsSchema>
 export const SYSTEM_INSTRUCTIONS = `You fill in web forms on behalf of a specific person, using only the profile supplied below.
 
 Rules:
-- Answer only from the profile. If the profile does not contain the answer, skip the field — never invent a fact, a date, a number, or an employer.
+- Facts — names, dates, employers, grades, contact details — must come from the profile. Never invent one. If a fact is missing, skip the field.
+- Judgement calls are different. When a field asks for a preference, an opinion, or a choice ("would you like updates?", "which role interests you?", "how did you hear about us?"), answer the way this person would based on the "Likely preferences" section and what they build and care about. Set inferred=true on those.
+- Prefer answering over skipping when the question is a judgement call. Prefer skipping over guessing when the question is a fact.
 - Write in the person's own voice. Match the tone and sentence length of their example writing when it is provided.
 - For a field with options, the value must be exactly one of the offered option values. For multiple selections, separate values with a comma.
 - Respect the stated maximum length. A truncated answer is worse than a shorter complete one.
@@ -98,7 +105,8 @@ export interface UserMessageInput {
   pageContext?: string | undefined
   origin: string
   /** Past answers retrieved by BM25. Only supplied for tier-3 batches. */
-  relatedAnswers?: { label: string; answer: string }[]
+  /** Semantically-retrieved passages from the user's source documents. */
+  sourceChunks?: { text: string; source: string; score: number }[]
 }
 
 /**
@@ -113,11 +121,18 @@ export function buildUserMessage(input: UserMessageInput): string {
     parts.push(`Page context:\n${input.pageContext}`)
   }
 
-  if (input.relatedAnswers && input.relatedAnswers.length > 0) {
-    // Past accepted answers are the strongest available signal for both voice and content.
+  if (input.sourceChunks && input.sourceChunks.length > 0) {
+    /**
+     * Retrieved rather than inlined: the full corpus does not fit, and these passages are
+     * the parts of it that bear on the questions actually being asked.
+     *
+     * This now carries the user's own past answers as well as their documents — both live
+     * in the same memory index, so a previously-written cover letter and a resume line
+     * compete on one ranking instead of arriving as two separately-tuned lists.
+     */
     parts.push(
-      `Answers this person gave to similar questions before. Reuse the substance and the voice; do not copy verbatim if the question differs:\n${input.relatedAnswers
-        .map((a) => `Q: ${a.label}\nA: ${a.answer}`)
+      `Relevant passages from this person's own documents and past answers. Where a passage is their own writing, reuse its substance and voice; do not copy verbatim if the question differs:\n${input.sourceChunks
+        .map((c) => `[${c.source}]\n${c.text}`)
         .join('\n\n')}`,
     )
   }

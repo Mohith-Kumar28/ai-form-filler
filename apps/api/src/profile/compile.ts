@@ -1,4 +1,4 @@
-import type { EducationEntry, ExperienceEntry, Identity, Profile } from '@aff/shared'
+import type { EducationEntry, ExperienceEntry, Identity, Preference, Profile } from '@aff/shared'
 
 /**
  * Compiles a Profile into the cached prompt prefix.
@@ -119,6 +119,22 @@ function renderSkills(skills: string[]): string {
   return `## Skills\n${[...seen.values()].join(', ')}`
 }
 
+/**
+ * Inferred positions, rendered so the model can answer questions the sources never state.
+ *
+ * Confidence travels with each one: the model is told to mark an answer built on a low
+ * confidence preference as inferred, which is what surfaces it for review rather than
+ * letting a guess pass as a fact.
+ */
+function renderPreferences(preferences: Preference[]): string {
+  if (preferences.length === 0) return ''
+  const sorted = [...preferences].sort((a, b) => a.topic.localeCompare(b.topic))
+  const lines = sorted.map(
+    (p) => `- ${p.topic}: ${p.stance} (confidence ${p.confidence.toFixed(1)}; ${p.evidence})`,
+  )
+  return `## Likely preferences\nInferred, not stated. Use for judgement calls; mark answers built on these as inferred.\n${lines.join('\n')}`
+}
+
 function renderCustom(custom: Record<string, string>): string {
   const keys = Object.keys(custom).sort()
   if (keys.length === 0) return ''
@@ -177,11 +193,13 @@ export async function compileProfileDoc(
   sources: { label: string; kind: string; text: string }[] = [],
 ): Promise<CompiledProfile> {
   const sections = [
+    profile.summary ? `## Who this is\n${normalizeText(profile.summary)}` : '',
     renderIdentity(profile.identity),
     renderEducation(profile.education),
     renderExperience(profile.experience),
     renderSkills(profile.skills),
     renderCustom(profile.custom),
+    renderPreferences(profile.preferences),
     renderStyle(profile),
     renderSources(sources),
   ].filter((section) => section.length > 0)

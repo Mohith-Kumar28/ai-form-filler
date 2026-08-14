@@ -79,6 +79,20 @@ export const StyleProfile = z.object({
 })
 export type StyleProfile = z.infer<typeof StyleProfile>
 
+/**
+ * A likely position on something the sources never state outright — inferred from what the
+ * person builds, writes about, and highlights. This is what lets the tool answer a
+ * judgement call ("would you like to hear about future roles?") the way they would, rather
+ * than leaving it blank.
+ */
+export const Preference = z.object({
+  topic: z.string(),
+  stance: z.string(),
+  evidence: z.string(),
+  confidence: z.number().min(0).max(1),
+})
+export type Preference = z.infer<typeof Preference>
+
 export const Profile = z.object({
   identity: Identity,
   education: z.array(EducationEntry).default([]),
@@ -87,6 +101,10 @@ export const Profile = z.object({
   /** Anything that doesn't fit the schema above — visa status, dietary needs, t-shirt size. */
   custom: z.record(z.string(), z.string()).default({}),
   style: StyleProfile,
+  /** Inferred positions, used for questions the sources do not literally answer. */
+  preferences: z.array(Preference).default([]),
+  /** Two sentences describing this person, compiled from all sources. */
+  summary: z.string().optional(),
   sources: z.array(ProfileSource).default([]),
   /** Bumped on every recompile. The extension uses it to invalidate its cached copy. */
   version: z.number().int().nonnegative().default(0),

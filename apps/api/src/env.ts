@@ -3,7 +3,6 @@ import type { Account } from '@aff/shared'
 export interface Env {
   DB: D1Database
   RATE_LIMIT: KVNamespace
-  UPLOADS: R2Bucket
 
   ENVIRONMENT: 'development' | 'production'
   /** `chrome-extension://<id>` — the only origin allowed through CORS in production. */
@@ -14,8 +13,24 @@ export interface Env {
   /** HMAC key for our own session JWTs. */
   JWT_SECRET: string
 
-  OPENROUTER_API_KEY: string
-  ANTHROPIC_API_KEY: string
+  /**
+   * Cloudflare AI Gateway endpoint. All inference goes through it.
+   *   https://gateway.ai.cloudflare.com/v1/<account_id>/<gateway_name>
+   */
+  AI_GATEWAY_URL: string
+
+  /** Cloudflare API token with "AI Gateway Run" — the only inference credential. */
+  AI_GATEWAY_TOKEN: string
+
+  /**
+   * Supermemory. Owns ingestion of every format, storage of the originals, and retrieval.
+   *
+   * Required, not optional. It previously had a fallback path — local PDF extraction, an R2
+   * bucket, Cloudflare AI Search, and BM25 over a D1 answer bank — which was a second full
+   * implementation of the same job, permanently less capable and separately debuggable.
+   * Carrying both meant every ingest and every retrieval had two behaviours to reason about.
+   */
+  SUPERMEMORY_API_KEY: string
 
   STRIPE_SECRET_KEY?: string
   STRIPE_WEBHOOK_SECRET?: string

@@ -19,13 +19,21 @@ describe('clampToViewport', () => {
   })
 
   it('keeps the pill on screen when the anchor is near the right edge', () => {
-    const { left } = clampToViewport({ top: 100, left: 960, width: 200, height: 40 }, PILL, VIEWPORT)
+    const { left } = clampToViewport(
+      { top: 100, left: 960, width: 200, height: 40 },
+      PILL,
+      VIEWPORT,
+    )
     expect(left).toBeLessThanOrEqual(VIEWPORT.width - PILL.width)
     expect(left).toBeGreaterThanOrEqual(0)
   })
 
   it('never goes off the left edge for an anchor positioned off-screen', () => {
-    const { left } = clampToViewport({ top: 100, left: -500, width: 50, height: 40 }, PILL, VIEWPORT)
+    const { left } = clampToViewport(
+      { top: 100, left: -500, width: 50, height: 40 },
+      PILL,
+      VIEWPORT,
+    )
     expect(left).toBeGreaterThanOrEqual(0)
   })
 
@@ -50,10 +58,7 @@ function fill(overrides: Partial<AnimatedFill> & { fieldId: string }): AnimatedF
 describe('runFillAnimation', () => {
   it('applies every field and reports them', async () => {
     document.body.innerHTML = ''
-    const result = await runFillAnimation([
-      fill({ fieldId: 'a' }),
-      fill({ fieldId: 'b' }),
-    ])
+    const result = await runFillAnimation([fill({ fieldId: 'a' }), fill({ fieldId: 'b' })])
     expect(result.applied.sort()).toEqual(['a', 'b'])
     expect(result.failed).toEqual([])
   })
@@ -92,9 +97,7 @@ describe('runFillAnimation', () => {
 
   it('awaits an adapter that applies asynchronously', async () => {
     document.body.innerHTML = ''
-    const result = await runFillAnimation([
-      fill({ fieldId: 'async', apply: async () => true }),
-    ])
+    const result = await runFillAnimation([fill({ fieldId: 'async', apply: async () => true })])
     expect(result.applied).toEqual(['async'])
   })
 
@@ -118,13 +121,10 @@ describe('runFillAnimation', () => {
     const started: string[] = []
     const ended: [string, boolean][] = []
 
-    await runFillAnimation(
-      [fill({ fieldId: 'a' }), fill({ fieldId: 'b', apply: () => false })],
-      {
-        onFieldStart: (id) => started.push(id),
-        onFieldEnd: (id, ok) => ended.push([id, ok]),
-      },
-    )
+    await runFillAnimation([fill({ fieldId: 'a' }), fill({ fieldId: 'b', apply: () => false })], {
+      onFieldStart: (id) => started.push(id),
+      onFieldEnd: (id, ok) => ended.push([id, ok]),
+    })
 
     expect(started).toEqual(['a', 'b'])
     expect(ended).toEqual([

@@ -135,9 +135,25 @@ describe('resolveTier0', () => {
     links: { github: 'https://github.com/mohithk' },
   }
 
-  it('fills from stored identity at full confidence', () => {
-    const { fills } = resolveTier0(identity, [{ fieldId: 'f1', tier: 0, slot: 'email' }])
-    expect(fills).toEqual([{ fieldId: 'f1', value: 'mohith@example.com', confidence: 1, tier: 0 }])
+  it('fills from stored identity at full confidence, never marked inferred', () => {
+    const { fills } = resolveTier0(
+      identity,
+      [{ fieldId: 'f1', tier: 0, slot: 'email' }],
+      new Map([['f1', 'Email address']]),
+    )
+    // A direct lookup of the user's own stored value is the one case that is definitionally
+    // not a judgement call, so it must never surface for review.
+    expect(fills).toEqual([
+      {
+        fieldId: 'f1',
+        // The question travels with the answer so the panel can review it without the form.
+        label: 'Email address',
+        value: 'mohith@example.com',
+        confidence: 1,
+        tier: 0,
+        inferred: false,
+      },
+    ])
   })
 
   it('splits a full name into first and last', () => {

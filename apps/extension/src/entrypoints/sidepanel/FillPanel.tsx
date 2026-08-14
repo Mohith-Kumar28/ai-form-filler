@@ -2,21 +2,23 @@ import { REVIEW_CONFIDENCE_THRESHOLD } from '@aff/shared'
 import { useState } from 'react'
 import type { Account } from '../../generated/model/index.js'
 import { STAGE_LABEL, useFill } from '../../lib/use-fill.js'
+import { IconInferred, IconPen, IconVerified } from './icons.js'
 
 const SKIP_REASON_LABEL: Record<string, string> = {
-  no_matching_knowledge: 'Nothing in your profile answers this',
+  no_matching_knowledge: 'Nothing recorded answers this',
   already_filled: 'Already filled',
-  unsupported_kind: 'This field type is not supported yet',
+  unsupported_kind: 'Field type not supported yet',
   quota_exhausted: 'Out of forms this month',
-  model_error: 'The model could not answer this',
+  model_error: 'Could not answer',
 }
 
 /**
- * The fill trigger and its result summary.
+ * The fill action and its record.
  *
- * No page overlay yet — that is phase 4. Driving everything from the panel first is
- * deliberate: it proves the pipeline and produces real cost numbers before any of the
- * presentation layer is built on top of it.
+ * The product's trust rests on one distinction being unmissable: an answer the notebook
+ * *observed* (you stated it) versus one it *concluded* (it read you). Those carry different
+ * risks, so they get different marks and different words — not one amber "needs review"
+ * bucket that flattens them together, which is what the previous panel did.
  */
 export function FillPanel({ account }: { account: Account }) {
   const { state, start, reset } = useFill()
@@ -25,131 +27,167 @@ export function FillPanel({ account }: { account: Account }) {
   const outOfQuota = account.quota.used >= account.quota.limit
   const disabled = !account.profileReady || outOfQuota || state.status === 'running'
 
-  const needsReview =
-    state.plan?.fills.filter((f) => f.confidence < REVIEW_CONFIDENCE_THRESHOLD) ?? []
+  const inferred = state.plan?.fills.filter((f) => f.inferred) ?? []
+  const unsure =
+    state.plan?.fills.filter((f) => !f.inferred && f.confidence < REVIEW_CONFIDENCE_THRESHOLD) ?? []
+
+  if (state.status === 'done' && state.plan) {
+    const applied = state.report?.applied.length ?? 0
+    const failed = state.report?.failed.length ?? 0
+
+    return (
+      <div className="flex flex-col gap-3">
+        <div>
+          <p className="measure text-[11px] uppercase tracking-wide text-faint">Recorded</p>
+          <p className="mt-0.5 text-[15px] text-ink">
+            <span className="measure font-medium">{applied}</span> of{' '}
+            <span className="measure">{state.plan.fills.length}</span> fields filled
+          </p>
+          <div className="rule-draw mt-2 h-px w-full origin-left bg-verified" />
+          <p className="measure mt-1.5 text-[11px] text-faint">
+            {state.plan.usage.latencyMs}ms
+            {state.plan.usage.costMicroUsd > 0 &&
+              ` · ${(state.plan.usage.costMicroUsd / 10_000).toFixed(2)}¢`}
+          </p>
+        </div>
+
+        {failed > 0 && (
+          <p className="text-[12px] text-annot">
+            {failed} could not be written — the page may have changed since.
+          </p>
+        )}
+
+        {inferred.length > 0 && (
+          <Group
+            title="Judgement calls"
+            note="Concluded from what you've recorded, not stated by you."
+            tone="annot"
+            fills={inferred}
+          />
+        )}
+
+        {unsure.length > 0 && (
+          <Group
+            title="Uncertain"
+            note="Answered, but the notebook is not confident."
+            tone="graphite"
+            fills={unsure}
+          />
+        )}
+
+        {state.plan.skipped.length > 0 && (
+          <details className="border-t border-rule pt-2">
+            <summary className="cursor-pointer text-[12px] text-muted marker:text-faint">
+              {state.plan.skipped.length} left blank
+            </summary>
+            <ul className="mt-1.5 flex flex-col gap-1">
+              {state.plan.skipped.map((skip) => (
+                <li key={skip.fieldId} className="text-[11px] text-faint">
+                  {skip.detail ?? SKIP_REASON_LABEL[skip.reason] ?? skip.reason}
+                </li>
+              ))}
+            </ul>
+          </details>
+        )}
+
+        <button
+          type="button"
+          onClick={reset}
+          className="w-full rounded-sharp border border-rule py-2 text-[12px] text-muted transition-colors hover:border-pen hover:text-pen"
+        >
+          Fill again
+        </button>
+      </div>
+    )
+  }
 
   return (
     <div className="flex flex-col gap-2">
-      {state.status === 'idle' && (
-        <label className="flex items-center gap-2 text-[11px] text-ink-muted">
+      {state.status === 'idle' && account.profileReady && (
+        <label className="flex cursor-pointer items-center gap-2 text-[12px] text-muted">
           <input
             type="checkbox"
             checked={highQuality}
             onChange={(e) => setHighQuality(e.target.checked)}
-            className="size-3.5 accent-[var(--color-accent)]"
+            className="size-3.5 accent-[var(--color-pen)]"
           />
-          Best quality — slower and uses a stronger model for written answers
+          Take more care with written answers
         </label>
       )}
 
-      {state.status !== 'done' && (
-        <button
-          type="button"
-          disabled={disabled}
-          onClick={() =>
-            start({ quality: highQuality ? 'high' : 'auto', overwriteExisting: false })
-          }
-          title={
-            !account.profileReady
-              ? 'Add at least one source before filling a form'
-              : outOfQuota
-                ? 'You have used this month’s forms'
-                : undefined
-          }
-          className="w-full rounded-md bg-accent py-2 text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-40"
-        >
-          {state.status === 'running'
-            ? (STAGE_LABEL[state.stage ?? 'detecting'] ?? 'Working…')
-            : 'Fill this page'}
-        </button>
-      )}
+      <button
+        type="button"
+        disabled={disabled}
+        onClick={() => start({ quality: highQuality ? 'high' : 'auto', overwriteExisting: false })}
+        className="flex w-full items-center justify-center gap-2 rounded-sharp bg-pen py-2.5 text-[13px] font-medium text-page transition-opacity hover:opacity-90 disabled:opacity-40"
+      >
+        {state.status === 'running' ? (
+          <>
+            <span className="size-1.5 animate-pulse rounded-full bg-page" aria-hidden />
+            {STAGE_LABEL[state.stage ?? 'detecting'] ?? 'Working'}
+          </>
+        ) : (
+          <>
+            <IconPen className="size-4" />
+            Fill this page
+          </>
+        )}
+      </button>
 
       {state.status === 'error' && (
-        <p className="text-xs text-review" role="alert">
+        <p className="text-[12px] text-annot" role="alert">
           {state.error?.message}
         </p>
       )}
 
-      {state.status === 'done' && state.plan && (
-        <div className="flex flex-col gap-2">
-          <div className="rounded-lg border border-line bg-surface-raised p-3">
-            <p className="text-sm font-medium">
-              Filled {state.report?.applied.length ?? 0} of {state.plan.fills.length} fields
-            </p>
-
-            {/* Distinct from a skip: we produced an answer, the page refused it. */}
-            {(state.report?.failed.length ?? 0) > 0 && (
-              <p className="mt-1 text-xs text-review">
-                {state.report?.failed.length} could not be written — the page may have changed.
-              </p>
-            )}
-
-            {needsReview.length > 0 && (
-              <p className="mt-1 text-xs text-review">
-                {needsReview.length} answer{needsReview.length === 1 ? '' : 's'} need
-                {needsReview.length === 1 ? 's' : ''} a look before you submit.
-              </p>
-            )}
-
-            {state.plan.usage.costMicroUsd > 0 && (
-              <p className="mt-1 text-[11px] text-ink-muted">
-                {state.plan.usage.latencyMs}ms ·{' '}
-                {(state.plan.usage.costMicroUsd / 10_000).toFixed(2)}¢
-                {state.plan.usage.cacheReadTokens > 0 && ' · cached'}
-              </p>
-            )}
-          </div>
-
-          {needsReview.length > 0 && (
-            <ul className="flex flex-col gap-1.5">
-              {needsReview.map((fill) => (
-                <li
-                  key={fill.fieldId}
-                  className="flex gap-2 rounded-md border border-line bg-surface-raised px-3 py-2"
-                >
-                  {/* Same status-dot idiom as SourceList — one visual language for
-                      "needs attention" across the panel. */}
-                  <span className="mt-1 size-1.5 shrink-0 rounded-full bg-review" aria-hidden />
-                  <div className="min-w-0">
-                    <p className="text-xs">{fill.value}</p>
-                    {fill.reasoning && (
-                      <p className="mt-0.5 text-[11px] text-ink-muted">{fill.reasoning}</p>
-                    )}
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
-
-          {state.plan.skipped.length > 0 && (
-            <details className="rounded-md border border-line px-3 py-2">
-              <summary className="cursor-pointer text-xs text-ink-muted">
-                {state.plan.skipped.length} field
-                {state.plan.skipped.length === 1 ? '' : 's'} left blank
-              </summary>
-              <ul className="mt-1.5 flex flex-col gap-1">
-                {state.plan.skipped.map((skip) => (
-                  <li key={skip.fieldId} className="text-[11px] text-ink-muted">
-                    {skip.detail ?? SKIP_REASON_LABEL[skip.reason] ?? skip.reason}
-                  </li>
-                ))}
-              </ul>
-            </details>
-          )}
-
-          <button
-            type="button"
-            onClick={reset}
-            className="w-full rounded-md border border-line py-1.5 text-xs text-ink-muted transition-colors hover:bg-line hover:text-ink"
-          >
-            Fill again
-          </button>
-        </div>
-      )}
-
       {!account.profileReady && (
-        <p className="text-center text-[11px] text-ink-muted">Add a source to enable filling</p>
+        <p className="text-center text-[11px] text-faint">Record something first</p>
+      )}
+      {outOfQuota && account.profileReady && (
+        <p className="text-center text-[11px] text-annot">
+          Out of forms until {new Date(account.quota.resetsAt).toLocaleDateString()}
+        </p>
       )}
     </div>
+  )
+}
+
+function Group({
+  title,
+  note,
+  tone,
+  fills,
+}: {
+  title: string
+  note: string
+  tone: 'annot' | 'graphite'
+  fills: { fieldId: string; value: string; reasoning?: string }[]
+}) {
+  const Icon = tone === 'annot' ? IconInferred : IconVerified
+
+  return (
+    <section>
+      <h3
+        className={`flex items-center gap-1.5 text-[12px] font-medium ${
+          tone === 'annot' ? 'text-annot' : 'text-muted'
+        }`}
+      >
+        <Icon className="size-3.5" />
+        {title}
+        <span className="measure text-[11px] font-normal text-faint">{fills.length}</span>
+      </h3>
+      <p className="mt-0.5 text-[11px] text-faint">{note}</p>
+
+      <ul className="mt-1.5">
+        {fills.map((fill) => (
+          <li key={fill.fieldId} className="border-t border-rule py-2">
+            <p className="text-[12px] leading-snug text-ink">{fill.value}</p>
+            {fill.reasoning && (
+              <p className="mt-1 text-[11px] italic leading-snug text-faint">{fill.reasoning}</p>
+            )}
+          </li>
+        ))}
+      </ul>
+    </section>
   )
 }

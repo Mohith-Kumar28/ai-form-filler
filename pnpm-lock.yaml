@@ -20,27 +20,27 @@ importers:
       '@aff/shared':
         specifier: workspace:*
         version: link:../../packages/shared
+      '@ai-sdk/anthropic':
+        specifier: ^4.0.38
+        version: 4.0.38(zod@4.4.3)
+      '@ai-sdk/google':
+        specifier: ^4.0.43
+        version: 4.0.43(zod@4.4.3)
       '@hono/zod-openapi':
         specifier: ^1.5.2
         version: 1.5.2(hono@4.13.1)(zod@4.4.3)
-      '@openrouter/ai-sdk-provider':
-        specifier: ^3.0.0
-        version: 3.0.0(ai@7.0.64(zod@4.4.3))(zod@4.4.3)
       ai:
         specifier: ^7.0.64
         version: 7.0.64(zod@4.4.3)
       drizzle-orm:
         specifier: ^0.44.5
-        version: 0.44.7(@cloudflare/workers-types@5.20260812.1)
+        version: 0.44.7(@cloudflare/workers-types@5.20260812.1)(@opentelemetry/api@1.9.0)
       hono:
         specifier: ^4.9.5
         version: 4.13.1
       jose:
         specifier: ^6.1.0
         version: 6.2.8
-      unpdf:
-        specifier: ^1.8.0
-        version: 1.8.0
       zod:
         specifier: ^4.1.5
         version: 4.4.3
@@ -100,6 +100,9 @@ importers:
       '@wxt-dev/module-react':
         specifier: ^1.1.3
         version: 1.2.2(vite@8.2.1(@types/node@26.2.0)(esbuild@0.27.7)(jiti@2.7.0)(tsx@4.23.12)(yaml@2.9.0))(wxt@0.20.27(@types/node@26.2.0)(jiti@2.7.0)(lightningcss@1.33.0)(rolldown@1.2.4)(rollup@4.62.4)(tsx@4.23.12)(yaml@2.9.0))
+      happy-dom:
+        specifier: ^20.11.2
+        version: 20.11.2
       orval:
         specifier: ^8.24.0
         version: 8.24.0(typescript@5.9.3)
@@ -147,8 +150,20 @@ packages:
   '@1natsu/wait-element@4.2.0':
     resolution: {integrity: sha512-Om0Q+WE9mNrpY4AwMTvkFiYHv8VM7TML3PvOqXy+w6kAjLjKhGYHYX+305+a6J8RVpds9s7IF2Z5aOPYwULFNw==}
 
+  '@ai-sdk/anthropic@4.0.38':
+    resolution: {integrity: sha512-esbTb5jq/37dloBJzld3CpYCZskiDWGcI4O8kzst9J/0Km4by7cgQXLTB/gGdjXxBsyjPQUeotVqqRRIrx2zew==}
+    engines: {node: '>=22'}
+    peerDependencies:
+      zod: ^3.25.76 || ^4.1.8
+
   '@ai-sdk/gateway@4.0.51':
     resolution: {integrity: sha512-tQxWGUbg/O3A5EgekJo/C2byLVQ1r+vL6QdEVWmxUSnPhdCupcOeDbQO1tv9Um40VrdwYuSWlYzcbWvtlG5bOA==}
+    engines: {node: '>=22'}
+    peerDependencies:
+      zod: ^3.25.76 || ^4.1.8
+
+  '@ai-sdk/google@4.0.43':
+    resolution: {integrity: sha512-Aphme4OZnPn3xdmXAJMf7jZGJABJDtaHcEx/+6mCSdTuTExxe5xE7KWUogbhMpwwtFi7btiOa04rQ1dizJDlGA==}
     engines: {node: '>=22'}
     peerDependencies:
       zod: ^3.25.76 || ^4.1.8
@@ -1281,12 +1296,9 @@ packages:
     cpu: [x64]
     os: [linux]
 
-  '@openrouter/ai-sdk-provider@3.0.0':
-    resolution: {integrity: sha512-m9XTSWoODH2RM5OsZpaGiN7QRR8cdP5paBWq699Tu3JVmGPBKT8xF8XwV0ZBVVsjikD/JgWfak4VSsTR4wAVbg==}
-    engines: {node: '>=22'}
-    peerDependencies:
-      ai: ^7.0.0
-      zod: ^3.25.76 || ^4.1.8
+  '@opentelemetry/api@1.9.0':
+    resolution: {integrity: sha512-3giAOQvZiH5F9bMlMiv8+GSPMeqg0dbaeo58/0SlA9sxSqZhnUtxzX9/2FzyhS9sWQf5S0GJE0AKBrFqjpeYcg==}
+    engines: {node: '>=8.0.0'}
 
   '@orval/angular@8.24.0':
     resolution: {integrity: sha512-tmDca47QJdB7+suSUdjki3oURBP/EHhHkvgbOmm4KPy2G0YBKHSEm/oMphE5fab4TBzMNEVoiBi5PnK7m6Hu3g==}
@@ -3589,15 +3601,6 @@ packages:
     resolution: {integrity: sha512-gptHNQghINnc/vTGIk0SOFGFNXw7JVrlRUtConJRlvaw6DuX0wO5Jeko9sWrMBhh+PsYAZ7oXAiOnf/UKogyiw==}
     engines: {node: '>= 10.0.0'}
 
-  unpdf@1.8.0:
-    resolution: {integrity: sha512-jQlkckbe5nKxRHQdbvo9IKHlU6Cjq00UlxxB8lrCIxvS2o5IbAL1wM+4a1Yc3+BIohg9p5AsoaftwO+G4Aq/qQ==}
-    engines: {node: '>=22'}
-    peerDependencies:
-      '@napi-rs/canvas': ^0.1.69 || ^1.0.0
-    peerDependenciesMeta:
-      '@napi-rs/canvas':
-        optional: true
-
   unplugin-utils@0.3.2:
     resolution: {integrity: sha512-xVToRh2CTmLk2HnEG7ac4rl1MJTT3RFkpS8B++/SnB0kXvuaavD+n3m/vrzyWQOdJNSZQACnbz01pnppbwV5BA==}
     engines: {node: '>=20.19.0'}
@@ -3919,11 +3922,23 @@ snapshots:
       defu: 6.1.7
       many-keys-map: 3.0.3
 
+  '@ai-sdk/anthropic@4.0.38(zod@4.4.3)':
+    dependencies:
+      '@ai-sdk/provider': 4.0.7
+      '@ai-sdk/provider-utils': 5.0.27(zod@4.4.3)
+      zod: 4.4.3
+
   '@ai-sdk/gateway@4.0.51(zod@4.4.3)':
     dependencies:
       '@ai-sdk/provider': 4.0.7
       '@ai-sdk/provider-utils': 5.0.27(zod@4.4.3)
       '@vercel/oidc': 3.2.0
+      zod: 4.4.3
+
+  '@ai-sdk/google@4.0.43(zod@4.4.3)':
+    dependencies:
+      '@ai-sdk/provider': 4.0.7
+      '@ai-sdk/provider-utils': 5.0.27(zod@4.4.3)
       zod: 4.4.3
 
   '@ai-sdk/provider-utils@5.0.27(zod@4.4.3)':
@@ -4607,10 +4622,8 @@ snapshots:
   '@napi-rs/lzma-linux-x64-gnu@1.5.1':
     optional: true
 
-  '@openrouter/ai-sdk-provider@3.0.0(ai@7.0.64(zod@4.4.3))(zod@4.4.3)':
-    dependencies:
-      ai: 7.0.64(zod@4.4.3)
-      zod: 4.4.3
+  '@opentelemetry/api@1.9.0':
+    optional: true
 
   '@orval/angular@8.24.0(typescript@5.9.3)':
     dependencies:
@@ -5504,9 +5517,10 @@ snapshots:
       esbuild: 0.25.12
       tsx: 4.23.12
 
-  drizzle-orm@0.44.7(@cloudflare/workers-types@5.20260812.1):
+  drizzle-orm@0.44.7(@cloudflare/workers-types@5.20260812.1)(@opentelemetry/api@1.9.0):
     optionalDependencies:
       '@cloudflare/workers-types': 5.20260812.1
+      '@opentelemetry/api': 1.9.0
 
   ecdsa-sig-formatter@1.0.11:
     dependencies:
@@ -6845,8 +6859,6 @@ snapshots:
       - webpack
 
   universalify@2.0.1: {}
-
-  unpdf@1.8.0: {}
 
   unplugin-utils@0.3.2:
     dependencies:

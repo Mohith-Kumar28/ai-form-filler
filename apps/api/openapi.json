@@ -262,6 +262,33 @@
               }
             }
           },
+          "preferences": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "topic": {
+                  "type": "string"
+                },
+                "stance": {
+                  "type": "string"
+                },
+                "evidence": {
+                  "type": "string"
+                },
+                "confidence": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 1
+                }
+              },
+              "required": ["topic", "stance", "evidence", "confidence"]
+            },
+            "default": []
+          },
+          "summary": {
+            "type": "string"
+          },
           "sources": {
             "type": "array",
             "items": {
@@ -517,6 +544,10 @@
                 "fieldId": {
                   "type": "string"
                 },
+                "label": {
+                  "type": "string",
+                  "default": ""
+                },
                 "value": {
                   "type": "string"
                 },
@@ -547,6 +578,10 @@
                 },
                 "reasoning": {
                   "type": "string"
+                },
+                "inferred": {
+                  "type": "boolean",
+                  "default": false
                 }
               },
               "required": ["fieldId", "value", "confidence", "tier"]
@@ -1172,7 +1207,7 @@
     "/v1/profile/sources/upload": {
       "post": {
         "tags": ["profile"],
-        "summary": "Upload a PDF source",
+        "summary": "Upload a PDF or image source",
         "operationId": "uploadSource",
         "security": [
           {

@@ -60,11 +60,7 @@ function isTypeable(element: HTMLElement): element is HTMLInputElement | HTMLTex
  * would otherwise queue hundreds of timers, and the cap means most of them would be
  * cancelled anyway.
  */
-async function typeInto(
-  element: HTMLInputElement | HTMLTextAreaElement,
-  value: string,
-  write: (partial: string) => void,
-): Promise<void> {
+async function typeInto(value: string, write: (partial: string) => void): Promise<void> {
   const duration = Math.min(value.length * TYPE_MS_PER_CHAR, MAX_TYPE_MS)
   const frames = Math.max(1, Math.round(duration / 16))
   const charsPerFrame = Math.ceil(value.length / frames)
@@ -123,7 +119,7 @@ export async function runFillAnimation(
       if (!reduced && isTypeable(fill.element) && fill.value.length > 0) {
         // Typing writes the value repeatedly; the final `apply()` is what fires the
         // change/blur events the page's validation listens for.
-        await typeInto(fill.element, fill.value, (partial) => {
+        await typeInto(fill.value, (partial) => {
           const setter = Object.getOwnPropertyDescriptor(
             Object.getPrototypeOf(fill.element),
             'value',

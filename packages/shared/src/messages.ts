@@ -11,8 +11,10 @@ import type { FormSchema } from './form.js'
 export type Request =
   | { type: 'auth/signIn' }
   | { type: 'auth/signOut' }
-  /** Sent by the page overlay's launcher — the one-click path. */
+  /** Sent by the page overlay's dock — the one-click path. */
   | { type: 'overlay/requestFill' }
+  /** The dock's Review action, opening the panel on the judgement calls. */
+  | { type: 'overlay/openPanel' }
   | { type: 'form/detected'; form: FormSchema }
   | { type: 'feedback/submit'; payload: FeedbackRequest }
   | { type: 'sidepanel/open'; tabId: number }
@@ -45,7 +47,7 @@ export type ContentResponseFor<R extends ContentRequest> = R extends { type: 'co
   ? FormSchema | null
   : ApplyReport
 
-export const FILL_PORT = 'aff:fill' as const
+export { FILL_PORT } from './constants.js'
 
 /**
  * Side panel -> service worker, over the fill port.

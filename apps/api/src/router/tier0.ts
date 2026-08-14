@@ -59,7 +59,12 @@ export interface Tier0Result {
   unresolved: Classification[]
 }
 
-export function resolveTier0(identity: Identity, classifications: Classification[]): Tier0Result {
+export function resolveTier0(
+  identity: Identity,
+  classifications: Classification[],
+  /** fieldId → question text, so each fill can describe itself to the review UI. */
+  labels: Map<string, string> = new Map(),
+): Tier0Result {
   const fills: Fill[] = []
   const skipped: Skip[] = []
   const unresolved: Classification[] = []
@@ -85,10 +90,13 @@ export function resolveTier0(identity: Identity, classifications: Classification
 
     fills.push({
       fieldId: classification.fieldId,
+      label: labels.get(classification.fieldId) ?? '',
       value,
       // Certain: this is the user's own stored value, copied verbatim.
       confidence: 1,
       tier: 0,
+      // A direct lookup is never an inference.
+      inferred: false,
     })
   }
 

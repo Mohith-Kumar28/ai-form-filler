@@ -2,16 +2,18 @@ import type { Fill, FillPlan, FillRequest, FillTier, Identity, Skip } from '@aff
 import { ApiErrorResponse } from '@aff/shared'
 import { eq } from 'drizzle-orm'
 import { fillLog, profileDocs } from '../db/schema.js'
+import type { Env } from '../env.js'
 import { generateFills } from '../llm/generate.js'
 import { classifyForm } from '../router/classify.js'
 import { resolveTier0 } from '../router/tier0.js'
 import type { Db } from './account.js'
-import { findRelatedAnswers } from './answer-bank.js'
+import { gatherFillContext } from './retrieval.js'
 
 export interface FillContext {
   db: Db
   userId: string
-  openRouterApiKey: string
+  /** Carries the AI Gateway endpoint and token. */
+  env: Env
   quotaRemaining: number
 }
 
@@ -81,7 +83,8 @@ export async function runFill(
   }
 
   const { classifications, counts } = classifyForm(candidates, request.quality)
-  const tier0 = resolveTier0(identity, classifications)
+  const labels = new Map(candidates.map((f) => [f.id, f.label]))
+  const tier0 = resolveTier0(identity, classifications, labels)
 
   const byId = new Map(candidates.map((f) => [f.id, f]))
   const batches: { tier: Exclude<FillTier, 0>; fieldIds: string[] }[] = []
@@ -97,32 +100,31 @@ export async function runFill(
         .map((id) => byId.get(id))
         .filter((f): f is NonNullable<typeof f> => f !== undefined)
 
-      // Answer-bank retrieval only for tier 3. Tier 1 and 2 answer facts and choices, where
-      // a past essay adds tokens and no signal.
-      const relatedAnswers =
+      /**
+       * Retrieval only for tier 3.
+       *
+       * Tiers 1 and 2 answer choices and short facts, which the always-present structured
+       * profile already covers — retrieving for them would add tokens and a round trip to
+       * the majority of fields on a form for no gain in answer quality.
+       */
+      const context =
         batch.tier === 3
-          ? (
-              await Promise.all(
-                fields.map((f) => findRelatedAnswers(ctx.db, ctx.userId, f.label, 2)),
-              )
-            )
-              .flat()
-              // The same past answer can match several fields; send it once.
-              .filter(
-                (answer, index, all) => all.findIndex((a) => a.answer === answer.answer) === index,
-              )
-              .slice(0, 4)
-          : []
+          ? await gatherFillContext({
+              env: ctx.env,
+              userId: ctx.userId,
+              questions: fields.map((f) => f.label),
+            })
+          : { sourceChunks: [] }
 
       return generateFills({
         tier: batch.tier,
         profileDoc: docRow.doc,
-        apiKey: ctx.openRouterApiKey,
+        env: ctx.env,
         fields,
         classifications,
         origin: request.form.origin,
         pageContext: request.form.pageContext,
-        relatedAnswers,
+        sourceChunks: context.sourceChunks,
       })
     }),
   )

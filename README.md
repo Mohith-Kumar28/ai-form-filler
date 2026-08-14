@@ -12,7 +12,7 @@ accept.
 
 ```
 apps/
-  api/                 Hono on Cloudflare Workers — D1, KV, R2
+  api/                 Hono on Cloudflare Workers — D1, KV, Browser Rendering
   extension/           WXT + React 19 + Tailwind v4 (MV3)
 packages/
   shared/              Zod contract shared by both sides
@@ -102,6 +102,71 @@ pnpm dev     # Worker on :8787 and the extension watcher, in parallel
 
 Reload the unpacked extension after the first build so it picks up the OAuth client ID.
 
+## Commands
+
+Everything is driven from the repo root. `pnpm run` lists them all.
+
+### Daily
+
+| Command | What it does |
+|---|---|
+| `pnpm dev` | Migrates the local DB, then runs the Worker on `:8787` **and** the extension watcher together. The extension hot-reloads on save — WXT prints `Reloaded: content` and Chrome picks it up with no manual refresh. |
+| `pnpm dev:api` | Worker only |
+| `pnpm dev:ext` | Extension only (opens a Chrome profile with it loaded) |
+| `pnpm dev:ext:firefox` | Same, for Firefox |
+| `pnpm check` | typecheck + test + lint — the gate `ship` runs first |
+| `pnpm test:watch` | Adapter tests in watch mode |
+| `pnpm format` | Apply Biome formatting and safe fixes |
+
+### First run on a new machine
+
+```sh
+pnpm bootstrap      # install, migrate, generate the API client, then report what's missing
+pnpm cf:create      # create D1 + KV and write the ids into wrangler.toml
+pnpm secrets:list   # every secret, what it's for, and which are still unset
+pnpm check:env      # re-check until everything is ✓
+```
+
+`cf:create` writes the returned resource ids straight into `wrangler.toml`. Doing that by
+hand is the usual way a first deploy fails — the id lands in the wrong environment block and
+the Worker deploys with a binding silently missing.
+
+### Ship
+
+| Command | What it does |
+|---|---|
+| `pnpm ship` | `check` → migrate production D1 → deploy to production |
+| `pnpm ship:staging` | Same against the staging environment |
+| `pnpm ship:dry` | Bundle and resolve bindings without deploying — verifies config |
+| `pnpm secrets:push` | Push `.dev.vars` values to a deployed environment via stdin (never as argv, which would land in shell history) |
+| `pnpm tail` | Live production logs |
+| `pnpm zip` | Package the extension for the Web Store |
+
+> **Why `ship` and not `deploy`?** `pnpm deploy` and `pnpm doctor` are pnpm builtins and
+> silently shadow same-named scripts — `pnpm deploy` would run pnpm's own command instead of
+> deploying. Hence `ship` and `check:env`.
+
+### Database
+
+| Command | What it does |
+|---|---|
+| `pnpm db:generate` | Generate a migration from `schema.ts` (needs a TTY) |
+| `pnpm db:migrate` | Apply migrations locally |
+| `pnpm db:migrate:prod` | Apply to production |
+| `pnpm db:reset` | Wipe local state and re-migrate |
+| `pnpm db:query "SELECT …"` | Ad-hoc local query |
+| `pnpm db:costs` | **Real cost per form from `fill_log`** — and a warning if the prompt cache has never been hit |
+
+`pnpm db:costs` is how `PLAN_LIMITS.free` gets sized. It is a placeholder until that number
+comes from this command rather than an estimate.
+
+### Contract
+
+| Command | What it does |
+|---|---|
+| `pnpm api:generate` | Emit `openapi.json`, then regenerate the typed client and hooks |
+| `pnpm api:spec` | Emit `openapi.json` only |
+
 ## Verification
 
 ```sh
@@ -123,17 +188,27 @@ curl -s -X POST localhost:8787/v1/auth/google \
 |---|---|---|
 | 1 | Skeleton — monorepo, contract, Worker, extension shell, Google auth | ✅ done |
 | 2 | Profile ingestion — sources, parsing, `PROFILE_DOC` compilation | ✅ done |
-| 3 | Fill core — generic adapter, tier router, caching verified | ⬅ in progress |
-| 4 | Magic layer — overlay, positioning, fill animation, feedback loop | |
-| 5 | Site adapters — Google Forms, Greenhouse/Lever/Ashby, Workday (stretch) | |
-| 6 | Monetization — Stripe, quota UI, privacy policy, Web Store listing | |
+| 3 | Fill core — generic adapter, tier router, caching verified | ✅ built¹ |
+| 4 | Magic layer — overlay, positioning, fill animation, feedback loop | ✅ built¹ |
+| 5 | Site adapters — Google Forms, Greenhouse/Lever/Ashby | ✅ built¹ (Workday deferred) |
+| 6 | Monetization — Stripe, quota UI, privacy policy, Web Store listing | ⬅ next |
 
-Phase 3 is the proof point: it verifies caching works and produces real cost-per-form numbers
-from `fill_log` before any of the presentation layer gets built.
+¹ Built and unit-tested, but **not yet exercised against a live model or a real browser** —
+both need credentials only you can create. See "Before this is real" below.
 
 **See [HANDOFF.md](./HANDOFF.md)** for the full engineering brief — architecture, hard
 invariants, per-phase checklists with acceptance criteria, and the gotchas worth reading
 before touching related code.
+
+## Before this is real
+
+Two things are blocked on credentials, and neither can be faked:
+
+1. **`OPENROUTER_API_KEY`** in `apps/api/.dev.vars` — until this exists, the caching
+   assertion (`cacheReadTokens > 0` on a repeat fill) has never run. That assertion is the
+   entire cost model; if it fails, every per-form number is off by roughly 10×.
+2. **A Google OAuth client ID** (setup §2) — sign-in, and therefore the live browser run,
+   cannot be exercised without it.
 
 ## Before public listing
 

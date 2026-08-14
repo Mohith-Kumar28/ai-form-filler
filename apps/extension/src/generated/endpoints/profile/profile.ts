@@ -306,7 +306,7 @@ export const useAddTextSource = <TError = ErrorType<ApiError>,
 }
 
 /**
- * @summary Upload a PDF source
+ * @summary Upload a PDF or image source
  */
 export const uploadSource = async (uploadSourceBody: UploadSourceBody, options?: Parameters<typeof httpClient>[1]): Promise<AddSourceResponse> => {
     const formData = new FormData();
@@ -358,7 +358,7 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
     export type UploadSourceMutationError = ErrorType<ApiError>
 
     /**
- * @summary Upload a PDF source
+ * @summary Upload a PDF or image source
  */
 export const useUploadSource = <TError = ErrorType<ApiError>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof uploadSource>>, TError,{data: BodyType<UploadSourceBody>}, TContext>, request?: SecondParameter<typeof httpClient>}

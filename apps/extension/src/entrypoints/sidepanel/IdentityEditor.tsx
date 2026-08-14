@@ -8,20 +8,26 @@ import type { Profile, ProfileIdentity } from '../../generated/model/index.js'
 import { IDENTITY_FIELDS } from '../../lib/identity-fields.js'
 
 /**
- * Identity is the tier-0 lookup table — these values answer name/email/phone fields with no
- * model call at all, so getting them right is the biggest cost and accuracy lever there is.
- * Values here are authoritative over anything heuristically extracted from a source.
+ * The facing page: what the notebook holds as stated, in the user's own hand.
+ *
+ * Set as a ruled two-column register rather than stacked form cards. These values answer
+ * fields with no model call at all, so they are the highest-leverage thing on the surface —
+ * the layout says "this is a record you maintain", not "this is a settings screen".
  */
 export function IdentityEditor({ profile }: { profile: Profile }) {
   const queryClient = useQueryClient()
   const [draft, setDraft] = useState<ProfileIdentity>(profile.identity)
+  const [custom, setCustom] = useState<Record<string, string>>(profile.custom ?? {})
+  const [newKey, setNewKey] = useState('')
   const [dirty, setDirty] = useState(false)
 
   // Adding a source can extract new identity fields server-side. Adopt them, but never
-  // clobber edits the user is in the middle of making.
+  // clobber an edit in progress.
   useEffect(() => {
-    if (!dirty) setDraft(profile.identity)
-  }, [profile.identity, dirty])
+    if (dirty) return
+    setDraft(profile.identity)
+    setCustom(profile.custom ?? {})
+  }, [profile.identity, profile.custom, dirty])
 
   const save = usePatchProfile({
     mutation: {
@@ -47,52 +53,187 @@ export function IdentityEditor({ profile }: { profile: Profile }) {
     ...new Set([...Object.keys(draft.links ?? {}), 'linkedin', 'github', 'website']),
   ].sort()
 
+  const input =
+    'w-full border-0 border-b border-transparent bg-transparent py-1 text-[13px] text-ink outline-none transition-colors placeholder:text-faint hover:border-rule focus:border-pen'
+
   return (
     <form
       onSubmit={(e) => {
         e.preventDefault()
-        save.mutate({ data: { identity: draft } })
+        save.mutate({ data: { identity: draft, custom } })
       }}
-      className="flex flex-col gap-2"
     >
-      {IDENTITY_FIELDS.map(({ key, label, type }) => (
-        <label key={key} className="flex flex-col gap-0.5">
-          <span className="text-[11px] font-medium text-ink-muted">{label}</span>
-          <input
-            type={type}
-            value={(draft[key as keyof ProfileIdentity] as string | undefined) ?? ''}
-            onChange={(e) => setField(key as keyof ProfileIdentity, e.target.value)}
-            className="rounded-md border border-line bg-surface-raised px-2.5 py-1.5 text-xs outline-none focus:border-accent"
-          />
-        </label>
-      ))}
+      {profile.summary && (
+        <p className="border-b border-rule px-4 py-3 text-[12px] italic leading-relaxed text-muted">
+          {profile.summary}
+        </p>
+      )}
 
-      <fieldset className="flex flex-col gap-2">
-        <legend className="text-[11px] font-medium text-ink-muted">Links</legend>
-        {linkPlatforms.map((platform) => (
-          <label key={platform} className="flex items-center gap-2">
-            <span className="w-16 shrink-0 text-[11px] capitalize text-ink-muted">{platform}</span>
-            <input
-              type="url"
-              value={draft.links?.[platform] ?? ''}
-              onChange={(e) => setLink(platform, e.target.value)}
-              className="min-w-0 flex-1 rounded-md border border-line bg-surface-raised px-2.5 py-1.5 text-xs outline-none focus:border-accent"
-            />
-          </label>
+      <dl>
+        {IDENTITY_FIELDS.map(({ key, label, type }) => (
+          <div
+            key={key}
+            className="grid grid-cols-[7.5rem_1fr] items-baseline gap-x-2 border-b border-rule px-4 py-1.5"
+          >
+            <dt className="text-[11px] text-faint">{label}</dt>
+            <dd>
+              <input
+                type={type}
+                aria-label={label}
+                value={(draft[key as keyof ProfileIdentity] as string | undefined) ?? ''}
+                onChange={(e) => setField(key as keyof ProfileIdentity, e.target.value)}
+                placeholder="—"
+                className={input}
+              />
+            </dd>
+          </div>
         ))}
-      </fieldset>
 
-      <div className="flex items-center gap-2">
+        {linkPlatforms.map((platform) => (
+          <div
+            key={platform}
+            className="grid grid-cols-[7.5rem_1fr] items-baseline gap-x-2 border-b border-rule px-4 py-1.5"
+          >
+            <dt className="text-[11px] capitalize text-faint">{platform}</dt>
+            <dd>
+              <input
+                type="url"
+                aria-label={platform}
+                value={draft.links?.[platform] ?? ''}
+                onChange={(e) => setLink(platform, e.target.value)}
+                placeholder="—"
+                className={input}
+              />
+            </dd>
+          </div>
+        ))}
+      </dl>
+
+      {/*
+        Anything the fixed schema does not cover — visa status, notice period, dietary
+        needs, t-shirt size. Every other autofiller is limited to its own field list, and
+        this is the escape hatch that lets an arbitrary form question be answered at all.
+      */}
+      <section className="border-b border-rule px-4 py-3">
+        <h3 className="text-[11px] font-semibold uppercase tracking-[0.08em] text-faint">
+          Your own facts
+        </h3>
+        <p className="mt-0.5 text-[11.5px] text-muted">
+          Anything a form might ask that isn't above.
+        </p>
+
+        <dl className="mt-2">
+          {Object.entries(custom).map(([key, value]) => (
+            <div key={key} className="grid grid-cols-[7.5rem_1fr_auto] items-baseline gap-x-2 py-1">
+              <dt className="truncate text-[11.5px] text-muted" title={key}>
+                {key}
+              </dt>
+              <dd>
+                <input
+                  aria-label={key}
+                  value={value}
+                  onChange={(e) => {
+                    setDirty(true)
+                    setCustom((prev) => ({ ...prev, [key]: e.target.value }))
+                  }}
+                  className={input}
+                />
+              </dd>
+              <button
+                type="button"
+                aria-label={`Remove ${key}`}
+                onClick={() => {
+                  setDirty(true)
+                  setCustom((prev) => {
+                    const next = { ...prev }
+                    delete next[key]
+                    return next
+                  })
+                }}
+                className="rounded-sharp p-1 text-faint transition-colors hover:text-annot"
+              >
+                <svg
+                  viewBox="0 0 16 16"
+                  className="size-3"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                >
+                  <title>Remove</title>
+                  <path d="M4 4l8 8M12 4l-8 8" />
+                </svg>
+              </button>
+            </div>
+          ))}
+        </dl>
+
+        <div className="mt-1.5 flex gap-1.5">
+          <input
+            value={newKey}
+            onChange={(e) => setNewKey(e.target.value)}
+            onKeyDown={(e) => {
+              // Enter inside a nested form would submit the outer form, saving a half-typed
+              // key with no value.
+              if (e.key !== 'Enter') return
+              e.preventDefault()
+              const key = newKey.trim()
+              if (!key || key in custom) return
+              setDirty(true)
+              setCustom((prev) => ({ ...prev, [key]: '' }))
+              setNewKey('')
+            }}
+            placeholder="Add a fact — e.g. Notice period"
+            className="min-w-0 flex-1 rounded-sharp border border-rule bg-page px-2.5 py-1.5 text-[12px] text-ink outline-none placeholder:text-faint focus:border-pen"
+          />
+          <button
+            type="button"
+            disabled={!newKey.trim() || newKey.trim() in custom}
+            onClick={() => {
+              const key = newKey.trim()
+              setDirty(true)
+              setCustom((prev) => ({ ...prev, [key]: '' }))
+              setNewKey('')
+            }}
+            className="shrink-0 rounded-sharp border border-rule px-2.5 text-[12px] text-muted transition-colors hover:border-pen hover:text-pen disabled:opacity-40"
+          >
+            Add
+          </button>
+        </div>
+      </section>
+
+      {(profile.preferences?.length ?? 0) > 0 && (
+        <section className="px-4 py-3">
+          <h3 className="measure text-[11px] uppercase tracking-wide text-annot">
+            Concluded about you
+          </h3>
+          <p className="mt-0.5 text-[11.5px] text-muted">
+            Read from your entries when they were added. Used for questions you never answered
+            outright — edit an entry above and these are rebuilt.
+          </p>
+          <ul className="mt-2">
+            {profile.preferences?.map((pref) => (
+              <li key={pref.topic} className="border-t border-rule py-1.5">
+                <p className="text-[12px] leading-snug text-ink">
+                  <span className="text-muted">{pref.topic}:</span> {pref.stance}
+                </p>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      <div className="sticky bottom-0 flex items-center gap-2 border-t border-rule bg-page px-4 py-2">
         <button
           type="submit"
           disabled={!dirty || save.isPending}
-          className="rounded-md bg-accent px-3 py-1.5 text-xs font-medium text-white disabled:opacity-40"
+          className="rounded-sharp border border-pen px-3 py-1 text-[12px] font-medium text-pen transition-colors hover:bg-pen-wash disabled:border-rule disabled:text-faint"
         >
           {save.isPending ? 'Saving…' : 'Save'}
         </button>
-        {save.isSuccess && !dirty && <span className="text-xs text-ok">Saved</span>}
+        {save.isSuccess && !dirty && <span className="text-[11px] text-verified">Saved</span>}
         {save.isError && (
-          <span className="text-xs text-review" role="alert">
+          <span className="text-[11px] text-annot" role="alert">
             {save.error.message}
           </span>
         )}

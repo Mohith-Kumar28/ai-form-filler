@@ -13,8 +13,11 @@ import {
   SourceKind,
   TextSourceRequest,
 } from '../openapi/schemas.js'
-import { parseFreeform, parsePdf, parseUrl } from '../profile/parse.js'
+import { fetchUrlAsMarkdown } from '../profile/fetch-url.js'
+import { parseFreeform } from '../profile/parse.js'
+import { mediaTypeFor, structureSource } from '../profile/structure.js'
 import { addSource, deleteSource, getProfile, updateStructured } from '../services/profile.js'
+import { addContent, addFile, addUrl, deleteDocument } from '../services/supermemory.js'
 
 export const profileRoutes = new OpenAPIHono<AppEnv>()
 
@@ -104,21 +107,47 @@ profileRoutes.openapi(addTextSourceRoute, async (c) => {
   const userId = c.get('userId')
 
   if (body.url) {
-    const parsed = await parseUrl(body.url)
+    /**
+     * The link goes to Supermemory, which renders and re-crawls the page itself.
+     *
+     * We still fetch it once here, but only to run the structuring pass: tier-0 needs typed
+     * identity values (an email address, a phone number) and retrieval returns passages,
+     * not fields. The full page content is Supermemory's copy, not ours.
+     */
+    const [memoryId, page] = await Promise.all([
+      addUrl(c.env, userId, body.url, { kind: body.kind, label: body.label }),
+      fetchUrlAsMarkdown(c.env, body.url),
+    ])
+
+    const { structured } = await structureSource(
+      c.env,
+      { kind: 'text', text: page.markdown },
+      body.label,
+    )
+
     const profile = await addSource(db, userId, {
       kind: body.kind,
       label: body.label,
-      text: parsed.text,
+      // Only the structured summary is kept locally; the full text lives in memory.
+      text: structured.summary ?? '',
+      ...(memoryId ? { memoryId } : {}),
+      structured,
     })
-    return c.json({ profile, truncated: parsed.truncated }, 200)
+    return c.json({ profile, truncated: page.truncated }, 200)
   }
 
   if (body.text) {
     const parsed = parseFreeform(body.text)
+    const [memoryId, { structured }] = await Promise.all([
+      addContent(c.env, userId, parsed.text, { kind: body.kind, label: body.label }),
+      structureSource(c.env, { kind: 'text', text: parsed.text }, body.label),
+    ])
     const profile = await addSource(db, userId, {
       kind: body.kind,
       label: body.label,
       text: parsed.text,
+      ...(memoryId ? { memoryId } : {}),
+      structured,
     })
     return c.json({ profile, truncated: parsed.truncated }, 200)
   }
@@ -134,7 +163,7 @@ const uploadSourceRoute = createRoute({
   method: 'post',
   path: '/sources/upload',
   tags: ['profile'],
-  summary: 'Upload a PDF source',
+  summary: 'Upload a PDF or image source',
   operationId: 'uploadSource',
   security: bearerAuth,
   request: {
@@ -164,30 +193,39 @@ profileRoutes.openapi(uploadSourceRoute, async (c) => {
   const db = drizzle(c.env.DB)
   const userId = c.get('userId')
 
-  const isPdf = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')
-  if (!isPdf) {
+  const mediaType = mediaTypeFor(file)
+  if (!mediaType) {
     throw new ApiErrorResponse(
       'INVALID_REQUEST',
-      'Only PDF uploads are supported right now. Paste the text for other formats.',
+      'Unsupported file type. Upload a PDF or an image, or paste the text.',
     )
   }
 
   const bytes = await file.arrayBuffer()
 
-  // Parse before storing. A PDF we cannot read should fail the request outright rather than
-  // leave an unusable object in R2 and a `failed` row for the user to clean up.
-  const parsed = await parsePdf(bytes)
-
-  const r2Key = `${userId}/${crypto.randomUUID()}-${file.name}`
-  await c.env.UPLOADS.put(r2Key, bytes, { httpMetadata: { contentType: 'application/pdf' } })
+  /**
+   * Both calls take the file as-is, in parallel.
+   *
+   * Supermemory stores and indexes the original — including audio and video, and scans that
+   * no text parser could read. The structuring pass reads the same bytes with a multimodal
+   * model to pull out typed identity fields. Neither needs a local extraction step, which is
+   * why the PDF parser, the transcription call, and the R2 bucket are all gone.
+   */
+  const [memoryId, { structured }] = await Promise.all([
+    addFile(c.env, userId, file, { kind, label: file.name }),
+    structureSource(c.env, { kind: 'file', bytes, mediaType }, file.name),
+  ])
 
   const profile = await addSource(db, userId, {
     kind,
     label: file.name,
-    text: parsed.text,
-    r2Key,
+    // The document itself lives in memory; a second copy here would only bloat the profile
+    // document that goes into every prompt.
+    text: structured.summary ?? '',
+    ...(memoryId ? { memoryId } : {}),
+    structured,
   })
-  return c.json({ profile, truncated: parsed.truncated }, 200)
+  return c.json({ profile, truncated: false }, 200)
 })
 
 const deleteSourceRoute = createRoute({
@@ -209,13 +247,13 @@ const deleteSourceRoute = createRoute({
 
 profileRoutes.openapi(deleteSourceRoute, async (c) => {
   const { id } = c.req.valid('param')
-  const { profile, orphanedR2Key } = await deleteSource(drizzle(c.env.DB), c.get('userId'), id)
+  const { profile, memoryId } = await deleteSource(drizzle(c.env.DB), c.get('userId'), id)
 
-  // Delete the stored original too. If the user removed their resume, keeping the file is a
-  // privacy failure. Awaited rather than backgrounded so a failure surfaces as a retryable
-  // error instead of silently leaving the document behind.
-  if (orphanedR2Key) {
-    await c.env.UPLOADS.delete(orphanedR2Key)
+  // Delete the stored original too. If the user removed their resume, leaving the document
+  // in memory is a privacy failure, not just wasted storage. Awaited rather than
+  // backgrounded so a failure surfaces as a retryable error instead of silently keeping it.
+  if (memoryId) {
+    await deleteDocument(c.env, memoryId)
   }
 
   return c.json({ profile }, 200)

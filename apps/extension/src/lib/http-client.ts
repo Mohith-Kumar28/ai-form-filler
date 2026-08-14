@@ -1,4 +1,5 @@
 import { type ApiError, ApiErrorResponse } from '@aff/shared'
+import { isAuthError, SESSION_EXPIRED_MESSAGE } from '@aff/shared/constants'
 import { API_URL, STORAGE_KEYS } from './config.js'
 import { readLocal, removeLocal } from './storage.js'
 
@@ -48,9 +49,26 @@ export async function httpClient<T>(url: string, init: RequestInit = {}): Promis
     throw new ApiErrorResponse('UPSTREAM_ERROR', `Unexpected ${response.status} from the API`)
   }
 
-  // An expired or revoked session must not leave a dead token behind to retry with.
-  if (error.code === 'UNAUTHENTICATED' || error.code === 'INVALID_TOKEN') {
-    await removeLocal([STORAGE_KEYS.sessionToken, STORAGE_KEYS.account])
+  /**
+   * A dead session is torn down here rather than reported.
+   *
+   * Three things have to happen together, and doing them at this one choke point is what
+   * keeps every caller — panel, background, and page dock — behaving the same way:
+   *
+   *   1. The token goes, so nothing retries with a credential already known to be rejected.
+   *   2. The persisted query cache goes with it. It holds the previous account and profile,
+   *      and leaving it behind means the panel repaints signed-in-looking data from storage
+   *      on next open, for an account that can no longer be fetched.
+   *   3. The message is replaced. "Missing bearer token" is an accurate description of the
+   *      request and a useless one for the user; `SESSION_EXPIRED_MESSAGE` says what they
+   *      can actually do. Clearing the token above is what makes it true.
+   *
+   * Removing the token is also the signal the side panel listens for to swap to the
+   * signed-out view — see `lib/session.ts`.
+   */
+  if (isAuthError(error.code)) {
+    await removeLocal([STORAGE_KEYS.sessionToken, STORAGE_KEYS.account, STORAGE_KEYS.queryCache])
+    throw new ApiErrorResponse(error.code, SESSION_EXPIRED_MESSAGE)
   }
 
   const { code, message, ...extra } = error
