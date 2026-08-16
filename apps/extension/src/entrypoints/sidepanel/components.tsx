@@ -703,7 +703,7 @@ export function SegmentedControl<T extends string>({
     <div
       role="tablist"
       aria-label={label}
-      className="flex gap-1 overflow-x-auto rounded-full border border-border-muted bg-surface-muted p-1"
+      className="flex flex-wrap gap-1 rounded-full border border-border-muted bg-surface-muted p-1"
     >
       {segments.map((segment) => {
         const selected = segment.key === value

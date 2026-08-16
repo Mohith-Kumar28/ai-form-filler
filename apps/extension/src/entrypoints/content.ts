@@ -3,7 +3,7 @@ import type { ApplyReport, ContentRequest, FillPlan, FillPortEvent } from '@aff/
 import { REVIEW_CONFIDENCE_THRESHOLD } from '@aff/shared/constants'
 import { sendMessage } from '../lib/messaging.js'
 import { type AnimatedFill, runFillAnimation } from '../overlay/animate.js'
-import { type CardHandle, mountMenuCard, mountReviewCard } from '../overlay/card.js'
+import { type CardHandle, mountMenuCard } from '../overlay/card.js'
 import { burstConfetti } from '../overlay/confetti.js'
 import { createFeedbackCapture, displayValueOf } from '../overlay/feedback.js'
 import { GLYPH, getOverlayHost, isOverlayEvent, isOverlayHost } from '../overlay/host.js'
@@ -235,9 +235,8 @@ export default defineContentScript({
       launcher = mountLauncher({
         onOpen: () => {
           launcher?.setLoading(true)
-          void chrome.runtime
-            .sendMessage({ type: 'overlay/openPanel' })
-            .then(() => requestFill('form'))
+          void chrome.runtime.sendMessage({ type: 'overlay/openPanel' }).catch(() => undefined)
+          requestFill('form')
         },
         onStop: () => {
           filling = false
@@ -247,46 +246,6 @@ export default defineContentScript({
         },
       })
       launcher.setFieldCount(count)
-    }
-
-    function openReview(fieldId: string) {
-      const fill = lastPlan?.fills.find((candidate) => candidate.fieldId === fieldId)
-      const field = detection?.elements.get(fieldId)
-      if (!fill || !field) return
-
-      closeCard()
-
-      const rect = field.element.getBoundingClientRect()
-      const anchor = { top: rect.top, left: rect.left, width: rect.width, height: rect.height }
-      let draft = slipDrafts.get(fieldId) ?? fill.value
-
-      card = mountReviewCard({
-        kind: 'review',
-        anchor,
-        question: fill.label || 'This answer',
-        value: draft,
-        onValueChange: (value) => {
-          draft = value
-          slipDrafts.set(fieldId, value)
-        },
-        onImprove: async (instruction) => {
-          const result = await sendMessage({
-            type: 'fill/improve',
-            label: fill.label,
-            value: draft,
-            instruction,
-          })
-          if (!result.ok) throw new Error(result.error.message)
-          return result.value.value
-        },
-        onSelect: (id) => {
-          closeCard()
-          if (id === 'keep') resolveField(fieldId, fill.value, 'accepted')
-          else if (id === 'save') resolveField(fieldId, draft, 'edited')
-          else if (id === 'clear') resolveField(fieldId, '', 'cleared')
-        },
-        onClose: closeCard,
-      })
     }
 
     function resolveField(
@@ -417,7 +376,11 @@ export default defineContentScript({
 
         marks.set(
           fill.fieldId,
-          mountFieldMark(markTargetFor(field), () => openReview(fill.fieldId)),
+          mountFieldMark(
+            markTargetFor(field),
+            () => resolveField(fill.fieldId, fill.value, 'accepted'),
+            () => resolveField(fill.fieldId, '', 'cleared'),
+          ),
         )
         animated.push({
           fieldId: fill.fieldId,

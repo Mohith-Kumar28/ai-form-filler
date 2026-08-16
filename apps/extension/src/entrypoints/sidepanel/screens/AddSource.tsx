@@ -4,8 +4,6 @@ import {
   addTextSource,
   getGetProfileQueryKey,
   uploadSource,
-  useGetProfile,
-  usePatchProfile,
 } from '../../../generated/endpoints/profile/profile.js'
 import { formatBytes } from '../../../lib/source-file.js'
 import {
@@ -25,10 +23,9 @@ import { useNavigation } from '../navigation.js'
 
 const MAX_UPLOAD_BYTES = 15 * 1024 * 1024
 
-type Mode = 'fact' | 'upload' | 'link' | 'text' | 'voice'
+type Mode = 'upload' | 'link' | 'text' | 'voice'
 
 const MODES: Segment<Mode>[] = [
-  { key: 'fact', label: 'Fact', icon: <IconText className="size-3.5" /> },
   { key: 'upload', label: 'File', icon: <IconDocument className="size-3.5" /> },
   { key: 'link', label: 'Link', icon: <IconLink className="size-3.5" /> },
   { key: 'text', label: 'Note', icon: <IconText className="size-3.5" /> },
@@ -40,7 +37,7 @@ const MODES: Segment<Mode>[] = [
  */
 export function AddSource({ initial }: { initial?: Mode }) {
   const nav = useNavigation()
-  const [mode, setMode] = useState<Mode>(initial ?? 'fact')
+  const [mode, setMode] = useState<Mode>(initial ?? 'upload')
   const queryClient = useQueryClient()
 
   const settle = async () => {
@@ -56,7 +53,6 @@ export function AddSource({ initial }: { initial?: Mode }) {
         <SegmentedControl segments={MODES} value={mode} onChange={setMode} label="Kind of source" />
       </div>
 
-      {mode === 'fact' && <FactMode onDone={settle} />}
       {mode === 'upload' && <UploadMode onDone={settle} />}
       {mode === 'link' && <LinkMode onDone={settle} />}
       {mode === 'text' && <TextMode onDone={settle} />}
@@ -87,76 +83,6 @@ function Submit({
         {pending ? 'Saving…' : label}
       </Button>
     </ScreenFooter>
-  )
-}
-
-function FactMode({ onDone }: { onDone: () => Promise<void> }) {
-  const queryClient = useQueryClient()
-  const profile = useGetProfile()
-  const [name, setName] = useState('')
-  const [value, setValue] = useState('')
-
-  const existing = profile.data?.custom ?? {}
-  const duplicate = name.trim() !== '' && name.trim() in existing
-
-  const save = usePatchProfile({
-    mutation: {
-      onSuccess: async (updated) => {
-        queryClient.setQueryData(getGetProfileQueryKey(), updated)
-        await onDone()
-      },
-    },
-  })
-
-  return (
-    <form
-      className="flex min-h-0 flex-1 flex-col"
-      onSubmit={(event) => {
-        event.preventDefault()
-        save.mutate({ data: { custom: { ...existing, [name.trim()]: value.trim() } } })
-      }}
-    >
-      <ScreenBody className="flex flex-col gap-4 p-4">
-        <Field
-          label="Name"
-          hint="What a form would call it."
-          error={duplicate ? 'You already have a fact by that name.' : undefined}
-        >
-          {({ id, describedBy }) => (
-            <Input
-              id={id}
-              aria-describedby={describedBy}
-              value={name}
-              onChange={(event) => setName(event.currentTarget.value)}
-              placeholder="Notice period"
-            />
-          )}
-        </Field>
-
-        <Field label="Value">
-          {({ id, describedBy }) => (
-            <Input
-              id={id}
-              aria-describedby={describedBy}
-              value={value}
-              onChange={(event) => setValue(event.currentTarget.value)}
-              placeholder="6 weeks from signing"
-            />
-          )}
-        </Field>
-
-        <p className="text-[12px] leading-relaxed text-ink-dim">
-          Facts are answered word for word, with no guessing.
-        </p>
-      </ScreenBody>
-
-      <Submit
-        pending={save.isPending}
-        disabled={!name.trim() || !value.trim() || duplicate}
-        error={save.error}
-        label="Save fact"
-      />
-    </form>
   )
 }
 
@@ -360,6 +286,7 @@ function VoiceMode({ onDone }: { onDone: () => Promise<void> }) {
   const [seconds, setSeconds] = useState(0)
   const [denied, setDenied] = useState<string | null>(null)
   const [label, setLabel] = useState('')
+  const [micPermission, setMicPermission] = useState<'unknown' | 'granted' | 'denied'>('unknown')
 
   const recorder = useRef<MediaRecorder | null>(null)
   const chunks = useRef<Blob[]>([])
@@ -377,6 +304,18 @@ function VoiceMode({ onDone }: { onDone: () => Promise<void> }) {
     [],
   )
 
+  useEffect(() => {
+    if (navigator.permissions?.query) {
+      navigator.permissions
+        .query({ name: 'microphone' as PermissionName })
+        .then((result) => {
+          setMicPermission(result.state as 'granted' | 'denied')
+          result.onchange = () => setMicPermission(result.state as 'granted' | 'denied')
+        })
+        .catch(() => {})
+    }
+  }, [])
+
   const playbackUrl = useMemo(() => (blob ? URL.createObjectURL(blob) : null), [blob])
   useEffect(() => {
     if (!playbackUrl) return
@@ -387,6 +326,7 @@ function VoiceMode({ onDone }: { onDone: () => Promise<void> }) {
     setDenied(null)
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      setMicPermission('granted')
       const media = new MediaRecorder(stream)
       chunks.current = []
       media.ondataavailable = (event) => chunks.current.push(event.data)
@@ -400,7 +340,10 @@ function VoiceMode({ onDone }: { onDone: () => Promise<void> }) {
       setBlob(null)
       setRecording(true)
     } catch {
-      setDenied('Microphone access was refused. Allow it in your browser settings and try again.')
+      setMicPermission('denied')
+      setDenied(
+        'Microphone access is blocked. Click below to allow access, or enable it in your browser settings.',
+      )
     }
   }
 
@@ -449,9 +392,17 @@ function VoiceMode({ onDone }: { onDone: () => Promise<void> }) {
         </div>
 
         {denied && (
-          <p className="text-[12px] leading-snug text-danger" role="alert">
-            {denied}
-          </p>
+          <div className="flex flex-col items-center gap-2">
+            <p className="text-[12px] leading-snug text-danger" role="alert">
+              {denied}
+            </p>
+            {micPermission === 'denied' && (
+              <Button variant="secondary" onClick={start}>
+                <IconMic className="size-3.5" />
+                Allow microphone
+              </Button>
+            )}
+          </div>
         )}
 
         {playbackUrl && (

@@ -31,6 +31,7 @@ import {
 import {
   IconAlert,
   IconAudio,
+  IconCheck,
   IconClose,
   IconDocument,
   IconImage,
@@ -268,6 +269,7 @@ export function Sources({ profile }: { profile: Profile | undefined }) {
   const [identity, setIdentity] = useState<ProfileIdentity>(profile?.identity ?? { links: {} })
   const [facts, setFacts] = useState<Record<string, string>>(profile?.custom ?? {})
   const [newFact, setNewFact] = useState('')
+  const [adding, setAdding] = useState(false)
   const [dirty, setDirty] = useState(false)
   const [pendingRemoval, setPendingRemoval] = useState<ProfileSourcesItem | null>(null)
   const [removeError, setRemoveError] = useState<string | null>(null)
@@ -337,16 +339,29 @@ export function Sources({ profile }: { profile: Profile | undefined }) {
       <ScreenHeader
         title="Your info"
         right={
-          <Button
-            size="sm"
-            onClick={() =>
-              nav.push({ name: 'addInfo', initial: tab === 'facts' ? 'fact' : 'upload' })
-            }
-            aria-label={tab === 'facts' ? 'Add a fact' : 'Add a source'}
-          >
-            <IconPlus className="size-3.5" />
-            Add
-          </Button>
+          tab === 'facts' ? (
+            <Button
+              size="sm"
+              variant={adding ? 'primary' : 'secondary'}
+              onClick={() => {
+                setAdding((v) => !v)
+                setNewFact('')
+              }}
+              aria-label="Add a fact"
+            >
+              {adding ? <IconCheck className="size-3.5" /> : <IconPlus className="size-3.5" />}
+              {adding ? 'Done' : 'Add'}
+            </Button>
+          ) : (
+            <Button
+              size="sm"
+              onClick={() => nav.push({ name: 'addInfo', initial: 'upload' })}
+              aria-label="Add a source"
+            >
+              <IconPlus className="size-3.5" />
+              Add
+            </Button>
+          )
         }
       />
 
@@ -392,6 +407,40 @@ export function Sources({ profile }: { profile: Profile | undefined }) {
               />
             ))}
 
+            {adding && (
+              <div className="flex items-center gap-2 border-b border-border-muted px-4 py-2.5">
+                <Input
+                  autoFocus
+                  value={newFact}
+                  onChange={(event) => setNewFact(event.currentTarget.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter') {
+                      event.preventDefault()
+                      addFact()
+                    }
+                    if (event.key === 'Escape') {
+                      setAdding(false)
+                      setNewFact('')
+                    }
+                  }}
+                  placeholder="e.g. Notice period"
+                  aria-label="New fact name"
+                />
+                <button
+                  type="button"
+                  onClick={addFact}
+                  disabled={!newFact.trim() || newFact.trim() in facts}
+                  aria-label="Confirm"
+                  className="flex size-8 shrink-0 items-center justify-center rounded-full text-white transition-[filter] hover:brightness-110 active:brightness-95 disabled:pointer-events-none disabled:opacity-45"
+                  style={{
+                    background:
+                      'linear-gradient(135deg, var(--color-sparkle), var(--color-accent))',
+                  }}
+                >
+                  <IconCheck className="size-4" />
+                </button>
+              </div>
+            )}
             <p className="mt-3 px-4 py-2 text-[12px] font-semibold uppercase text-ink-dim">Facts</p>
             {Object.entries(facts).map(([key, value]) => (
               <FactRow
@@ -412,27 +461,6 @@ export function Sources({ profile }: { profile: Profile | undefined }) {
                 }}
               />
             ))}
-            <div className="flex gap-1.5 border-b border-border-muted px-4 py-3">
-              <Input
-                value={newFact}
-                onChange={(event) => setNewFact(event.currentTarget.value)}
-                onKeyDown={(event) => {
-                  if (event.key !== 'Enter') return
-                  event.preventDefault()
-                  addFact()
-                }}
-                placeholder="Notice period"
-                aria-label="New fact"
-              />
-              <Button
-                size="sm"
-                onClick={addFact}
-                disabled={!newFact.trim() || newFact.trim() in facts}
-              >
-                <IconPlus className="size-3.5" />
-                Add
-              </Button>
-            </div>
           </>
         ) : sources.length === 0 ? (
           <EmptyState

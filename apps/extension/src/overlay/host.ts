@@ -50,17 +50,7 @@ ${overlayVariables(':host')}
   position: fixed;
   display: flex;
   align-items: center;
-}
-
-/* Invisible hover cushion, so the grabber stays put while the pointer crosses
-   from the icon to the handle. */
-.launcher-wrap::before {
-  content: '';
-  position: absolute;
-  top: -8px;
-  bottom: -8px;
-  left: -40px;
-  right: -8px;
+  gap: 6px;
 }
 
 .launcher-body {
@@ -118,12 +108,12 @@ ${overlayVariables(':host')}
   box-shadow: 0 1px 4px -1px var(--aff-shadow);
 }
 
-/* The stop button, filling only. */
+/* The stop button, filling only. Placed below the pill so it stays on screen. */
 .launcher-stop {
   position: absolute;
-  top: 50%;
-  left: calc(100% + 8px);
-  translate: 0 -50%;
+  top: calc(100% + 10px);
+  left: 50%;
+  translate: -50% 0;
   display: none;
   align-items: center;
   justify-content: center;
@@ -160,15 +150,14 @@ ${overlayVariables(':host')}
   50% { scale: 1.14; }
 }
 
-/* The drag handle — a little column of dots that appears only on hover. */
+/* The drag handle — a little column of dots that appears only on hover. It stays in the flow
+   so the wrap's own box includes it, and the hover area extends left for free. */
 .launcher-grab {
-  position: absolute;
-  right: calc(100% + 6px);
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 3px;
-  padding: 7px 4px;
+  padding: 9px 5px;
   border: 0;
   border-radius: 999px;
   background: var(--aff-surface-raised);
@@ -441,30 +430,58 @@ ${overlayVariables(':host')}
   100% { opacity: 0; }
 }
 
-/* The "check me" pill: the only clickable part of a mark, so the outline
-   never steals a click meant for the field underneath. */
+/* The "needs a look" pill — a container with accept (✓) and reject (✕) buttons beside
+   the label, so no popup is needed. */
 .check-pill {
   position: fixed;
   display: flex;
   align-items: center;
   gap: 4px;
-  height: 20px;
-  padding: 0 8px;
-  border: 0;
+  height: 24px;
+  padding: 0 5px 0 8px;
   border-radius: var(--aff-radius-full);
   background: var(--aff-accent);
   color: #fff;
-  font: inherit;
   font-size: 10px;
   font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  cursor: pointer;
   pointer-events: auto;
   animation: pill-in 220ms var(--aff-spring) both;
 }
-.check-pill svg { width: 10px; height: 10px; }
-.check-pill:focus-visible { outline: 2px solid var(--aff-accent); outline-offset: 2px; }
+
+.check-pill-label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.check-pill-label svg { width: 10px; height: 10px; flex: none; }
+
+.check-pill-accept,
+.check-pill-reject {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border: 0;
+  border-radius: 50%;
+  cursor: pointer;
+  flex: none;
+  transition: scale 100ms var(--aff-spring);
+}
+.check-pill-accept:active,
+.check-pill-reject:active { scale: 0.9; }
+
+.check-pill-accept { background: var(--aff-positive); color: #fff; }
+.check-pill-reject { background: var(--aff-danger); color: #fff; }
+
+.check-pill-accept svg,
+.check-pill-reject svg { width: 10px; height: 10px; }
+
+.check-pill-accept:focus-visible,
+.check-pill-reject:focus-visible { outline: 2px solid #fff; outline-offset: 1px; }
 
 @keyframes pill-in {
   from { opacity: 0; scale: 0.8; }

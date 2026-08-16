@@ -8,7 +8,7 @@ import { positionScheduler } from './scheduler.js'
  * leftover style on teardown is a visible bug on someone else's page.
  *
  *   filled    came from the user's own info — green briefly, then leaves
- *   aiWrote   the AI wrote it — pink, persists, with a "check" pill
+ *   aiWrote   the AI wrote it — pink, persists, with a "needs a look" pill that has ✓ and ✕
  *   active    being written right now — pink ring
  *   failed    the page refused the value — coral briefly, then leaves
  */
@@ -21,14 +21,18 @@ export interface FieldMark {
   destroy: () => void
 }
 
-export function mountFieldMark(element: HTMLElement, onReview?: () => void): FieldMark {
+export function mountFieldMark(
+  element: HTMLElement,
+  onAccept?: () => void,
+  onReject?: () => void,
+): FieldMark {
   const { root } = getOverlayHost()
 
   const mark = document.createElement('div')
   mark.className = 'mark'
   root.appendChild(mark)
 
-  /** The "check" pill on AI-written fields — the only clickable part of the mark. */
+  /** The "needs a look" pill — a container with ✓ and ✕ so the popup is not needed. */
   let pill: HTMLElement | null = null
   let box: { top: number; left: number; width: number; height: number } | null = null
 
@@ -52,19 +56,46 @@ export function mountFieldMark(element: HTMLElement, onReview?: () => void): Fie
   })
 
   const ensurePill = () => {
-    if (!onReview) return
+    if (!onAccept && !onReject) return
     if (!pill) {
-      const button = document.createElement('button')
-      button.type = 'button'
-      button.className = 'check-pill'
-      button.innerHTML = `${GLYPH.sparkle}<span>needs a look</span>`
-      button.addEventListener('click', (event) => {
-        event.preventDefault()
-        event.stopPropagation()
-        onReview()
-      })
-      pill = button
-      root.appendChild(button)
+      const container = document.createElement('div')
+      container.className = 'check-pill'
+
+      const label = document.createElement('span')
+      label.className = 'check-pill-label'
+      label.innerHTML = `${GLYPH.sparkle}<span>needs a look</span>`
+      container.appendChild(label)
+
+      if (onAccept) {
+        const accept = document.createElement('button')
+        accept.type = 'button'
+        accept.className = 'check-pill-accept'
+        accept.setAttribute('aria-label', 'Keep this answer')
+        accept.innerHTML = GLYPH.check
+        accept.addEventListener('click', (event) => {
+          event.preventDefault()
+          event.stopPropagation()
+          onAccept()
+        })
+        container.appendChild(accept)
+      }
+
+      if (onReject) {
+        const reject = document.createElement('button')
+        reject.type = 'button'
+        reject.className = 'check-pill-reject'
+        reject.setAttribute('aria-label', 'Clear this answer')
+        reject.innerHTML = GLYPH.close
+        reject.addEventListener('click', (event) => {
+          event.preventDefault()
+          event.stopPropagation()
+          onReject()
+        })
+        container.appendChild(reject)
+      }
+
+      pill = container
+      root.appendChild(container)
     }
     placePill()
   }

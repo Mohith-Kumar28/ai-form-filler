@@ -20,7 +20,7 @@ import {
 export type TabName = 'home' | 'yourInfo' | 'account'
 
 /** What kind of thing the "Add to your info" screen should start on. */
-export type AddKind = 'fact' | 'upload' | 'link' | 'text' | 'voice'
+export type AddKind = 'upload' | 'link' | 'text' | 'voice'
 
 export type Screen =
   | { name: 'home' }
