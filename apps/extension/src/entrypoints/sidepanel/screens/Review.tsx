@@ -238,11 +238,13 @@ export function Review({
   report,
   tabId,
   onDone,
+  onBack,
 }: {
   plan: FillPlan
   report: ApplyReport | undefined
   tabId: number | null
   onDone: () => void
+  onBack?: () => void
 }) {
   const draft = useReviewDraft(tabId)
   const [showSettled, setShowSettled] = useState(false)
@@ -307,7 +309,7 @@ export function Review({
     <Screen>
       <ScreenHeader
         title={outstanding > 0 ? `${outstanding} need a look` : 'All good'}
-        onBack={onDone}
+        onBack={onBack ?? onDone}
       />
 
       <ScreenBody className="flex flex-col">

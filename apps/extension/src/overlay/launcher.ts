@@ -4,175 +4,215 @@ import type { Rect } from './scheduler.js'
 /**
  * The launcher — the extension's one persistent presence on a form page.
  *
- * A draggable pill, bottom-right by default, that appears when a form is detected. One click
- * fills the form; while it works the pill becomes the progress indicator; when it is done it
- * becomes the result. Dragging moves it and the position is remembered per-user.
- *
- * What it replaces: an 18px seal that only appeared when a field took focus, and a hover menu
- * that opened and closed on a timer. Nothing rendered until focus, which meant a person
- * landing on a form had no idea the tool was there. The launcher is visible the moment a form
- * exists, and it is the one place every action starts from.
+ * Three shapes: a circle icon with a field-count badge below it when idle; an expanded pill
+ * with progress text and a red stop button while a fill is running; and a brief pulse while
+ * thinking. A dots grabber appears on hover to drag it up and down the right edge.
  */
 
 const POSITION_KEY = 'aff:launcherPos'
 const EDGE = 16
 const DRAG_THRESHOLD = 4
 
+/** Rotating reassurance shown in place of the field count while the AI thinks. */
+const LOADING_MESSAGES = ['Thinking…', 'Reading the form…', 'Writing answers…']
+
 export interface LauncherHandle {
   element: HTMLElement
-  /** Viewport rect of the pill, for anchoring the menu card. */
   anchorRect: () => Rect
-  setBusy: (done: number, total: number) => void
-  setResult: (written: number, needLook: number) => void
   setFieldCount: (count: number) => void
+  /** Switches to the filling pill, sets the progress text, and shows the stop button. */
+  setBusy: (done: number, total: number) => void
+  /** Pulsing animation while thinking (before the pill appears). */
+  setLoading: (loading: boolean) => void
+  /** Back to the idle circle + badge. */
   reset: () => void
   destroy: () => void
 }
 
-export function mountLauncher(options: {
-  fieldCount: number
-  onOpen: () => void
-  onReview: () => void
-}): LauncherHandle {
+export function mountLauncher(options: { onOpen: () => void; onStop: () => void }): LauncherHandle {
   const { root } = getOverlayHost()
 
-  const launcher = document.createElement('button')
-  launcher.type = 'button'
-  launcher.className = 'launcher'
-  launcher.setAttribute('aria-label', 'Fill this form')
+  // ── DOM ─────────────────────────────────────────────────────────────────
+  const wrap = document.createElement('div')
+  wrap.className = 'launcher-wrap'
 
-  root.appendChild(launcher)
+  const body = document.createElement('div')
+  body.className = 'launcher-body'
 
-  // State the pill can be in. `busy` renders a spinner + progress; `result` renders the
-  // summary and routes a click to review; `idle` renders the call to action and opens the menu.
-  let mode: 'idle' | 'busy' | 'result' = 'idle'
-  let fieldCount = options.fieldCount
-  let result = { written: 0, needLook: 0 }
+  const button = document.createElement('button')
+  button.type = 'button'
+  button.className = 'launcher'
+  button.setAttribute('aria-label', 'Fill this form')
+  button.setAttribute('title', 'Fill all fields')
 
-  const render = () => {
-    if (mode === 'busy') {
-      launcher.dataset.busy = 'true'
-      return
-    }
-    if (mode === 'result') {
-      launcher.dataset.busy = 'false'
-      launcher.innerHTML = `${GLYPH.check}<span>${result.written} filled${
-        result.needLook > 0 ? ` · ${result.needLook} need a look` : ''
-      }</span>`
-      return
-    }
-    launcher.dataset.busy = 'false'
-    launcher.innerHTML = `${GLYPH.sparkle}<span>Fill ${fieldCount} ${
-      fieldCount === 1 ? 'field' : 'fields'
-    }</span>`
+  const icon = document.createElement('span')
+  icon.className = 'launcher-icon'
+  icon.innerHTML = GLYPH.sparkle
+
+  const progressText = document.createElement('span')
+  progressText.className = 'launcher-progress'
+
+  button.appendChild(icon)
+  button.appendChild(progressText)
+
+  const countBadge = document.createElement('span')
+  countBadge.className = 'launcher-count'
+
+  // Field count + loading text. The badge shows "N fields" when idle and a rotating
+  // "Thinking… / Reading the form… / Writing answers…" while the AI works.
+  let fieldCount = 0
+  let loadingTimer: ReturnType<typeof setInterval> | null = null
+  let loadingIndex = 0
+
+  const showFieldCount = () => {
+    countBadge.textContent =
+      fieldCount === 0 ? '' : `${fieldCount} ${fieldCount === 1 ? 'field' : 'fields'}`
   }
 
-  render()
+  const loadingMessage = (index: number): string =>
+    LOADING_MESSAGES[index % LOADING_MESSAGES.length] ?? 'Thinking…'
+
+  const startLoadingText = () => {
+    loadingIndex = 0
+    countBadge.textContent = loadingMessage(0)
+    loadingTimer = setInterval(() => {
+      loadingIndex = (loadingIndex + 1) % LOADING_MESSAGES.length
+      countBadge.textContent = loadingMessage(loadingIndex)
+    }, 1400)
+  }
+
+  const stopLoadingText = () => {
+    if (loadingTimer !== null) {
+      clearInterval(loadingTimer)
+      loadingTimer = null
+    }
+  }
+
+  // Safety net: if no fill event ever arrives, the icon must not spin forever.
+  let loadingSafety: ReturnType<typeof setTimeout> | null = null
+
+  const settleLoading = () => {
+    if (loadingSafety !== null) {
+      clearTimeout(loadingSafety)
+      loadingSafety = null
+    }
+    button.classList.remove('launcher--loading')
+    stopLoadingText()
+  }
+
+  const stopBtn = document.createElement('button')
+  stopBtn.type = 'button'
+  stopBtn.className = 'launcher-stop'
+  stopBtn.setAttribute('aria-label', 'Stop filling')
+  stopBtn.innerHTML = GLYPH.close
+  stopBtn.addEventListener('click', (event) => {
+    event.stopPropagation()
+    options.onStop()
+  })
+
+  const grabber = document.createElement('button')
+  grabber.type = 'button'
+  grabber.className = 'launcher-grab'
+  grabber.setAttribute('aria-label', 'Drag to move')
+  grabber.innerHTML = '<span></span><span></span><span></span>'
+
+  body.appendChild(button)
+  body.appendChild(countBadge)
+  body.appendChild(stopBtn)
+
+  wrap.appendChild(grabber)
+  wrap.appendChild(body)
+  root.appendChild(wrap)
 
   // ── Position ─────────────────────────────────────────────────────────────
-  // The position is held in `pos` — the single source of truth — and mirrored onto the
-  // standalone `translate` property, which the entrance animation's `scale` never touches.
-  // Reading the position back out of the style string (as a previous version did) never
-  // matched and silently snapped the pill to the bottom-right on every drag.
-  let pos = {
-    x: window.innerWidth - launcher.offsetWidth - EDGE,
-    y: window.innerHeight - launcher.offsetHeight - EDGE,
-  }
+  // The wrap is pinned to the right edge; dragging moves it vertically.
+  const rightX = () => window.innerWidth - wrap.offsetWidth - EDGE
+  let pos = { y: Math.round(window.innerHeight * 0.25) }
 
-  const clampX = (x: number) =>
-    Math.min(Math.max(EDGE, x), window.innerWidth - launcher.offsetWidth - EDGE)
   const clampY = (y: number) =>
-    Math.min(Math.max(EDGE, y), window.innerHeight - launcher.offsetHeight - EDGE)
+    Math.min(Math.max(EDGE, y), window.innerHeight - button.offsetHeight - EDGE)
 
-  const applyPosition = (x: number, y: number) => {
-    pos = { x, y }
-    launcher.style.translate = `${Math.round(x)}px ${Math.round(y)}px`
+  const applyPosition = (y: number) => {
+    pos = { y }
+    wrap.style.translate = `${Math.round(rightX())}px ${Math.round(y)}px`
   }
 
-  applyPosition(pos.x, pos.y)
+  applyPosition(pos.y)
 
-  // ── Drag + click ─────────────────────────────────────────────────────────
-  // The pill is both draggable and clickable. A click opens the menu; a drag moves it. The
-  // threshold decides which happened.
-  let dragState: {
-    startX: number
-    startY: number
-    origX: number
-    origY: number
-    dragging: boolean
-  } | null = null
+  // ── Drag (grabber) + click (icon) ────────────────────────────────────────
+  let dragState: { startY: number; origY: number; dragging: boolean } | null = null
 
-  launcher.addEventListener('pointerdown', (event) => {
-    if (mode === 'busy') return
-    launcher.setPointerCapture(event.pointerId)
-    dragState = {
-      startX: event.clientX,
-      startY: event.clientY,
-      origX: pos.x,
-      origY: pos.y,
-      dragging: false,
-    }
+  grabber.addEventListener('pointerdown', (event) => {
+    grabber.setPointerCapture(event.pointerId)
+    dragState = { startY: event.clientY, origY: pos.y, dragging: false }
   })
 
-  launcher.addEventListener('pointermove', (event) => {
-    if (!dragState || mode === 'busy') return
-    const dx = event.clientX - dragState.startX
-    const dy = event.clientY - dragState.startY
-    if (!dragState.dragging && Math.hypot(dx, dy) < DRAG_THRESHOLD) return
-    dragState.dragging = true
-    applyPosition(clampX(dragState.origX + dx), clampY(dragState.origY + dy))
-  })
-
-  launcher.addEventListener('pointerup', () => {
+  grabber.addEventListener('pointermove', (event) => {
     if (!dragState) return
-    const wasDrag = dragState.dragging
-    if (wasDrag) void chrome.storage.local.set({ [POSITION_KEY]: pos })
+    const dy = event.clientY - dragState.startY
+    if (!dragState.dragging && Math.abs(dy) < DRAG_THRESHOLD) return
+    dragState.dragging = true
+    applyPosition(clampY(dragState.origY + dy))
+  })
+
+  grabber.addEventListener('pointerup', () => {
+    if (!dragState) return
+    if (dragState.dragging) void chrome.storage.local.set({ [POSITION_KEY]: pos })
     dragState = null
-
-    if (wasDrag) return
-    if (mode === 'result') options.onReview()
-    else if (mode === 'idle') options.onOpen()
   })
 
-  // Restore the remembered position, or stay bottom-right.
+  button.addEventListener('click', () => options.onOpen())
+
+  // Restore remembered position.
   void chrome.storage.local.get(POSITION_KEY).then((stored) => {
-    const saved = (stored as Record<string, { x: number; y: number } | undefined>)[POSITION_KEY]
-    if (saved) applyPosition(clampX(saved.x), clampY(saved.y))
+    const saved = (stored as Record<string, { y: number } | undefined>)[POSITION_KEY]
+    if (saved) applyPosition(clampY(saved.y))
   })
 
-  // Keep it on screen when the window resizes underneath it.
-  const onResize = () => applyPosition(clampX(pos.x), clampY(pos.y))
+  const onResize = () => applyPosition(clampY(pos.y))
   window.addEventListener('resize', onResize)
 
   const anchorRect = (): Rect => {
-    const rect = launcher.getBoundingClientRect()
+    const rect = button.getBoundingClientRect()
     return { top: rect.top, left: rect.left, width: rect.width, height: rect.height }
   }
 
   return {
-    element: launcher,
+    element: wrap,
     anchorRect,
-    setBusy: (done, total) => {
-      mode = 'busy'
-      launcher.dataset.busy = 'true'
-      launcher.innerHTML = `<span class="launcher-ring"></span><span>${done}/${total}</span>`
-    },
-    setResult: (written, needLook) => {
-      mode = 'result'
-      result = { written, needLook }
-      render()
-    },
     setFieldCount: (count) => {
       fieldCount = count
-      if (mode === 'idle') render()
+      showFieldCount()
+    },
+    setBusy: (done, total) => {
+      settleLoading()
+      wrap.setAttribute('data-filling', 'true')
+      progressText.textContent = `${done}/${total}`
+    },
+    setLoading: (loading) => {
+      if (loading) {
+        button.classList.add('launcher--loading')
+        startLoadingText()
+        if (loadingSafety !== null) clearTimeout(loadingSafety)
+        loadingSafety = setTimeout(() => {
+          loadingSafety = null
+          settleLoading()
+          showFieldCount()
+        }, 30000)
+      } else {
+        settleLoading()
+        showFieldCount()
+      }
     },
     reset: () => {
-      mode = 'idle'
-      render()
+      settleLoading()
+      wrap.removeAttribute('data-filling')
+      showFieldCount()
     },
     destroy: () => {
+      settleLoading()
       window.removeEventListener('resize', onResize)
-      launcher.remove()
+      wrap.remove()
     },
   }
 }

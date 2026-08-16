@@ -76,7 +76,7 @@ describe('anchored elements', () => {
    * for nothing here, precisely so a future animation cannot quietly reclaim it.
    */
   it.each([
-    ['launcher.ts', 'launcher.style.translate'],
+    ['launcher.ts', 'wrap.style.translate'],
     ['markers.ts', 'mark.style.translate'],
     ['markers.ts', 'pill.style.translate'],
   ])('%s places with %s', (file, expression) => {

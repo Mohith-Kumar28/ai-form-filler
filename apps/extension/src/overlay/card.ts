@@ -39,6 +39,8 @@ interface MenuCard extends BaseSpec {
   note?: { text: string; bad?: boolean }
   /** Focus the first item on open. `false` for suggestions, which must not steal the field's focus. */
   autofocus?: boolean
+  /** Show a cross in the header that dismisses the card. */
+  closeable?: boolean
 }
 
 interface ReviewCard extends BaseSpec {
@@ -157,10 +159,30 @@ function mountCard(spec: CardSpec, content: HTMLElement): CardHandle {
 export function mountMenuCard(spec: MenuCard): CardHandle {
   const body = document.createElement('div')
 
-  if (spec.question) {
+  if (spec.question || spec.closeable) {
     const question = document.createElement('div')
     question.className = 'card-question'
-    question.textContent = spec.question
+    question.style.display = 'flex'
+    question.style.alignItems = 'center'
+    question.style.justifyContent = 'space-between'
+    question.style.gap = '8px'
+    const label = document.createElement('span')
+    label.style.minWidth = '0'
+    label.textContent = spec.question ?? ''
+    question.appendChild(label)
+    if (spec.closeable) {
+      const close = document.createElement('button')
+      close.type = 'button'
+      close.className = 'card-close'
+      close.setAttribute('aria-label', 'Close')
+      close.innerHTML = GLYPH.close
+      close.addEventListener('click', (event) => {
+        event.preventDefault()
+        event.stopPropagation()
+        spec.onClose()
+      })
+      question.appendChild(close)
+    }
     body.appendChild(question)
   }
 

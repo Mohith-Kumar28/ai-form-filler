@@ -1,0 +1,289 @@
+- generic [active] [ref=e1]:
+  - banner [ref=e2]:
+    - navigation [ref=e3]:
+      - link "Fillaform home" [ref=e4] [cursor=pointer]:
+        - /url: /
+        - generic [ref=e5]: fillaform
+      - generic [ref=e10]:
+        - link "How it works" [ref=e11] [cursor=pointer]:
+          - /url: /how-it-works
+        - link "Features" [ref=e12] [cursor=pointer]:
+          - /url: /features
+        - link "Pricing" [ref=e13] [cursor=pointer]:
+          - /url: /pricing
+        - link "Compare" [ref=e14] [cursor=pointer]:
+          - /url: /compare
+        - link "Blog" [ref=e15] [cursor=pointer]:
+          - /url: /blog
+      - link "Add to Chrome" [ref=e17] [cursor=pointer]:
+        - /url: https://chromewebstore.google.com/detail/bkjmijloddfiilopdckanmnpmiimpcho
+  - main [ref=e20]:
+    - generic [ref=e22]:
+      - generic [ref=e23]: The AI form filler that actually sounds like you
+      - heading "Forms are homework. Your hype friend does them." [level=1] [ref=e26]: Forms are homework.Your hype friend does them.
+      - paragraph [ref=e27]:
+        - text: Fillaform reads your résumé, links and notes, then fills
+        - strong [ref=e28]: any form
+        - text: — job applications, Google Forms, registrations, surveys — in your own voice. It flags what it guessed and cheers you on the whole way.
+      - generic [ref=e29]:
+        - link "Add to Chrome — it's free" [ref=e30] [cursor=pointer]:
+          - /url: https://chromewebstore.google.com/detail/bkjmijloddfiilopdckanmnpmiimpcho
+        - link "Watch it fill a form" [ref=e33] [cursor=pointer]:
+          - /url: "#demo"
+      - paragraph [ref=e41]: “I filled 12 fields in 20 seconds”
+      - generic [ref=e42]: Scroll to try it
+    - generic [ref=e47]:
+      - paragraph [ref=e48]: Click the launcher to watch it fill
+      - generic [ref=e49]:
+        - generic [ref=e50]:
+          - generic [ref=e51]:
+            - paragraph [ref=e52]: Job application
+            - heading "Engineering Manager" [level=3] [ref=e53]
+            - paragraph [ref=e54]: Alderman & Roe · Bristol, UK · Remote
+          - generic [ref=e55]:
+            - generic [ref=e56]:
+              - text: Full name
+              - textbox [ref=e57]:
+                - /placeholder: " "
+                - text: Ifeoma Balogun
+            - generic [ref=e58]:
+              - text: Email address
+              - textbox [ref=e59]:
+                - /placeholder: " "
+                - text: ifeoma.balogun@fastmail.com
+            - generic [ref=e60]:
+              - text: Do you require visa sponsorship?
+              - generic [ref=e61]:
+                - generic [ref=e62]: "Yes"
+                - generic [ref=e64]: "No"
+            - generic [ref=e66]:
+              - text: How did you hear about this role?
+              - generic [ref=e67]: LinkedIn
+            - generic [ref=e68]:
+              - text: When could you start?
+              - textbox [ref=e69]:
+                - /placeholder: " "
+                - text: 3 November 2026
+            - generic [ref=e70]:
+              - generic [ref=e71]: Why do you want to work at Alderman & Roe?required
+              - generic [ref=e72]: I spent four years at Kestrel Health rebuilding a claims pipeline that nobody wanted to touch, and the part I liked was the archaeology — working out why a system had ended up the way it had before changing it. Your engineering posts read like people who do that on purpose rather than under duress.
+              - button "needs a look" [ref=e394]
+            - generic [ref=e73]:
+              - text: What are your salary expectations?
+              - textbox [ref=e74]:
+                - /placeholder: " "
+                - text: £72,000
+              - button "needs a look" [ref=e398]
+        - button "5 filled · 2 need a look" [ref=e401]
+    - generic [ref=e82]:
+      - generic [ref=e83]:
+        - paragraph [ref=e84]: How it works
+        - heading "Three steps. Zero retyping." [level=2] [ref=e85]
+      - generic [ref=e86]:
+        - generic [ref=e88]:
+          - generic [ref=e89]: "1"
+          - heading "Feed it" [level=3] [ref=e97]
+          - paragraph [ref=e98]: Drop in your résumé, paste a LinkedIn or GitHub link, type a few notes. Fillaform extracts your name, history, skills and preferences — no hand-mapping required.
+        - generic [ref=e100]:
+          - generic [ref=e101]: "2"
+          - heading "It gets to know you" [level=3] [ref=e112]
+          - paragraph [ref=e113]: Your material becomes a searchable memory. When a form asks an open-ended question, Fillaform retrieves the right facts and writes the answer in your voice.
+        - generic [ref=e115]:
+          - generic [ref=e116]: "3"
+          - heading "Fill anything" [level=3] [ref=e124]
+          - paragraph [ref=e125]: Open any form, click fill. Every field — text, dropdown, radio, checkbox — gets filled. Hot pink marks what it guessed; lime marks what it read straight off.
+    - generic [ref=e127]:
+      - generic [ref=e128]:
+        - paragraph [ref=e129]: Features
+        - heading "Everything it fills" [level=2] [ref=e130]
+      - generic [ref=e132]:
+        - generic [ref=e134]:
+          - generic [ref=e135]: 🌐
+          - heading "Any form, any site" [level=3] [ref=e136]
+          - paragraph [ref=e137]: Job applications, Google Forms, event registrations, surveys, contact forms — if it has fields, Fillaform fills it.
+        - generic [ref=e139]:
+          - generic [ref=e140]: 🎙️
+          - heading "Answers in your voice" [level=3] [ref=e141]
+          - paragraph [ref=e142]: Not a templated profile mapper. Fillaform reads your writing and composes open-ended answers the way you would.
+        - generic [ref=e144]:
+          - generic [ref=e145]: 💖
+          - heading "Read vs. guessed" [level=3] [ref=e146]
+          - paragraph [ref=e147]: Lime means it read straight off your profile. Hot pink + sparkle means it guessed — check me. No wrong-but-confident surprises.
+        - generic [ref=e149]:
+          - generic [ref=e150]: 🏢
+          - heading "Built for the big ATSes" [level=3] [ref=e151]
+          - paragraph [ref=e152]: Dedicated adapters for Greenhouse, Lever, Ashby and Google Forms, plus a generic fallback for everything else.
+        - generic [ref=e154]:
+          - generic [ref=e155]: 🔐
+          - heading "Your data, your control" [level=3] [ref=e156]
+          - paragraph [ref=e157]: You decide what to feed it and what to fill. Nothing is submitted automatically — review every answer first.
+        - generic [ref=e159]:
+          - generic [ref=e160]: ✨
+          - heading "Free to start" [level=3] [ref=e161]
+          - paragraph [ref=e162]: Fill 5 forms a month on the free plan, forever. Upgrade for more when you need it.
+    - generic [ref=e165]:
+      - generic [ref=e167]:
+        - paragraph [ref=e168]: The trust layer
+        - heading "A wrong-but-confident answer is worse than a blank field" [level=2] [ref=e169]
+        - paragraph [ref=e170]:
+          - text: Other autofillers answer your name and email and stop. Fillaform answers the judgement calls —
+          - emphasis [ref=e171]: “why do you want to work here?”
+          - text: — and tells you exactly what it read from your profile and what it guessed.
+        - paragraph [ref=e172]: You review the guesses before anything is submitted. No surprises, ever.
+      - generic [ref=e174]:
+        - generic [ref=e175]:
+          - generic [ref=e176]:
+            - paragraph [ref=e177]: Full name
+            - generic [ref=e178]: read
+          - paragraph [ref=e181]: Ifeoma Balogun
+          - generic [ref=e182]: read straight off what you told it
+        - generic [ref=e185]:
+          - generic [ref=e186]:
+            - paragraph [ref=e187]: Why do you want to work here?
+            - generic [ref=e188]: guessed
+          - paragraph [ref=e191]: I spent four years rebuilding a claims pipeline nobody wanted to touch — the part I liked was the archaeology of working out why a system ended up the way it had.
+          - generic [ref=e192]: a judgement call it made for you — check me
+    - generic [ref=e196]:
+      - generic [ref=e197]:
+        - heading "Works wherever forms live" [level=2] [ref=e198]
+        - paragraph [ref=e199]: Dedicated adapters for the big ATSes and Google Forms, a generic fallback for everything else. If there’s a field, it gets filled.
+      - generic [ref=e201]:
+        - generic [ref=e202]: Greenhouse
+        - generic [ref=e203]: Lever
+        - generic [ref=e204]: Ashby
+        - generic [ref=e205]: Google Forms
+        - generic [ref=e206]: Workable
+        - generic [ref=e207]: SmartRecruiters
+        - generic [ref=e208]: Typeform
+        - generic [ref=e209]: SurveyMonkey
+        - generic [ref=e210]: Eventbrite
+        - generic [ref=e211]: Jotform
+        - generic [ref=e212]: Every other form
+    - generic [ref=e214]:
+      - generic [ref=e215]:
+        - paragraph [ref=e216]: Pricing
+        - heading "Pick your pace" [level=2] [ref=e217]
+      - generic [ref=e219]:
+        - generic [ref=e221]:
+          - heading "Free" [level=3] [ref=e222]
+          - generic [ref=e223]:
+            - generic [ref=e224]: $0
+            - generic [ref=e225]: / forever
+          - paragraph [ref=e226]: 5 forms / month
+          - paragraph [ref=e227]: Try it on real forms. No card, no time limit.
+          - list [ref=e228]:
+            - listitem [ref=e229]:
+              - generic [ref=e233]: 5 forms per month
+            - listitem [ref=e234]:
+              - generic [ref=e238]: Every site adapter (Google Forms, Greenhouse, Lever, Ashby)
+            - listitem [ref=e239]:
+              - generic [ref=e243]: Resume, link & text sources
+            - listitem [ref=e244]:
+              - generic [ref=e248]: Read vs concluded stamps
+          - link "Add to Chrome" [ref=e249] [cursor=pointer]:
+            - /url: "#demo"
+        - generic [ref=e254]:
+          - generic [ref=e255]: Most popular
+          - heading "Pro" [level=3] [ref=e256]
+          - generic [ref=e257]:
+            - generic [ref=e258]: $12
+            - generic [ref=e259]: / per month
+          - paragraph [ref=e260]: 50 forms / month
+          - paragraph [ref=e261]: For a steady job search or a busy season of forms.
+          - list [ref=e262]:
+            - listitem [ref=e263]:
+              - generic [ref=e267]: 50 forms per month
+            - listitem [ref=e268]:
+              - generic [ref=e272]: Everything in Free
+            - listitem [ref=e273]:
+              - generic [ref=e277]: Long-form answers in your voice
+            - listitem [ref=e278]:
+              - generic [ref=e282]: Priority processing
+            - listitem [ref=e283]:
+              - generic [ref=e287]: Cancel anytime
+          - link "Upgrade to Pro" [ref=e288] [cursor=pointer]:
+            - /url: /pricing
+        - generic [ref=e290]:
+          - heading "Ultra" [level=3] [ref=e291]
+          - generic [ref=e292]:
+            - generic [ref=e293]: $30
+            - generic [ref=e294]: / per month
+          - paragraph [ref=e295]: 300 forms / month
+          - paragraph [ref=e296]: For heavy users filling forms all day, every day.
+          - list [ref=e297]:
+            - listitem [ref=e298]:
+              - generic [ref=e302]: 300 forms per month
+            - listitem [ref=e303]:
+              - generic [ref=e307]: Everything in Pro
+            - listitem [ref=e308]:
+              - generic [ref=e312]: Earliest access to new adapters
+            - listitem [ref=e313]:
+              - generic [ref=e317]: Long-form answers in your voice
+          - link "Upgrade to Ultra" [ref=e318] [cursor=pointer]:
+            - /url: /pricing
+    - generic [ref=e320]:
+      - generic [ref=e321]:
+        - paragraph [ref=e322]: FAQ
+        - heading "Fair questions, honest answers" [level=2] [ref=e323]
+      - generic [ref=e324]:
+        - group [ref=e326]:
+          - generic "Is Fillaform really free? ＋" [ref=e327] [cursor=pointer]:
+            - text: Is Fillaform really free?
+            - generic [ref=e328]: ＋
+        - group [ref=e330]:
+          - generic "Does it submit forms on its own? ＋" [ref=e331] [cursor=pointer]:
+            - text: Does it submit forms on its own?
+            - generic [ref=e332]: ＋
+        - group [ref=e334]:
+          - generic "What makes it different from browser autofill? ＋" [ref=e335] [cursor=pointer]:
+            - text: What makes it different from browser autofill?
+            - generic [ref=e336]: ＋
+        - group [ref=e338]:
+          - generic "What does \"guessed\" mean? ＋" [ref=e339] [cursor=pointer]:
+            - text: What does "guessed" mean?
+            - generic [ref=e340]: ＋
+        - group [ref=e342]:
+          - generic "What happens to my data? ＋" [ref=e343] [cursor=pointer]:
+            - text: What happens to my data?
+            - generic [ref=e344]: ＋
+        - group [ref=e346]:
+          - generic "Which sites does it work on? ＋" [ref=e347] [cursor=pointer]:
+            - text: Which sites does it work on?
+            - generic [ref=e348]: ＋
+    - generic [ref=e351]:
+      - heading "Stop retyping. Start filling." [level=2] [ref=e358]: Stop retyping.Start filling.
+      - paragraph [ref=e359]: Add Fillaform to Chrome, feed it once, and never fill the same information twice. Five forms a month on us — no card required.
+      - link "Add to Chrome — it's free" [ref=e361] [cursor=pointer]:
+        - /url: https://chromewebstore.google.com/detail/bkjmijloddfiilopdckanmnpmiimpcho
+  - contentinfo [ref=e364]:
+    - generic [ref=e365]:
+      - generic [ref=e366]:
+        - generic [ref=e367]:
+          - generic [ref=e368]: fillaform
+          - paragraph [ref=e373]: The hype friend who does the boring homework. Fill any form in your own voice — and always know what it read vs. what it guessed.
+          - link "Add to Chrome" [ref=e374] [cursor=pointer]:
+            - /url: https://chromewebstore.google.com/detail/bkjmijloddfiilopdckanmnpmiimpcho
+        - navigation [ref=e377]:
+          - paragraph [ref=e378]: Pages
+          - link "How it works" [ref=e379] [cursor=pointer]:
+            - /url: /how-it-works
+          - link "Features" [ref=e380] [cursor=pointer]:
+            - /url: /features
+          - link "Pricing" [ref=e381] [cursor=pointer]:
+            - /url: /pricing
+          - link "Compare" [ref=e382] [cursor=pointer]:
+            - /url: /compare
+          - link "Blog" [ref=e383] [cursor=pointer]:
+            - /url: /blog
+          - link "Privacy" [ref=e384] [cursor=pointer]:
+            - /url: /privacy
+          - link "Terms" [ref=e385] [cursor=pointer]:
+            - /url: /terms
+          - link "Contact" [ref=e386] [cursor=pointer]:
+            - /url: /contact
+        - generic [ref=e387]:
+          - paragraph [ref=e388]: Stay in touch
+          - link "support@fillaform.in" [ref=e389] [cursor=pointer]:
+            - /url: mailto:support@fillaform.in
+          - paragraph [ref=e390]: Made with a sparkle and a lot of form-filling empathy.
+      - generic [ref=e391]: © 2026 Fillaform. All rights reserved.

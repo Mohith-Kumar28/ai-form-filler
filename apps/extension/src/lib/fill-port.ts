@@ -120,16 +120,6 @@ export function registerFillPort(): void {
       cancelled = true
     })
 
-    const emit = (event: FillPortEvent) => {
-      // The panel can close mid-fill, which disconnects the port and makes postMessage
-      // throw. That is a normal outcome, not an error worth surfacing.
-      try {
-        if (!cancelled) port.postMessage(event)
-      } catch {
-        cancelled = true
-      }
-    }
-
     port.onMessage.addListener((request: FillPortRequest) => {
       if (request.type === 'cancel') {
         cancelled = true
@@ -137,9 +127,21 @@ export function registerFillPort(): void {
       }
       if (request.type !== 'start') return
 
+      const tabId = request.tabId
+      const emit = (event: FillPortEvent) => {
+        // The panel is the primary receiver; the page is told too so the launcher can show
+        // progress. Neither having a listener is a normal state.
+        try {
+          if (!cancelled) port.postMessage(event)
+        } catch {
+          cancelled = true
+        }
+        void chrome.tabs.sendMessage(tabId, { type: 'fill/event', event }).catch(() => undefined)
+      }
+
       void (async () => {
         await runFillFlow(
-          request.tabId,
+          tabId,
           {
             overwriteExisting: request.overwriteExisting,
             ...(request.onlyFieldId ? { onlyFieldId: request.onlyFieldId } : {}),

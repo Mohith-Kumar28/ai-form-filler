@@ -128,9 +128,13 @@ function Stack() {
             plan={fill.state.plan}
             report={fill.state.report}
             tabId={fill.state.tabId ?? page.tabId}
-            onDone={() => {
+            onBack={() => {
               fill.reset()
               nav.home()
+            }}
+            onDone={() => {
+              fill.reset()
+              window.close()
             }}
           />
         ) : (

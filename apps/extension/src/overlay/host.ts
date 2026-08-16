@@ -43,40 +43,151 @@ ${overlayVariables(':host')}
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
 /* ── The launcher ─────────────────────────────────────────────────────────
-   A draggable pill, bottom-right. Appears when a form is detected, and is
-   the extension's entire persistent presence: one click fills the form,
-   and it turns into the progress indicator and then the result.            */
-.launcher {
+   Three shapes: a circle icon with a field-count badge below it when idle; an
+   expanded pill with progress text and a red stop button while filling; and a
+   brief pulse while thinking. A dots grabber appears on hover to drag it.     */
+.launcher-wrap {
   position: fixed;
-  display: inline-flex;
+  display: flex;
   align-items: center;
-  gap: 7px;
-  padding: 10px 15px;
+}
+
+/* Invisible hover cushion, so the grabber stays put while the pointer crosses
+   from the icon to the handle. */
+.launcher-wrap::before {
+  content: '';
+  position: absolute;
+  top: -8px;
+  bottom: -8px;
+  left: -40px;
+  right: -8px;
+}
+
+.launcher-body {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.launcher {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 34px;
+  height: 34px;
+  padding: 0;
   border: 0;
-  border-radius: var(--aff-radius-full);
+  border-radius: 50%;
   background: linear-gradient(135deg, var(--aff-sparkle), var(--aff-accent));
   color: #fff;
-  font: inherit;
-  font-size: 13px;
-  font-weight: 600;
-  line-height: 1;
-  cursor: grab;
+  cursor: pointer;
   pointer-events: auto;
   user-select: none;
-  box-shadow: 0 6px 20px -6px var(--aff-shadow-strong);
+  box-shadow: 0 6px 18px -6px var(--aff-shadow-strong);
   transition: scale 140ms var(--aff-spring);
   animation: pop-in 200ms var(--aff-spring) both;
 }
+.launcher:active { scale: 0.97; }
+.launcher-icon { display: flex; flex: none; }
+.launcher-icon svg { width: 16px; height: 16px; }
+.launcher-progress {
+  display: none;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1;
+  white-space: nowrap;
+}
 
-.launcher:active { cursor: grabbing; scale: 0.97; }
-.launcher svg { width: 14px; height: 14px; flex: none; }
-
-.launcher[data-busy="true"] {
+/* The field-count badge under the icon, idle only. */
+.launcher-count {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 50%;
+  translate: -50% 0;
+  padding: 1px 7px;
+  border-radius: 999px;
   background: var(--aff-surface-raised);
-  color: var(--aff-ink);
-  border: 1px solid var(--aff-border);
-  box-shadow: 0 6px 20px -6px var(--aff-shadow-strong);
-  cursor: default;
+  color: var(--aff-ink-dim);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.6;
+  white-space: nowrap;
+  pointer-events: none;
+  box-shadow: 0 1px 4px -1px var(--aff-shadow);
+}
+
+/* The stop button, filling only. */
+.launcher-stop {
+  position: absolute;
+  top: 50%;
+  left: calc(100% + 8px);
+  translate: 0 -50%;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--aff-danger);
+  color: #fff;
+  cursor: pointer;
+  pointer-events: auto;
+  box-shadow: 0 2px 8px -2px var(--aff-shadow);
+  animation: pop-in 160ms var(--aff-ease) both;
+}
+.launcher-stop svg { width: 12px; height: 12px; }
+
+/* ── Filling state ──────────────────────────────────────────────────────── */
+.launcher-wrap[data-filling="true"] .launcher {
+  width: auto;
+  padding: 0 13px;
+  border-radius: 999px;
+}
+.launcher-wrap[data-filling="true"] .launcher-progress { display: inline; }
+.launcher-wrap[data-filling="true"] .launcher-count { display: none; }
+.launcher-wrap[data-filling="true"] .launcher-stop { display: flex; }
+
+/* Thinking pulse, while the pill is not yet showing progress. */
+.launcher--loading {
+  animation: launcher-think 1.2s ease-in-out infinite;
+}
+
+@keyframes launcher-think {
+  0%, 100% { scale: 1; }
+  50% { scale: 1.14; }
+}
+
+/* The drag handle — a little column of dots that appears only on hover. */
+.launcher-grab {
+  position: absolute;
+  right: calc(100% + 6px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 7px 4px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--aff-surface-raised);
+  cursor: grab;
+  pointer-events: none;
+  opacity: 0;
+  box-shadow: 0 2px 8px -2px var(--aff-shadow);
+  transition: opacity 140ms var(--aff-ease);
+}
+.launcher-wrap:hover .launcher-grab {
+  opacity: 1;
+  pointer-events: auto;
+}
+.launcher-grab:active { cursor: grabbing; }
+.launcher-grab span {
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: var(--aff-ink-dim);
 }
 
 /* ── The field trigger ─────────────────────────────────────────────────────
@@ -101,14 +212,28 @@ ${overlayVariables(':host')}
 .field-trigger svg { width: 12px; height: 12px; }
 .field-trigger:focus-visible { outline: 2px solid var(--aff-accent); outline-offset: 2px; }
 
-.launcher-ring {
-  width: 14px;
-  height: 14px;
-  flex: none;
+/* Clicked: the icon pulses and glows while the AI thinks in the background, and stays put until
+   the field is written — a clear "working on it" instead of an instant vanish. */
+.field-trigger[data-loading="true"] {
+  animation: trigger-think 1.1s ease-in-out infinite;
+  pointer-events: none;
+}
+.field-trigger[data-loading="true"]::after {
+  content: '';
+  position: absolute;
+  inset: 0;
   border-radius: 50%;
-  border: 2px solid currentColor;
-  border-top-color: transparent;
-  animation: spin 900ms linear infinite;
+  animation: trigger-halo 1.1s ease-out infinite;
+}
+
+@keyframes trigger-think {
+  0%, 100% { scale: 1; }
+  50% { scale: 1.15; }
+}
+
+@keyframes trigger-halo {
+  0% { box-shadow: 0 0 0 0 var(--aff-accent); opacity: 0.55; }
+  100% { box-shadow: 0 0 0 12px var(--aff-accent); opacity: 0; }
 }
 
 /* ── Confetti ─────────────────────────────────────────────────────────────
@@ -193,6 +318,22 @@ ${overlayVariables(':host')}
 }
 
 .card-note-bad { color: var(--aff-danger); }
+
+.card-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--aff-ink-dim);
+  cursor: pointer;
+  flex: none;
+}
+.card-close:hover { background: var(--aff-surface-muted); color: var(--aff-ink); }
+.card-close svg { width: 12px; height: 12px; }
 
 .card-body { padding: 10px 13px; }
 
@@ -345,10 +486,6 @@ ${overlayVariables(':host')}
   to { opacity: 1; scale: 1; }
 }
 
-@keyframes spin {
-  to { rotate: 1turn; }
-}
-
 @media (prefers-reduced-motion: reduce) {
   .launcher, .card, .mark, .check-pill, .field-trigger { animation: none !important; }
   .mark[data-state="filled"],
@@ -413,4 +550,6 @@ export const GLYPH = {
   panel:
     '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 2.75h12v10.5H2z"/><path d="M10 2.75v10.5"/></svg>',
   mute: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="6"/><path d="m4 12 8-8"/></svg>',
+  close:
+    '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8"/></svg>',
 } as const

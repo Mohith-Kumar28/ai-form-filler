@@ -57,7 +57,7 @@ export function mountFieldMark(element: HTMLElement, onReview?: () => void): Fie
       const button = document.createElement('button')
       button.type = 'button'
       button.className = 'check-pill'
-      button.innerHTML = `${GLYPH.sparkle}<span>check</span>`
+      button.innerHTML = `${GLYPH.sparkle}<span>needs a look</span>`
       button.addEventListener('click', (event) => {
         event.preventDefault()
         event.stopPropagation()

@@ -104,10 +104,13 @@ export default defineContentScript({
       card = null
     }
 
-    // ── field-side trigger (the "session thingy") ──────────────────────────
-    // A small sparkle icon on the right-side of every focused fillable field. Clicking it
-    // opens a menu with field-level actions: instant fill for known values, AI for the rest,
-    // or the whole form at once.
+    // ── field assist ────────────────────────────────────────────────────────
+    // Two per field, shown only while a fillable field is focused and empty:
+    //
+    //   • every field gets a sparkle icon on its right edge — click it and the icon spins out
+    //     while the AI writes, with no popup; hover for a moment to see the native tooltip.
+    //   • a field we already know (an email, a typed fact) additionally gets an autofill
+    //     suggestion below it — the value, focused so Enter fills it and Escape closes it.
 
     let fieldTrigger: HTMLElement | null = null
     let fieldTriggerTarget: HTMLElement | null = null
@@ -119,6 +122,7 @@ export default defineContentScript({
       trigger.type = 'button'
       trigger.className = 'field-trigger'
       trigger.setAttribute('aria-label', 'Fill this field')
+      trigger.setAttribute('title', 'Auto-fill this field')
       trigger.innerHTML = GLYPH.sparkle
 
       const place = () => {
@@ -131,7 +135,8 @@ export default defineContentScript({
       trigger.addEventListener('mousedown', (event) => event.preventDefault())
       trigger.addEventListener('click', () => {
         if (element !== document.activeElement) return
-        openFieldMenu(element)
+        trigger.setAttribute('data-loading', 'true')
+        requestFill('field', element)
       })
 
       root.appendChild(trigger)
@@ -145,7 +150,42 @@ export default defineContentScript({
       fieldTriggerTarget = null
     }
 
-    function openFieldMenu(element: HTMLElement) {
+    let suggestionDismissed = false
+
+    function mountAutofillSuggestion(
+      element: HTMLElement,
+      _field: { label: string },
+      value: string,
+    ) {
+      const fieldId = fieldIdFor(element)
+      const detectedField = fieldId ? detection?.elements.get(fieldId) : null
+      if (!detectedField || !detection) return
+
+      closeCard()
+      const rect = element.getBoundingClientRect()
+      const anchor = { top: rect.top, left: rect.left, width: rect.width, height: rect.height }
+
+      card = mountMenuCard({
+        kind: 'menu',
+        anchor,
+        actions: [{ id: 'fill', label: value, glyph: 'check' }],
+        note: { text: '↵ Enter to fill' },
+        autofocus: true,
+        closeable: true,
+        onSelect: (id) => {
+          closeCard()
+          if (id === 'fill') void detection?.adapter.applyValue(detectedField, value)
+        },
+        onClose: () => {
+          suggestionDismissed = true
+          closeCard()
+          element.focus()
+        },
+      })
+    }
+
+    function showFieldAssist(element: HTMLElement) {
+      if (filling || card) return
       if (!detection) return
       const fieldId = fieldIdFor(element)
       if (!fieldId) return
@@ -153,75 +193,60 @@ export default defineContentScript({
       const detectedField = detection.elements.get(fieldId)
       if (!field || !detectedField) return
 
-      closeCard()
-      const rect = element.getBoundingClientRect()
-      const anchor = { top: rect.top, left: rect.left, width: rect.width, height: rect.height }
-      const total = detection.form.fields.length
+      // Only when empty — a field already answered should not be second-guessed.
+      const current = detection.adapter.readValue(detectedField)
+      if (current && current.trim() !== '') return
+
+      // The sparkle icon goes on every field, known or not.
+      mountFieldTrigger(element)
 
       void ensureKnownFacts().then((facts) => {
         if (element !== document.activeElement) return
-        closeCard()
-
         const suggestion = facts
           ? suggestForField(
               { label: field.label, autocomplete: field.autocomplete, kind: field.kind },
               facts,
             )
           : null
-
-        const actions: Array<{
-          id: string
-          label: string
-          glyph: 'check' | 'sparkle' | 'form'
-        }> = []
-        if (suggestion) actions.push({ id: 'fill', label: 'Fill this field', glyph: 'check' })
-        actions.push({ id: 'generate', label: 'Write this with AI', glyph: 'sparkle' })
-        actions.push({
-          id: 'form',
-          label: `Fill all ${total} ${total === 1 ? 'field' : 'fields'}`,
-          glyph: 'form',
-        })
-
-        card = mountMenuCard({
-          kind: 'menu',
-          anchor,
-          question: field.label,
-          actions,
-          autofocus: false,
-          onSelect: (id) => {
-            closeCard()
-            if (id === 'fill' && suggestion)
-              void detection?.adapter.applyValue(detectedField, suggestion.value)
-            else if (id === 'generate') requestFill('field', element)
-            else if (id === 'form') requestFill('form')
-          },
-          onClose: closeCard,
-        })
+        if (!suggestion || suggestionDismissed) {
+          suggestionDismissed = false
+          return
+        }
+        mountAutofillSuggestion(element, field, suggestion.value)
       })
     }
 
     // ── the launcher ────────────────────────────────────────────────────────
-    // The pill at the bottom-right of the page. One click opens the side panel and starts
-    // filling the form — no popup menu, just straight into it. While a fill is running it
-    // becomes the progress indicator, and when it is done it shows the result; clicking it
-    // then reopens the panel to the review.
+    // A circle icon pinned to the right edge, with a field-count badge below and a grabber
+    // beside it. One click opens the side panel and starts filling; while filling it expands
+    // into a progress pill with a stop button.
 
     function ensureLauncher() {
-      if (muted || !detection || detection.form.fields.length === 0) return
-      if (launcher?.element.isConnected) {
-        launcher.setFieldCount(detection.form.fields.length)
+      const count = !muted && detection ? detection.form.fields.length : 0
+      if (count === 0) {
+        launcher?.destroy()
+        launcher = null
         return
       }
-      const total = detection.form.fields.length
+      if (launcher?.element.isConnected) {
+        launcher.setFieldCount(count)
+        return
+      }
       launcher = mountLauncher({
-        fieldCount: total,
         onOpen: () => {
+          launcher?.setLoading(true)
           void chrome.runtime
             .sendMessage({ type: 'overlay/openPanel' })
             .then(() => requestFill('form'))
         },
-        onReview: () => void chrome.runtime.sendMessage({ type: 'overlay/openPanel' }),
+        onStop: () => {
+          filling = false
+          clearMarks()
+          launcher?.reset()
+          void chrome.runtime.sendMessage({ type: 'overlay/cancelFill' })
+        },
       })
+      launcher.setFieldCount(count)
     }
 
     function openReview(fieldId: string) {
@@ -324,7 +349,6 @@ export default defineContentScript({
 
       filling = true
       clearMarks()
-      launcher?.setBusy(0, detection?.form.fields.length ?? 0)
       void chrome.runtime.sendMessage({ type: 'overlay/requestFill', scope, fieldId })
     }
 
@@ -375,7 +399,6 @@ export default defineContentScript({
       const active = detection
       if (!active) {
         filling = false
-        launcher?.reset()
         return { applied: [], failed: plan.fills.map((f) => f.fieldId) }
       }
 
@@ -411,21 +434,14 @@ export default defineContentScript({
           .map((f) => f.fieldId),
       )
 
-      let completed = 0
       const result = await runFillAnimation(animated, {
         onFieldStart: (fieldId) => marks.get(fieldId)?.setState('active'),
         onFieldEnd: (fieldId, ok) => {
-          completed += 1
-          launcher?.setBusy(completed, animated.length)
           marks.get(fieldId)?.setState(!ok ? 'failed' : aiWrote.has(fieldId) ? 'aiWrote' : 'filled')
         },
       })
 
       filling = false
-      launcher?.setResult(
-        result.applied.length,
-        plan.fills.filter((f) => f.inferred || f.confidence < REVIEW_CONFIDENCE_THRESHOLD).length,
-      )
 
       const launcherRect = launcher?.anchorRect()
       if (launcherRect) {
@@ -474,6 +490,7 @@ export default defineContentScript({
             return false
 
           case 'content/apply':
+            launcher?.setLoading(false)
             void apply(request.plan).then(sendResponse)
             return true
 
@@ -522,21 +539,19 @@ export default defineContentScript({
             if (event.type === 'progress') {
               if (event.stage === 'applying') {
                 closeCard()
+                destroyFieldTrigger()
               } else {
-                launcher?.setBusy(0, event.total)
+                launcher?.setBusy(event.done, event.total)
               }
             } else if (event.type === 'error') {
               filling = false
-              launcher?.reset()
               clearMarks()
+              destroyFieldTrigger()
+              launcher?.reset()
             } else if (event.type === 'complete') {
               filling = false
-              launcher?.setResult(
-                event.report.applied.length,
-                event.plan.fills.filter(
-                  (f) => f.inferred || f.confidence < REVIEW_CONFIDENCE_THRESHOLD,
-                ).length,
-              )
+              destroyFieldTrigger()
+              launcher?.reset()
             }
             return false
           }
@@ -568,7 +583,7 @@ export default defineContentScript({
     const onFocusIn = (event: FocusEvent) => {
       const target = event.target as HTMLElement | null
       if (!target || muted || !isFillable(target)) return
-      mountFieldTrigger(target)
+      showFieldAssist(target)
     }
 
     const onFocusOut = (event: FocusEvent) => {

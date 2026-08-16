@@ -1,5 +1,5 @@
 import { AnimatePresence, motion } from 'motion/react'
-import { useCallback, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   Button,
   Card,
@@ -15,71 +15,13 @@ import { cn } from '@/lib/cn'
 /* ── Demo data (matches the extension's gallery fixtures) ────────────────── */
 
 const FORM_FIELDS = [
-  {
-    id: 'f_name',
-    label: 'Full name',
-    value: '',
-    kind: 'text',
-    concluded: false,
-    confidence: 0.99,
-    tier: 0,
-  },
-  {
-    id: 'f_email',
-    label: 'Email address',
-    value: '',
-    kind: 'email',
-    concluded: false,
-    confidence: 0.99,
-    tier: 0,
-  },
-  {
-    id: 'f_auth',
-    label: 'Do you require visa sponsorship?',
-    value: '',
-    kind: 'radio',
-    concluded: false,
-    confidence: 0.91,
-    tier: 0,
-    options: ['Yes', 'No'],
-  },
-  {
-    id: 'f_hear',
-    label: 'How did you hear about this role?',
-    value: '',
-    kind: 'select',
-    concluded: false,
-    confidence: 0.63,
-    tier: 1,
-    options: ['LinkedIn', 'A friend', 'Our careers page', 'A recruiter', 'Other'],
-  },
-  {
-    id: 'f_notice',
-    label: 'When could you start?',
-    value: '',
-    kind: 'text',
-    concluded: false,
-    confidence: 0.94,
-    tier: 0,
-  },
-  {
-    id: 'f_why',
-    label: 'Why do you want to work at Alderman & Roe?',
-    value: '',
-    kind: 'longtext',
-    concluded: true,
-    confidence: 0.58,
-    tier: 3,
-  },
-  {
-    id: 'f_salary',
-    label: 'What are your salary expectations?',
-    value: '',
-    kind: 'text',
-    concluded: true,
-    confidence: 0.41,
-    tier: 2,
-  },
+  { id: 'f_name', label: 'Full name', kind: 'text', concluded: false, confidence: 0.99 },
+  { id: 'f_email', label: 'Email address', kind: 'email', concluded: false, confidence: 0.99 },
+  { id: 'f_auth', label: 'Do you require visa sponsorship?', kind: 'radio', concluded: false, confidence: 0.91, options: ['Yes', 'No'] },
+  { id: 'f_hear', label: 'How did you hear about this role?', kind: 'select', concluded: false, confidence: 0.63, options: ['LinkedIn', 'A friend', 'Our careers page', 'A recruiter', 'Other'] },
+  { id: 'f_notice', label: 'When could you start?', kind: 'text', concluded: false, confidence: 0.94 },
+  { id: 'f_why', label: 'Why do you want to work at Alderman & Roe?', kind: 'longtext', concluded: true, confidence: 0.58 },
+  { id: 'f_salary', label: 'What are your salary expectations?', kind: 'text', concluded: true, confidence: 0.41 },
 ]
 
 const ANSWERS: Record<string, string> = {
@@ -88,8 +30,7 @@ const ANSWERS: Record<string, string> = {
   f_auth: 'No',
   f_hear: 'LinkedIn',
   f_notice: '3 November 2026',
-  f_why:
-    'I spent four years at Kestrel Health rebuilding a claims pipeline that nobody wanted to touch, and the part I liked was the archaeology — working out why a system had ended up the way it had before changing it. Your engineering posts read like people who do that on purpose rather than under duress.',
+  f_why: 'I spent four years at Kestrel Health rebuilding a claims pipeline that nobody wanted to touch, and the part I liked was the archaeology — working out why a system had ended up the way it had before changing it. Your engineering posts read like people who do that on purpose rather than under duress.',
   f_salary: '£72,000',
 }
 
@@ -99,36 +40,54 @@ const STAGES = [
   { key: 'applying', label: 'Slapping them in…', mascot: 'party' as Expression },
 ]
 
-type DemoState = 'home' | 'filling' | 'review' | 'done'
+type DemoState = 'idle' | 'filling' | 'review' | 'done'
+type MarkState = 'idle' | 'active' | 'filled' | 'aiWrote'
 
 export function ExtensionDemo() {
-  const [state, setState] = useState<DemoState>('home')
+  const [state, setState] = useState<DemoState>('idle')
   const [stage, setStage] = useState(0)
+  const [marks, setMarks] = useState<Record<string, MarkState>>({})
   const [filledFields, setFilledFields] = useState<Set<string>>(new Set())
   const [showReview, setShowReview] = useState(false)
+  const [launcherMode, setLauncherMode] = useState<'idle' | 'busy' | 'result'>('idle')
+  const [launcherText, setLauncherText] = useState('Fill form')
+  const formRef = useRef<HTMLDivElement>(null)
 
   const startFill = useCallback(() => {
     setState('filling')
+    setLauncherMode('busy')
     setStage(0)
 
     let step = 0
     const advance = () => {
       if (step < STAGES.length) {
         setStage(step)
+        setLauncherText(`${step}/${STAGES.length}`)
         step++
         setTimeout(advance, step === 2 ? 1400 : 1200)
       } else {
-        // Fill fields in sequence
         const fieldIds = FORM_FIELDS.map((f) => f.id)
         let fi = 0
         const fillNext = () => {
           if (fi < fieldIds.length) {
-            setFilledFields((prev) => new Set([...prev, fieldIds[fi]!]))
-            fi++
-            setTimeout(fillNext, 300)
+            const fieldId = fieldIds[fi]!
+            setMarks((prev) => ({ ...prev, [fieldId]: 'active' }))
+            setTimeout(() => {
+              setFilledFields((prev) => new Set([...prev, fieldId]))
+              const field = FORM_FIELDS.find((f) => f.id === fieldId)
+              setMarks((prev) => ({
+                ...prev,
+                [fieldId]: field?.concluded ? 'aiWrote' : 'filled',
+              }))
+              fi++
+              setTimeout(fillNext, 200)
+            }, 400)
           } else {
             setTimeout(() => {
               setState('review')
+              setLauncherMode('result')
+              const concluded = FORM_FIELDS.filter((f) => f.concluded).length
+              setLauncherText(`${FORM_FIELDS.length - concluded} filled · ${concluded} need a look`)
             }, 600)
           }
         }
@@ -139,267 +98,202 @@ export function ExtensionDemo() {
   }, [])
 
   const reset = useCallback(() => {
-    setState('home')
+    setState('idle')
     setStage(0)
     setFilledFields(new Set())
+    setMarks({})
     setShowReview(false)
+    setLauncherMode('idle')
+    setLauncherText('Fill form')
   }, [])
 
+  // Clear 'filled' marks after a delay (they flash green then disappear)
+  useEffect(() => {
+    const filled = Object.entries(marks).filter(([_, v]) => v === 'filled')
+    if (filled.length === 0) return
+    const timeout = setTimeout(() => {
+      setMarks((prev) => {
+        const next = { ...prev }
+        filled.forEach(([id]) => delete next[id])
+        return next
+      })
+    }, 1500)
+    return () => clearTimeout(timeout)
+  }, [marks])
+
   return (
-    <div className="w-full">
-      <div className="overflow-hidden rounded-2xl border border-border-muted bg-surface-muted shadow-card">
-        {/* Browser chrome */}
-        <div className="flex items-center gap-2 border-b border-border-muted bg-surface px-3 py-2 md:px-4 md:py-2.5">
-          <div className="flex gap-1.5">
-            <div className="size-2.5 rounded-full md:size-3" style={{ background: 'var(--danger)' }} />
-            <div className="size-2.5 rounded-full md:size-3" style={{ background: 'var(--warning)' }} />
-            <div className="size-2.5 rounded-full md:size-3" style={{ background: 'var(--positive)' }} />
-          </div>
-          <div className="mx-auto flex h-6 w-full max-w-[280px] items-center rounded-full border border-border-muted bg-surface-muted px-2 md:h-7 md:max-w-[380px] md:px-3">
-            <span className="truncate text-[10px] text-ink-dim md:text-[11px]">
-              boards.greenhouse.io/alderman-roe/jobs/engineering-manager
-            </span>
-          </div>
-          <div className="w-10 md:w-[52px]" />
-        </div>
-
-        <div className="flex min-h-[420px] flex-col md:min-h-[520px] md:flex-row">
-          {/* Form area — the web page */}
-          <div className="flex-1 border-r border-border-muted bg-surface p-3 md:p-6">
-            <div className="space-y-1">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.1em] text-ink-dim">
-                Job application
-              </p>
-              <h3 className="font-display text-[17px] font-bold tracking-[-0.02em] text-ink">
-                Engineering Manager
-              </h3>
-              <p className="text-[12px] text-ink-muted">Alderman & Roe · Bristol, UK · Remote</p>
-            </div>
-
-            <div className="mt-4 space-y-3 md:space-y-3.5">
-              {FORM_FIELDS.map((field) => (
-                <div key={field.id} className="space-y-1">
-                  <label className="text-[12px] font-semibold text-ink-muted">
-                    {field.label}
-                    {field.kind === 'longtext' && (
-                      <span className="ml-1.5 text-[11px] font-normal text-ink-dim">required</span>
-                    )}
-                  </label>
-                  {field.kind === 'longtext' ? (
-                    <div
-                      className={cn(
-                        'min-h-[60px] rounded-xl border px-3 py-2 text-[13px] leading-relaxed transition-all duration-300',
-                        filledFields.has(field.id)
-                          ? 'border-accent/40 bg-accent-muted/30 text-ink'
-                          : 'border-border bg-surface-raised text-transparent',
-                      )}
-                    >
-                      {filledFields.has(field.id) || state === 'review' || state === 'done'
-                        ? ANSWERS[field.id]
-                        : ''}
-                    </div>
-                  ) : field.kind === 'radio' ? (
-                    <div className="flex gap-4 pt-1">
-                      {field.options?.map((opt) => {
-                        const selected = filledFields.has(field.id) && ANSWERS[field.id] === opt
-                        return (
-                          <label
-                            key={opt}
-                            className="flex items-center gap-2 text-[13px] text-ink-muted"
-                          >
-                            <span
-                              className={cn(
-                                'flex size-4 items-center justify-center rounded-full border-2 transition-all',
-                                selected ? 'border-accent bg-accent' : 'border-border',
-                              )}
-                            >
-                              {selected && <span className="size-2 rounded-full bg-white" />}
-                            </span>
-                            {opt}
-                          </label>
-                        )
-                      })}
-                    </div>
-                  ) : field.kind === 'select' ? (
-                    <div
-                      className={cn(
-                        'rounded-xl border px-3 py-2 text-[13px] transition-all duration-300',
-                        filledFields.has(field.id)
-                          ? 'border-accent/40 bg-accent-muted/30 text-ink'
-                          : 'border-border bg-surface-raised text-ink-dim',
-                      )}
-                    >
-                      {filledFields.has(field.id) || state === 'review' || state === 'done'
-                        ? ANSWERS[field.id]
-                        : 'Select…'}
-                    </div>
-                  ) : (
-                    <input
-                      readOnly
-                      value={
-                        filledFields.has(field.id) || state === 'review' || state === 'done'
-                          ? ANSWERS[field.id]
-                          : ''
-                      }
-                      placeholder=" "
-                      className={cn(
-                        'w-full rounded-xl border px-3 py-2 text-[13px] text-ink transition-all duration-300 outline-none',
-                        filledFields.has(field.id)
-                          ? 'border-accent/40 bg-accent-muted/30'
-                          : 'border-border bg-surface-raised',
-                      )}
-                    />
-                  )}
-                </div>
-              ))}
-
-              <div className="pt-3 pb-5">
-                <div className="h-9 w-28 rounded-full bg-border/40" />
-              </div>
-            </div>
-          </div>
-
-          {/* Side panel — the extension UI */}
-          <div className="flex w-full shrink-0 flex-col border-t border-border-muted bg-surface md:w-[42%] md:min-w-[320px] md:border-t-0 md:border-l">
-            <AnimatePresence mode="wait">
-              {state === 'home' && <HomePanel key="home" onFill={startFill} />}
-              {state === 'filling' && <FillingPanel key="filling" stage={stage} />}
-              {state === 'review' && (
-                <ReviewPanel
-                  key="review"
-                  onDone={() => setState('done')}
-                  showSettled={showReview}
-                  onToggleSettled={() => setShowReview((v) => !v)}
-                />
-              )}
-              {state === 'done' && <DonePanel key="done" onReset={reset} />}
-            </AnimatePresence>
-          </div>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-function HomePanel({ onFill }: { onFill: () => void }) {
-  return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      className="flex flex-1 flex-col"
-    >
-      <header className="flex h-12 shrink-0 items-center gap-1.5 border-b border-border-muted px-3">
-        <IconSparkle className="size-4 shrink-0 text-accent" />
-        <h1 className="flex-1 font-display text-[16px] font-bold tracking-[-0.02em] text-ink">
-          fillaform
-        </h1>
-        <span className="flex size-7 items-center justify-center rounded-full text-ink-dim">⚙</span>
-      </header>
-
-      <div className="flex flex-1 flex-col p-3">
-        <Card className="p-4">
-          <p className="font-display text-[18px] font-bold tracking-[-0.02em] text-ink">
-            boards.greenhouse.io
+    <div className="relative w-full">
+      {/* The form — looks like a real job application page */}
+      <div ref={formRef} className="rounded-2xl border border-border-muted bg-surface p-6 md:p-8">
+        <div className="mb-6 space-y-1">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.1em] text-ink-dim">
+            Job application
           </p>
-          <p className="mt-1 text-[13px] text-ink-muted">7 fields found</p>
-
-          <div className="mt-4">
-            <Button variant="primary" size="lg" block onClick={onFill}>
-              <IconSparkle className="size-4" />
-              Fill this form
-            </Button>
-          </div>
-        </Card>
-
-        <div className="mt-3 divide-y divide-border-muted">
-          <div className="flex items-center gap-2.5 px-1 py-3 text-left text-[14px]">
-            <IconSparkle className="size-4 text-ink-dim" />
-            <span className="flex-1 truncate text-ink">What it knows</span>
-            <span className="text-[12px] text-ink-dim">5 sources ready</span>
-            <span className="text-ink-dim">→</span>
-          </div>
-          <div className="flex items-center gap-2.5 px-1 py-3 text-left text-[14px]">
-            <span className="flex size-4 items-center justify-center text-ink-dim">♡</span>
-            <span className="flex-1 truncate text-ink">Plan</span>
-            <span className="text-[12px] text-ink-dim">Free · 13/50 this month</span>
-            <span className="text-ink-dim">→</span>
-          </div>
+          <h3 className="font-display text-[20px] font-bold tracking-[-0.02em] text-ink">
+            Engineering Manager
+          </h3>
+          <p className="text-[13px] text-ink-muted">Alderman & Roe · Bristol, UK · Remote</p>
         </div>
-      </div>
-    </motion.div>
-  )
-}
 
-function FillingPanel({ stage }: { stage: number }) {
-  const active = STAGES[Math.min(stage, STAGES.length - 1)] ?? STAGES[0]
+        <div className="space-y-4">
+          {FORM_FIELDS.map((field) => {
+            const mark = marks[field.id]
+            const isFilled = filledFields.has(field.id)
+            const value = isFilled || state === 'review' || state === 'done' ? ANSWERS[field.id] : ''
 
-  return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      className="flex flex-1 flex-col"
-    >
-      <header className="flex h-12 shrink-0 items-center gap-1.5 border-b border-border-muted px-3">
-        <button className="flex size-7 items-center justify-center rounded-full text-ink-muted">
-          ←
-        </button>
-        <h1 className="flex-1 font-display text-[16px] font-bold tracking-[-0.02em] text-ink">
-          On it
-        </h1>
-      </header>
-
-      <div className="flex flex-1 flex-col items-center px-5 py-6 text-center">
-        <Mascot expression={active.mascot} size={64} className="animate-bounce" />
-
-        <p className="mt-4 font-display text-[17px] font-bold tracking-[-0.02em] text-ink">
-          {active.label}
-        </p>
-        <p className="mt-1 text-[13px] text-ink-muted">7 fields on this page</p>
-
-        <div className="mt-5 w-full space-y-1.5">
-          {STAGES.map(({ key, label }, i) => {
-            const done = i < stage
-            const isActive = i === stage
             return (
-              <div
-                key={key}
-                className="flex items-center gap-2.5 rounded-full border border-border-muted bg-surface-raised px-3 py-2"
-              >
-                <span className="flex size-3.5 shrink-0 items-center justify-center">
-                  {done ? (
-                    <IconCheck className="size-3.5 text-positive" />
-                  ) : isActive ? (
-                    <span className="animate-pulse-dot size-2 rounded-full bg-accent" />
-                  ) : (
-                    <span className="size-1.5 rounded-full bg-border" />
+              <div key={field.id} className="relative space-y-1.5">
+                <label className="text-[12px] font-semibold text-ink-muted">
+                  {field.label}
+                  {field.kind === 'longtext' && (
+                    <span className="ml-1.5 text-[11px] font-normal text-ink-dim">required</span>
                   )}
-                </span>
-                <span
-                  className={cn(
-                    'flex-1 text-left text-[13px]',
-                    done ? 'text-ink-dim' : isActive ? 'font-semibold text-ink' : 'text-ink-dim',
-                  )}
-                >
-                  {label}
-                </span>
+                </label>
+
+                {field.kind === 'longtext' ? (
+                  <div
+                    className={cn(
+                      'min-h-[80px] rounded-xl border px-3 py-2 text-[13px] leading-relaxed transition-all duration-300',
+                      mark === 'active' && 'border-accent ring-2 ring-accent/20',
+                      mark === 'aiWrote' && 'border-accent/40 bg-accent-muted/20',
+                      mark === 'filled' && 'border-positive bg-positive-muted/20',
+                      !mark && 'border-border bg-surface-raised',
+                    )}
+                  >
+                    {value}
+                  </div>
+                ) : field.kind === 'radio' ? (
+                  <div className="flex gap-4 pt-1">
+                    {field.options?.map((opt) => {
+                      const selected = value === opt
+                      return (
+                        <label key={opt} className="flex items-center gap-2 text-[13px] text-ink-muted">
+                          <span
+                            className={cn(
+                              'flex size-4 items-center justify-center rounded-full border-2 transition-all',
+                              selected ? 'border-accent bg-accent' : 'border-border',
+                            )}
+                          >
+                            {selected && <span className="size-2 rounded-full bg-white" />}
+                          </span>
+                          {opt}
+                        </label>
+                      )
+                    })}
+                  </div>
+                ) : field.kind === 'select' ? (
+                  <div
+                    className={cn(
+                      'rounded-xl border px-3 py-2 text-[13px] transition-all duration-300',
+                      mark === 'active' && 'border-accent ring-2 ring-accent/20',
+                      mark === 'aiWrote' && 'border-accent/40 bg-accent-muted/20',
+                      mark === 'filled' && 'border-positive bg-positive-muted/20',
+                      !mark && 'border-border bg-surface-raised',
+                      !value && 'text-ink-dim',
+                    )}
+                  >
+                    {value || 'Select…'}
+                  </div>
+                ) : (
+                  <input
+                    readOnly
+                    value={value}
+                    placeholder=" "
+                    className={cn(
+                      'w-full rounded-xl border px-3 py-2 text-[13px] text-ink transition-all duration-300 outline-none',
+                      mark === 'active' && 'border-accent ring-2 ring-accent/20',
+                      mark === 'aiWrote' && 'border-accent/40 bg-accent-muted/20',
+                      mark === 'filled' && 'border-positive bg-positive-muted/20',
+                      !mark && 'border-border bg-surface-raised',
+                    )}
+                  />
+                )}
+
+                {/* Field mark pill — appears on AI-written fields */}
+                {mark === 'aiWrote' && (
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.8, y: 4 }}
+                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                    transition={{ duration: 0.2, ease: [0.34, 1.56, 0.64, 1] }}
+                    className="absolute -top-2 right-2"
+                  >
+                    <button
+                      type="button"
+                      onClick={() => setState('review')}
+                      className="inline-flex items-center gap-1 rounded-full bg-accent-muted px-2 py-0.5 text-[10px] font-medium text-accent transition-colors hover:bg-accent-muted/80"
+                    >
+                      <IconSparkle className="size-2.5" />
+                      needs a look
+                    </button>
+                  </motion.div>
+                )}
               </div>
             )
           })}
         </div>
-
-        <p className="mt-5 text-[12px] leading-relaxed text-ink-dim">
-          Answers land on the page as they arrive. Nothing gets submitted — that stays yours.
-        </p>
       </div>
 
-      <div className="border-t border-border-muted px-3 py-3">
-        <Button variant="ghost" block>
-          Stop
-        </Button>
-      </div>
-    </motion.div>
+      {/* Launcher pill — sticky on the right edge */}
+      <motion.div
+        initial={{ opacity: 0, x: 20 }}
+        animate={{ opacity: 1, x: 0 }}
+        transition={{ duration: 0.4, ease: [0.34, 1.56, 0.64, 1] }}
+        className="absolute right-4 top-1/2 -translate-y-1/2"
+      >
+        <button
+          type="button"
+          onClick={state === 'idle' ? startFill : state === 'review' ? () => setShowReview(true) : state === 'done' ? reset : undefined}
+          disabled={state === 'filling'}
+          className={cn(
+            'flex items-center gap-2 rounded-full border border-border-muted bg-surface-raised px-4 py-2.5 text-[13px] font-semibold shadow-card transition-all duration-200',
+            launcherMode === 'idle' && 'hover:bg-surface-muted',
+            launcherMode === 'busy' && 'cursor-wait opacity-80',
+            launcherMode === 'result' && 'border-accent/30 bg-accent-muted/30 text-accent',
+          )}
+        >
+          {launcherMode === 'busy' ? (
+            <>
+              <span className="flex h-3.5 w-3.5 items-center justify-center">
+                <span className="h-2.5 w-2.5 animate-spin rounded-full border-2 border-accent border-t-transparent" />
+              </span>
+              <span className="text-ink-muted">{launcherText}</span>
+            </>
+          ) : launcherMode === 'result' ? (
+            <>
+              <IconSparkle className="size-3.5" />
+              <span>{launcherText}</span>
+            </>
+          ) : (
+            <>
+              <IconSparkle className="size-3.5 text-accent" />
+              <span>{launcherText}</span>
+            </>
+          )}
+        </button>
+      </motion.div>
+
+      {/* Side panel — slides in from the right when review is shown */}
+      <AnimatePresence>
+        {showReview && (
+          <motion.div
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: 20 }}
+            transition={{ duration: 0.3, ease: [0.2, 0, 0, 1] }}
+            className="absolute right-0 top-0 h-full w-[320px] overflow-y-auto rounded-2xl border border-border-muted bg-surface-raised p-4 shadow-card md:w-[380px]"
+          >
+            <ReviewPanel
+              onDone={() => {
+                setShowReview(false)
+                setState('done')
+              }}
+              showSettled={showReview}
+              onToggleSettled={() => setShowReview((v) => !v)}
+            />
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
   )
 }
 
@@ -416,174 +310,112 @@ function ReviewPanel({
   const settled = FORM_FIELDS.filter((f) => !f.concluded && f.confidence >= 0.7)
 
   return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      className="flex flex-1 flex-col"
-    >
-      <header className="flex h-12 shrink-0 items-center gap-1.5 border-b border-border-muted px-3">
-        <button className="flex size-7 items-center justify-center rounded-full text-ink-muted">
+    <div className="flex h-full flex-col">
+      <div className="mb-3 flex items-center gap-2 border-b border-border-muted pb-3">
+        <button onClick={onToggleSettled} className="flex size-7 items-center justify-center rounded-full text-ink-muted hover:bg-surface-muted">
           ←
         </button>
-        <h1 className="flex-1 font-display text-[16px] font-bold tracking-[-0.02em] text-ink">
+        <h3 className="flex-1 font-display text-[16px] font-bold tracking-[-0.02em] text-ink">
           {checkable.length} worth checking
-        </h1>
-      </header>
-
-      <div className="min-h-0 flex-1 overflow-y-auto">
-        <p className="px-3 py-2.5 text-[12px] font-medium text-ink-muted">7 written</p>
-
-        {checkable.length > 0 && (
-          <div className="mx-3 flex flex-col gap-px">
-            <p className="mb-2 text-[12px] font-semibold uppercase text-ink-dim">
-              check these — I guessed
-            </p>
-            {checkable.map((field) => (
-              <Card
-                key={field.id}
-                className="!rounded-none first:rounded-t-2xl last:rounded-b-2xl border-b-0"
-              >
-                <div className="p-4">
-                  <div className="flex items-start justify-between gap-2">
-                    <p className="min-w-0 flex-1 text-[13px] font-semibold text-ink">
-                      {field.label}
-                    </p>
-                    {field.concluded && <GuessedBadge />}
-                    {!field.concluded && field.confidence < 0.7 && (
-                      <GuessedBadge label={`unsure · ${Math.round(field.confidence * 100)}%`} />
-                    )}
-                  </div>
-
-                  <div className="mt-2.5">
-                    {field.kind === 'radio' || field.kind === 'select' ? (
-                      <div className="flex flex-wrap gap-1.5">
-                        {(
-                          field.options ?? [
-                            'LinkedIn',
-                            'A friend',
-                            'Our careers page',
-                            'A recruiter',
-                            'Other',
-                          ]
-                        ).map((opt) => {
-                          const selected = ANSWERS[field.id] === opt
-                          return (
-                            <span
-                              key={opt}
-                              className={cn(
-                                'rounded-full border px-3 py-1.5 text-[12.5px] font-medium',
-                                selected
-                                  ? 'border-accent bg-accent text-white'
-                                  : 'border-border-muted text-ink-muted',
-                              )}
-                            >
-                              {opt}
-                            </span>
-                          )
-                        })}
-                      </div>
-                    ) : (
-                      <div className="rounded-xl border border-border-muted px-3 py-2 text-[13px] leading-[1.55] text-ink">
-                        {ANSWERS[field.id]}
-                      </div>
-                    )}
-                  </div>
-
-                  {field.concluded && (
-                    <p className="mt-2 flex items-center gap-1.5 text-[12px] text-ink-dim">
-                      <IconSparkle className="size-3 text-accent" />i
-                      {field.confidence < 0.5
-                        ? "'m not sure"
-                        : field.confidence < 0.7
-                          ? ' think so'
-                          : "'m pretty sure"}{' '}
-                      about this one
-                    </p>
-                  )}
-
-                  <div className="mt-3 flex flex-wrap items-center gap-2">
-                    <Button size="sm" variant="secondary">
-                      <IconCheck className="size-3.5" />
-                      Keep
-                    </Button>
-                    <Button size="sm" variant="ghost">
-                      Rewrite
-                    </Button>
-                  </div>
-                </div>
-              </Card>
-            ))}
-          </div>
-        )}
-
-        {settled.length > 0 && (
-          <div className="mx-3 mt-3">
-            <button
-              type="button"
-              onClick={onToggleSettled}
-              className="flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-left transition-colors hover:bg-surface-muted"
-            >
-              <IconCheck className="size-4 shrink-0 text-positive" />
-              <span className="flex-1 text-[13px] font-medium text-ink-muted">
-                {settled.length} answers read straight off
-              </span>
-              <span className="text-[12px] font-semibold uppercase text-ink-dim">
-                {showSettled ? 'hide' : 'show'}
-              </span>
-            </button>
-
-            {showSettled && (
-              <div className="mt-1 space-y-1">
-                {settled.map((field) => (
-                  <div key={field.id} className="rounded-xl border border-border-muted px-3 py-2">
-                    <div className="flex items-center justify-between">
-                      <p className="text-[12px] font-semibold text-ink-muted">{field.label}</p>
-                      <ReadBadge />
-                    </div>
-                    <p className="mt-1 text-[13px] leading-snug text-ink">{ANSWERS[field.id]}</p>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
+        </h3>
       </div>
 
-      <div className="border-t border-border-muted px-3 py-4">
-        <Button variant="primary" block size="lg" onClick={onDone}>
-          <IconSparkle className="size-4" />
+      <p className="mb-3 text-[12px] font-medium text-ink-muted">
+        {FORM_FIELDS.length} written
+      </p>
+
+      {checkable.length > 0 && (
+        <div className="flex flex-col gap-px">
+          <p className="mb-2 text-[11px] font-semibold uppercase text-ink-dim">
+            check these — I guessed
+          </p>
+          {checkable.map((field) => (
+            <Card key={field.id} className="!rounded-none first:rounded-t-2xl last:rounded-b-2xl border-b-0">
+              <div className="p-3">
+                <div className="flex items-start justify-between gap-2">
+                  <p className="min-w-0 flex-1 text-[12px] font-semibold text-ink">{field.label}</p>
+                  {field.concluded && <GuessedBadge />}
+                  {!field.concluded && field.confidence < 0.7 && (
+                    <GuessedBadge label={`unsure · ${Math.round(field.confidence * 100)}%`} />
+                  )}
+                </div>
+
+                <div className="mt-2">
+                  {field.kind === 'radio' || field.kind === 'select' ? (
+                    <div className="flex flex-wrap gap-1">
+                      {(field.options ?? ['LinkedIn', 'A friend', 'Our careers page', 'A recruiter', 'Other']).map((opt) => {
+                        const selected = ANSWERS[field.id] === opt
+                        return (
+                          <span key={opt} className={cn(
+                            'rounded-full border px-2 py-1 text-[11px] font-medium',
+                            selected ? 'border-accent bg-accent text-white' : 'border-border-muted text-ink-muted',
+                          )}>
+                            {opt}
+                          </span>
+                        )
+                      })}
+                    </div>
+                  ) : (
+                    <div className="rounded-lg border border-border-muted px-2 py-1.5 text-[12px] leading-relaxed text-ink">
+                      {ANSWERS[field.id]}
+                    </div>
+                  )}
+                </div>
+
+                {field.concluded && (
+                  <p className="mt-1.5 flex items-center gap-1 text-[10px] text-ink-dim">
+                    <IconSparkle className="size-2.5 text-accent" />
+                    i{field.confidence < 0.5 ? "'m not sure" : field.confidence < 0.7 ? ' think so' : "'m pretty sure"}
+                  </p>
+                )}
+
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  <Button size="sm" variant="secondary"><IconCheck className="size-3" />Keep</Button>
+                  <Button size="sm" variant="ghost">Rewrite</Button>
+                </div>
+              </div>
+            </Card>
+          ))}
+        </div>
+      )}
+
+      {settled.length > 0 && (
+        <div className="mt-3">
+          <button type="button" onClick={onToggleSettled} className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left transition-colors hover:bg-surface-muted">
+            <IconCheck className="size-3.5 shrink-0 text-positive" />
+            <span className="flex-1 text-[12px] font-medium text-ink-muted">
+              {settled.length} answers read straight off
+            </span>
+            <span className="text-[10px] font-semibold uppercase text-ink-dim">
+              {showSettled ? 'hide' : 'show'}
+            </span>
+          </button>
+
+          {showSettled && (
+            <div className="mt-1 space-y-1">
+              {settled.map((field) => (
+                <div key={field.id} className="rounded-lg border border-border-muted px-3 py-2">
+                  <div className="flex items-center justify-between">
+                    <p className="text-[11px] font-semibold text-ink-muted">{field.label}</p>
+                    <ReadBadge />
+                  </div>
+                  <p className="mt-1 text-[12px] leading-snug text-ink">{ANSWERS[field.id]}</p>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      <div className="mt-auto border-t border-border-muted pt-3">
+        <Button variant="primary" block size="md" onClick={onDone}>
+          <IconSparkle className="size-3.5" />
           Done
         </Button>
-        <p className="mt-2 text-center text-[12px] text-ink-dim">
+        <p className="mt-2 text-center text-[10px] text-ink-dim">
           Submitting the form is still yours to do.
         </p>
       </div>
-    </motion.div>
-  )
-}
-
-function DonePanel({ onReset }: { onReset: () => void }) {
-  return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      className="flex flex-1 flex-col items-center justify-center px-5 py-8 text-center"
-    >
-      <Mascot expression="party" size={72} className="animate-bounce" />
-      <p className="mt-5 font-display text-[18px] font-bold tracking-[-0.02em] text-ink">
-        All filled!
-      </p>
-      <p className="mt-2 max-w-[30ch] text-[13px] leading-relaxed text-ink-muted">
-        Every field on the page has been filled. Nothing was auto-submitted — you stay in control.
-      </p>
-      <div className="mt-6 flex gap-3">
-        <Button variant="primary" size="md" onClick={onReset}>
-          <IconSparkle className="size-4" />
-          Try again
-        </Button>
-      </div>
-    </motion.div>
+    </div>
   )
 }
