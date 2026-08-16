@@ -1,9 +1,12 @@
 import type { Account, Profile } from '../../../generated/model/index.js'
+import { openManageSubscription, openUpgrade } from '../../../lib/billing.js'
 import { formatResetDate, plural } from '../../../lib/format.js'
 import type { ActivePage } from '../../../lib/use-active-page.js'
 import { Button, Row, RowGroup, Screen, ScreenBody, ScreenHeader } from '../components.js'
 import { IconSeal } from '../icons.js'
 import { useNavigation } from '../navigation.js'
+
+const PLAN_NAMES: Record<string, string> = { free: 'Free', pro: 'Pro', ultra: 'Ultra' }
 
 /**
  * The portrait oval.
@@ -100,7 +103,7 @@ export function Home({
   const blockedReason = !account.profileReady
     ? 'Add something about yourself first.'
     : exhausted
-      ? `Out of forms until ${formatResetDate(resetsAt)}.`
+      ? `Out of forms until ${formatResetDate(resetsAt)}. Upgrade your plan for more.`
       : null
 
   return (
@@ -147,7 +150,16 @@ export function Home({
               <p className="mt-2 text-[12px] leading-snug text-ink2">
                 {left === 0
                   ? 'That was your last form this month.'
-                  : `${left} ${plural(left, 'form')} left this month.`}
+                  : `${left} ${plural(left, 'form')} left this month.`}{' '}
+                {account.quota.plan === 'free' && (
+                  <button
+                    type="button"
+                    onClick={() => void openUpgrade()}
+                    className="underline underline-offset-2 hover:text-ink"
+                  >
+                    Upgrade
+                  </button>
+                )}
               </p>
             )}
           </div>
@@ -177,6 +189,18 @@ export function Home({
               onClick={() => nav.push({ name: 'review' })}
             />
           )}
+          <Row
+            title="Plan"
+            detail={
+              account.subscription?.status === 'trial'
+                ? `${PLAN_NAMES[account.quota.plan]} trial · ${left} ${plural(left, 'form')} left`
+                : `${PLAN_NAMES[account.quota.plan]} · ${used}/${limit} this month`
+            }
+            value={account.quota.plan === 'free' ? 'Upgrade' : 'Manage'}
+            onClick={() =>
+              account.quota.plan === 'free' ? void openUpgrade() : void openManageSubscription()
+            }
+          />
         </RowGroup>
       </ScreenBody>
     </Screen>

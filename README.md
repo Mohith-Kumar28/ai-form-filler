@@ -199,7 +199,7 @@ curl -s -X POST localhost:8787/v1/auth/google \
 | 3 | Fill core — generic adapter, tier router, caching verified | ✅ built¹ |
 | 4 | Magic layer — overlay, positioning, fill animation, feedback loop | ✅ built¹ |
 | 5 | Site adapters — Google Forms, Greenhouse/Lever/Ashby | ✅ built¹ (Workday deferred) |
-| 6 | Monetization — Stripe, quota UI, privacy policy, Web Store listing | ⬅ next |
+| 6 | Monetization — Dodo Payments, quota UI, privacy policy, Web Store listing | ⬅ in progress |
 
 ¹ Built and unit-tested, but **not yet exercised against a live model or a real browser** —
 both need credentials only you can create. See "Before this is real" below.

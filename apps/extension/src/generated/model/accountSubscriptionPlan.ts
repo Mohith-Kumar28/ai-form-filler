@@ -5,11 +5,10 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export type AccountQuotaPlan = typeof AccountQuotaPlan[keyof typeof AccountQuotaPlan];
+export type AccountSubscriptionPlan = typeof AccountSubscriptionPlan[keyof typeof AccountSubscriptionPlan];
 
 
-export const AccountQuotaPlan = {
-  free: 'free',
+export const AccountSubscriptionPlan = {
   pro: 'pro',
   ultra: 'ultra',
 } as const;

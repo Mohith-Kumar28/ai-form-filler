@@ -108,7 +108,7 @@ describe('Account', () => {
       profileReady: false,
       profileVersion: 0,
     })
-    expect(parsed.quota.limit).toBe(50)
+    expect(parsed.quota.limit).toBe(5)
   })
 })
 

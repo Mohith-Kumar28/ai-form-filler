@@ -70,7 +70,13 @@ function useFillNavigation(status: string) {
 
 function Stack() {
   const nav = useNavigation()
-  const account = useGetAccount()
+  const account = useGetAccount({
+    query: {
+      // The plan flips server-side via webhook, which the panel cannot observe directly.
+      // Poll so a completed checkout is reflected without a manual panel reopen.
+      refetchInterval: 5000,
+    },
+  })
   const profile = useGetProfile()
   const page = useActivePage()
   const fill = useFill()

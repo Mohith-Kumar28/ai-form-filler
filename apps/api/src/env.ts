@@ -40,6 +40,20 @@ export interface Env {
 
   STRIPE_SECRET_KEY?: string
   STRIPE_WEBHOOK_SECRET?: string
+
+  DODO_PAYMENTS_API_KEY: string
+  DODO_WEBHOOK_SECRET: string
+  /** 'test_mode' | 'live_mode' — passed to the Dodo SDK. */
+  DODO_ENVIRONMENT: 'test_mode' | 'live_mode'
+  /**
+   * JSON mapping of plan → currency → Dodo product id.
+   * Example: '{"pro":{"usd":"pdt_abc","inr":"pdt_def"},"ultra":{"usd":"pdt_ghi","inr":"pdt_jkl"}}'
+   */
+  DODO_PRODUCT_IDS: string
+  /**
+   * JSON: {"usd":"pdc_...","inr":"pdc_..."} — collection ids for collection checkout.
+   */
+  DODO_COLLECTION_IDS: string
 }
 
 /** Populated by the auth middleware; every route below it can rely on `user` existing. */

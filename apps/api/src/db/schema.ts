@@ -9,7 +9,7 @@ export const users = sqliteTable(
     email: text('email').notNull(),
     name: text('name'),
     avatarUrl: text('avatar_url'),
-    plan: text('plan', { enum: ['free', 'pro'] })
+    plan: text('plan', { enum: ['free', 'pro', 'ultra'] })
       .notNull()
       .default('free'),
     createdAt: integer('created_at').notNull(),
@@ -131,10 +131,14 @@ export const subscriptions = sqliteTable(
     userId: text('user_id')
       .primaryKey()
       .references(() => users.id, { onDelete: 'cascade' }),
-    stripeCustomerId: text('stripe_customer_id').notNull(),
-    stripeSubscriptionId: text('stripe_subscription_id'),
-    status: text('status').notNull(),
+    dodoCustomerId: text('dodo_customer_id').notNull(),
+    dodoSubscriptionId: text('dodo_subscription_id'),
+    plan: text('plan', { enum: ['pro', 'ultra'] }).notNull(),
+    status: text('status', {
+      enum: ['trial', 'active', 'on_hold', 'cancelled', 'expired'],
+    }).notNull(),
+    onHoldAt: integer('on_hold_at'),
     currentPeriodEnd: integer('current_period_end'),
   },
-  (t) => [index('subscriptions_customer_idx').on(t.stripeCustomerId)],
+  (t) => [uniqueIndex('subscriptions_dodo_customer_idx').on(t.dodoCustomerId)],
 )

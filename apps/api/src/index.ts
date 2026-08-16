@@ -4,9 +4,11 @@ import { secureHeaders } from 'hono/secure-headers'
 import type { AppEnv } from './env.js'
 import { onError } from './middleware/error.js'
 import { authRoutes } from './routes/auth.js'
+import { billingRoutes } from './routes/billing.js'
 import { fillRoutes } from './routes/fill.js'
 import { meRoutes } from './routes/me.js'
 import { profileRoutes } from './routes/profile.js'
+import { webhookRoutes } from './routes/webhook.js'
 
 const app = new OpenAPIHono<AppEnv>({
   /**
@@ -53,10 +55,40 @@ app.use('/v1/*', async (c, next) => {
 
 app.get('/health', (c) => c.json({ ok: true, environment: c.env.ENVIRONMENT }))
 
+/**
+ * Post-checkout landing page. Dodo redirects the customer here after payment; Chrome refuses
+ * to navigate to a `chrome-extension://` URL, so this lives on the Worker instead. It only
+ * tells the user to go back to the panel — the webhook is what actually flips the plan.
+ */
+app.get('/v1/billing/return', (c) =>
+  c.html(`<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Payment complete — AI Form Filler</title>
+    <style>
+      body { font-family: ui-sans-serif, system-ui, -apple-system, sans-serif; background: #f4f2ee; color: #1a1a1a; display: grid; place-items: center; min-height: 100vh; margin: 0; }
+      main { text-align: center; padding: 2rem; }
+      h1 { font-size: 1.5rem; font-weight: 600; }
+      p { color: #555; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Payment complete</h1>
+      <p>You can close this tab. Your plan is updating in the extension — reopen the side panel to see it.</p>
+    </main>
+  </body>
+</html>`),
+)
+
 app.route('/v1/auth', authRoutes)
 app.route('/v1/me', meRoutes)
 app.route('/v1/profile', profileRoutes)
 app.route('/v1/fill', fillRoutes)
+app.route('/v1/billing', billingRoutes)
+app.route('/v1/billing', webhookRoutes)
 
 app.openAPIRegistry.registerComponent('securitySchemes', 'bearerAuth', {
   type: 'http',

@@ -5,6 +5,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { AccountQuota } from './accountQuota';
+import type { AccountSubscription } from './accountSubscription';
 
 export interface Account {
   id: string;
@@ -15,4 +16,6 @@ export interface Account {
   profileReady: boolean;
   /** @minimum 0 */
   profileVersion: number;
+  /** @nullable */
+  subscription?: AccountSubscription;
 }

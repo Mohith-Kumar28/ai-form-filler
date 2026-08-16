@@ -2,7 +2,7 @@ import { type Account, PLAN_LIMITS, type Plan, type QuotaState } from '@aff/shar
 import { and, eq, sql } from 'drizzle-orm'
 import type { DrizzleD1Database } from 'drizzle-orm/d1'
 import type { GoogleIdentity } from '../auth/google.js'
-import { profileDocs, profileSources, quotaUsage, users } from '../db/schema.js'
+import { profileDocs, profileSources, quotaUsage, subscriptions, users } from '../db/schema.js'
 
 export type Db = DrizzleD1Database<Record<string, never>>
 
@@ -82,7 +82,7 @@ export async function loadAccount(db: Db, userId: string): Promise<Account | nul
   const user = rows[0]
   if (!user) return null
 
-  const [quota, docRows, sourceRows] = await Promise.all([
+  const [quota, docRows, sourceRows, subRows] = await Promise.all([
     loadQuota(db, userId, user.plan),
     db
       .select({ version: profileDocs.version })
@@ -93,10 +93,29 @@ export async function loadAccount(db: Db, userId: string): Promise<Account | nul
       .select({ count: sql<number>`count(*)` })
       .from(profileSources)
       .where(and(eq(profileSources.userId, userId), eq(profileSources.status, 'ready'))),
+    db
+      .select({
+        plan: subscriptions.plan,
+        status: subscriptions.status,
+        currentPeriodEnd: subscriptions.currentPeriodEnd,
+      })
+      .from(subscriptions)
+      .where(eq(subscriptions.userId, userId))
+      .limit(1),
   ])
 
   const doc = docRows[0]
   const readySources = sourceRows[0]?.count ?? 0
+  const sub = subRows[0]
+
+  const subscription =
+    sub && (sub.status === 'active' || sub.status === 'trial' || sub.status === 'on_hold')
+      ? {
+          plan: sub.plan,
+          status: sub.status,
+          ...(sub.currentPeriodEnd ? { currentPeriodEnd: sub.currentPeriodEnd } : {}),
+        }
+      : null
 
   return {
     id: user.id,
@@ -108,5 +127,6 @@ export async function loadAccount(db: Db, userId: string): Promise<Account | nul
     // Gating on token count told users with only images or audio to add a source forever.
     profileReady: readySources > 0,
     profileVersion: doc?.version ?? 0,
+    subscription,
   }
 }

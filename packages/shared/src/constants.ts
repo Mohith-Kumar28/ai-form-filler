@@ -14,8 +14,9 @@ export const REVIEW_CONFIDENCE_THRESHOLD = 0.7
 
 /** Forms per calendar month, per plan. */
 export const PLAN_LIMITS = {
-  free: 50,
-  pro: 2000,
+  free: 5,
+  pro: 50,
+  ultra: 300,
 } as const
 
 export const FILL_PORT = 'aff:fill' as const

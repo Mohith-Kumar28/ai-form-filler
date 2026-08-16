@@ -45,6 +45,20 @@ AI_GATEWAY_TOKEN=replace-me
 #   console.supermemory.ai -> API Keys -> create
 SUPERMEMORY_API_KEY=replace-me
 
-# ── Billing (phase 6, unused until then) ────────────────────────────────────
-STRIPE_SECRET_KEY=
-STRIPE_WEBHOOK_SECRET=
+# ── Billing: Dodo Payments (phase 6) ─────────────────────────────────────────
+#
+#   Dashboard → Developer → API → create an API key (write access for server-side).
+DODO_PAYMENTS_API_KEY=dp_test_xxxxxxxxxxxxxxxxxxxx
+
+#   Dashboard → Developer → Webhooks → select your endpoint → copy the signing secret.
+DODO_WEBHOOK_SECRET=whsec_xxxxxxxxxxxxxxxxxxxx
+
+#   'test_mode' for local dev; 'live_mode' for production.
+DODO_ENVIRONMENT=test_mode
+
+# JSON: plan → currency → Dodo product id.
+# Create products in the Dodo dashboard first (Pro USD, Pro INR, Ultra USD, Ultra INR),
+# then paste their ids here.
+# Example:
+# DODO_PRODUCT_IDS='{"pro":{"usd":"pdt_abc","inr":"pdt_xyz"},"ultra":{"usd":"pdt_def","inr":"pdt_uvw"}}'
+DODO_PRODUCT_IDS=

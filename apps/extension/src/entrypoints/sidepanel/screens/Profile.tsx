@@ -4,9 +4,8 @@ import { formatResetDate, plural } from '../../../lib/format.js'
 import { sendMessage } from '../../../lib/messaging.js'
 import { Row, RowGroup, Screen, ScreenBody, ScreenHeader } from '../components.js'
 import { IconSignOut } from '../icons.js'
-import { useNavigation } from '../navigation.js'
 
-const PLAN_LABEL: Record<string, string> = { free: 'Free', pro: 'Pro' }
+const PLAN_LABEL: Record<string, string> = { free: 'Free', pro: 'Pro', ultra: 'Ultra' }
 
 /**
  * The register entry.
@@ -25,7 +24,6 @@ function Entry({ label, children }: { label: string; children: React.ReactNode }
 }
 
 export function Profile({ account }: { account: Account }) {
-  const nav = useNavigation()
   const queryClient = useQueryClient()
 
   const { used, limit, plan, resetsAt } = account.quota

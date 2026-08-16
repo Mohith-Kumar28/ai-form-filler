@@ -23,7 +23,10 @@
             "$ref": "#/components/schemas/Account"
           }
         },
-        "required": ["token", "account"]
+        "required": [
+          "token",
+          "account"
+        ]
       },
       "Account": {
         "type": "object",
@@ -47,7 +50,11 @@
             "properties": {
               "plan": {
                 "type": "string",
-                "enum": ["free", "pro"]
+                "enum": [
+                  "free",
+                  "pro",
+                  "ultra"
+                ]
               },
               "used": {
                 "type": "integer",
@@ -62,7 +69,12 @@
                 "format": "date-time"
               }
             },
-            "required": ["plan", "used", "limit", "resetsAt"]
+            "required": [
+              "plan",
+              "used",
+              "limit",
+              "resetsAt"
+            ]
           },
           "profileReady": {
             "type": "boolean"
@@ -70,9 +82,48 @@
           "profileVersion": {
             "type": "integer",
             "minimum": 0
+          },
+          "subscription": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "properties": {
+              "plan": {
+                "type": "string",
+                "enum": [
+                  "pro",
+                  "ultra"
+                ]
+              },
+              "status": {
+                "type": "string",
+                "enum": [
+                  "trial",
+                  "active",
+                  "on_hold",
+                  "cancelled",
+                  "expired"
+                ]
+              },
+              "currentPeriodEnd": {
+                "type": "integer",
+                "minimum": 0
+              }
+            },
+            "required": [
+              "plan",
+              "status"
+            ]
           }
         },
-        "required": ["id", "email", "quota", "profileReady", "profileVersion"]
+        "required": [
+          "id",
+          "email",
+          "quota",
+          "profileReady",
+          "profileVersion"
+        ]
       },
       "ApiError": {
         "type": "object",
@@ -110,10 +161,17 @@
                 "type": "string"
               }
             },
-            "required": ["used", "limit", "resetsAt"]
+            "required": [
+              "used",
+              "limit",
+              "resetsAt"
+            ]
           }
         },
-        "required": ["code", "message"]
+        "required": [
+          "code",
+          "message"
+        ]
       },
       "SignInRequest": {
         "type": "object",
@@ -123,7 +181,9 @@
             "minLength": 1
           }
         },
-        "required": ["accessToken"]
+        "required": [
+          "accessToken"
+        ]
       },
       "Profile": {
         "type": "object",
@@ -141,7 +201,9 @@
                 "anyOf": [
                   {
                     "type": "string",
-                    "enum": [""]
+                    "enum": [
+                      ""
+                    ]
                   },
                   {
                     "type": "string",
@@ -161,7 +223,9 @@
                   "anyOf": [
                     {
                       "type": "string",
-                      "enum": [""]
+                      "enum": [
+                        ""
+                      ]
                     },
                     {
                       "type": "string",
@@ -196,14 +260,25 @@
                 },
                 "kind": {
                   "type": "string",
-                  "enum": ["document", "link", "text", "image", "audio"]
+                  "enum": [
+                    "document",
+                    "link",
+                    "text",
+                    "image",
+                    "audio"
+                  ]
                 },
                 "label": {
                   "type": "string"
                 },
                 "status": {
                   "type": "string",
-                  "enum": ["pending", "parsing", "ready", "failed"]
+                  "enum": [
+                    "pending",
+                    "parsing",
+                    "ready",
+                    "failed"
+                  ]
                 },
                 "error": {
                   "type": "string"
@@ -231,7 +306,13 @@
                   "format": "date-time"
                 }
               },
-              "required": ["id", "kind", "label", "status", "createdAt"]
+              "required": [
+                "id",
+                "kind",
+                "label",
+                "status",
+                "createdAt"
+              ]
             },
             "default": []
           },
@@ -241,7 +322,9 @@
             "default": 0
           }
         },
-        "required": ["identity"]
+        "required": [
+          "identity"
+        ]
       },
       "ProfilePatch": {
         "type": "object",
@@ -270,7 +353,9 @@
             "anyOf": [
               {
                 "type": "string",
-                "enum": [""]
+                "enum": [
+                  ""
+                ]
               },
               {
                 "type": "string",
@@ -290,7 +375,9 @@
               "anyOf": [
                 {
                   "type": "string",
-                  "enum": [""]
+                  "enum": [
+                    ""
+                  ]
                 },
                 {
                   "type": "string",
@@ -318,7 +405,10 @@
             "type": "boolean"
           }
         },
-        "required": ["profile", "truncated"]
+        "required": [
+          "profile",
+          "truncated"
+        ]
       },
       "TextSourceRequest": {
         "type": "object",
@@ -343,7 +433,9 @@
             "$ref": "#/components/schemas/Profile"
           }
         },
-        "required": ["profile"]
+        "required": [
+          "profile"
+        ]
       },
       "RenameSourceRequest": {
         "type": "object",
@@ -354,7 +446,9 @@
             "maxLength": 120
           }
         },
-        "required": ["label"]
+        "required": [
+          "label"
+        ]
       },
       "FillPlan": {
         "type": "object",
@@ -383,19 +477,27 @@
                   "anyOf": [
                     {
                       "type": "number",
-                      "enum": [0]
+                      "enum": [
+                        0
+                      ]
                     },
                     {
                       "type": "number",
-                      "enum": [1]
+                      "enum": [
+                        1
+                      ]
                     },
                     {
                       "type": "number",
-                      "enum": [2]
+                      "enum": [
+                        2
+                      ]
                     },
                     {
                       "type": "number",
-                      "enum": [3]
+                      "enum": [
+                        3
+                      ]
                     }
                   ]
                 },
@@ -431,7 +533,12 @@
                   ]
                 }
               },
-              "required": ["fieldId", "value", "confidence", "tier"]
+              "required": [
+                "fieldId",
+                "value",
+                "confidence",
+                "tier"
+              ]
             }
           },
           "skipped": {
@@ -456,7 +563,10 @@
                   "type": "string"
                 }
               },
-              "required": ["fieldId", "reason"]
+              "required": [
+                "fieldId",
+                "reason"
+              ]
             }
           },
           "usage": {
@@ -508,7 +618,12 @@
             "minimum": 0
           }
         },
-        "required": ["fills", "skipped", "usage", "quotaRemaining"]
+        "required": [
+          "fills",
+          "skipped",
+          "usage",
+          "quotaRemaining"
+        ]
       },
       "FillRequest": {
         "type": "object",
@@ -589,7 +704,10 @@
                             "type": "string"
                           }
                         },
-                        "required": ["value", "label"]
+                        "required": [
+                          "value",
+                          "label"
+                        ]
                       }
                     },
                     "autocomplete": {
@@ -602,13 +720,21 @@
                       "type": "string"
                     }
                   },
-                  "required": ["id", "kind", "label"]
+                  "required": [
+                    "id",
+                    "kind",
+                    "label"
+                  ]
                 },
                 "minItems": 1,
                 "maxItems": 300
               }
             },
-            "required": ["origin", "adapter", "fields"]
+            "required": [
+              "origin",
+              "adapter",
+              "fields"
+            ]
           },
           "overwriteExisting": {
             "type": "boolean",
@@ -616,11 +742,16 @@
           },
           "scope": {
             "type": "string",
-            "enum": ["form", "field"],
+            "enum": [
+              "form",
+              "field"
+            ],
             "default": "form"
           }
         },
-        "required": ["form"]
+        "required": [
+          "form"
+        ]
       },
       "FeedbackRequest": {
         "type": "object",
@@ -678,12 +809,51 @@
                   "type": "boolean"
                 }
               },
-              "required": ["label", "accepted", "edited"]
+              "required": [
+                "label",
+                "accepted",
+                "edited"
+              ]
             },
             "maxItems": 25
           }
         },
-        "required": ["origin", "entries"]
+        "required": [
+          "origin",
+          "entries"
+        ]
+      },
+      "CheckoutResponse": {
+        "type": "object",
+        "properties": {
+          "checkoutUrl": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "checkoutUrl"
+        ]
+      },
+      "CheckoutRequest": {
+        "type": "object",
+        "properties": {
+          "country": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 2
+          }
+        }
+      },
+      "PortalResponse": {
+        "type": "object",
+        "properties": {
+          "portalUrl": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "portalUrl"
+        ]
       }
     },
     "parameters": {}
@@ -691,7 +861,9 @@
   "paths": {
     "/v1/auth/google": {
       "post": {
-        "tags": ["auth"],
+        "tags": [
+          "auth"
+        ],
         "summary": "Exchange a Google access token for a session token",
         "operationId": "signInWithGoogle",
         "requestBody": {
@@ -770,7 +942,9 @@
     },
     "/v1/me": {
       "get": {
-        "tags": ["account"],
+        "tags": [
+          "account"
+        ],
         "summary": "Current account, plan, and quota",
         "operationId": "getAccount",
         "security": [
@@ -844,7 +1018,9 @@
     },
     "/v1/profile": {
       "get": {
-        "tags": ["profile"],
+        "tags": [
+          "profile"
+        ],
         "summary": "The full profile, including sources",
         "operationId": "getProfile",
         "security": [
@@ -916,7 +1092,9 @@
         }
       },
       "patch": {
-        "tags": ["profile"],
+        "tags": [
+          "profile"
+        ],
         "summary": "Edit structured profile fields",
         "description": "Identity is merged field by field; array fields are replaced wholesale. Send an empty string to clear an identity field.",
         "operationId": "patchProfile",
@@ -1001,7 +1179,9 @@
     },
     "/v1/profile/sources": {
       "post": {
-        "tags": ["profile"],
+        "tags": [
+          "profile"
+        ],
         "summary": "Add a source from a URL or pasted text",
         "operationId": "addTextSource",
         "security": [
@@ -1085,7 +1265,9 @@
     },
     "/v1/profile/sources/upload": {
       "post": {
-        "tags": ["profile"],
+        "tags": [
+          "profile"
+        ],
         "summary": "Upload a file of any kind memory can read",
         "operationId": "uploadSource",
         "security": [
@@ -1110,7 +1292,10 @@
                     "maxLength": 200
                   }
                 },
-                "required": ["file", "label"]
+                "required": [
+                  "file",
+                  "label"
+                ]
               }
             }
           }
@@ -1181,7 +1366,9 @@
     },
     "/v1/profile/sources/{id}/file": {
       "get": {
-        "tags": ["profile"],
+        "tags": [
+          "profile"
+        ],
         "summary": "Download or preview a stored original",
         "operationId": "getSourceFile",
         "security": [
@@ -1263,7 +1450,9 @@
     },
     "/v1/profile/sources/{id}": {
       "patch": {
-        "tags": ["profile"],
+        "tags": [
+          "profile"
+        ],
         "summary": "Rename a source",
         "description": "Changes the display label only. The extracted text and the stored original are untouched, so this does not recompile the profile.",
         "operationId": "renameSource",
@@ -1355,7 +1544,9 @@
         }
       },
       "delete": {
-        "tags": ["profile"],
+        "tags": [
+          "profile"
+        ],
         "summary": "Remove a source and its stored original",
         "operationId": "deleteSource",
         "security": [
@@ -1439,7 +1630,9 @@
     },
     "/v1/fill": {
       "post": {
-        "tags": ["fill"],
+        "tags": [
+          "fill"
+        ],
         "summary": "Produce answers for a detected form",
         "operationId": "fillForm",
         "security": [
@@ -1533,7 +1726,9 @@
     },
     "/v1/fill/feedback": {
       "post": {
-        "tags": ["fill"],
+        "tags": [
+          "fill"
+        ],
         "summary": "Record what the user actually submitted",
         "description": "Accepted answers enter the answer bank and become retrieval context for future fills. Edited answers are the highest-signal rows we get.",
         "operationId": "submitFeedback",
@@ -1564,7 +1759,9 @@
                       "type": "integer"
                     }
                   },
-                  "required": ["recorded"]
+                  "required": [
+                    "recorded"
+                  ]
                 }
               }
             }
@@ -1624,7 +1821,9 @@
     },
     "/v1/fill/improve": {
       "post": {
-        "tags": ["fill"],
+        "tags": [
+          "fill"
+        ],
         "summary": "Rewrite a single answer to an instruction",
         "operationId": "improveAnswer",
         "security": [
@@ -1657,7 +1856,11 @@
                     "exclusiveMinimum": 0
                   }
                 },
-                "required": ["label", "value", "instruction"]
+                "required": [
+                  "label",
+                  "value",
+                  "instruction"
+                ]
               }
             }
           }
@@ -1674,7 +1877,171 @@
                       "type": "string"
                     }
                   },
-                  "required": ["value"]
+                  "required": [
+                    "value"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Request failed validation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid, or expired credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "402": {
+            "description": "Monthly quota exhausted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/billing/checkout": {
+      "post": {
+        "tags": [
+          "billing"
+        ],
+        "summary": "Create a Dodo checkout session to upgrade",
+        "operationId": "createCheckout",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CheckoutRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Checkout URL",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CheckoutResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Request failed validation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid, or expired credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "402": {
+            "description": "Monthly quota exhausted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/billing/portal": {
+      "get": {
+        "tags": [
+          "billing"
+        ],
+        "summary": "Get the Dodo customer portal URL to manage subscription",
+        "operationId": "getPortal",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Portal URL",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PortalResponse"
                 }
               }
             }

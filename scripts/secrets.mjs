@@ -51,16 +51,28 @@ const SECRETS = [
     note: 'Without it, scans and voice notes cannot be read and retrieval falls back to BM25 over past answers.',
   },
   {
-    name: 'STRIPE_SECRET_KEY',
+    name: 'DODO_PAYMENTS_API_KEY',
     required: false,
-    what: 'Phase 6 billing. Unused until then.',
-    where: 'https://dashboard.stripe.com/apikeys',
+    what: 'Dodo Payments API key for creating checkout sessions and managing subscriptions.',
+    where: 'Dodo dashboard → Developer → API',
   },
   {
-    name: 'STRIPE_WEBHOOK_SECRET',
+    name: 'DODO_WEBHOOK_SECRET',
     required: false,
-    what: 'Verifies Stripe webhook signatures.',
-    where: 'Stripe dashboard → Webhooks → your endpoint',
+    what: 'Verifies Dodo webhook signatures (Standard Webhooks HMAC-SHA256).',
+    where: 'Dodo dashboard → Developer → Webhooks → your endpoint',
+  },
+  {
+    name: 'DODO_ENVIRONMENT',
+    required: false,
+    what: "'test_mode' for local dev; 'live_mode' for production.",
+    where: 'Set in .dev.vars or via wrangler secret put',
+  },
+  {
+    name: 'DODO_PRODUCT_IDS',
+    required: false,
+    what: 'JSON map of plan → currency → Dodo product id.',
+    where: 'Create products in Dodo dashboard, then copy their ids here.',
   },
 ]
 
