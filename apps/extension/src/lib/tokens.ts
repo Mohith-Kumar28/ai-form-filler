@@ -1,209 +1,181 @@
 /**
- * The Credential Document — one palette, two consumers.
+ * "The Hype Friend" — one bright, playful palette, two consumers.
  *
  * The side panel gets these as Tailwind v4 `@theme` variables (src/assets/tailwind.css); the
  * page overlay gets them as an inlined CSS string, because a `chrome-extension://` stylesheet
  * is blocked by the CSP of a meaningful number of sites. Those used to be two hand-maintained
- * copies that had already drifted apart. This module is the authority for both, and
+ * copies that had already drifted apart; this module is the authority for both and
  * `tokens.test.ts` fails the build if tailwind.css stops agreeing with it.
  *
- * The world: a credential document. Its whole job is vouching for a person to a stranger who
- * has to decide whether to trust it, and it has a grammar for degrees of certainty that is
- * semantic rather than merely chromatic — a printed field is issued and fixed, an endorsement
- * is applied afterwards in another ink and carries who added it and when.
+ * The world: your hype friend who does the boring homework (forms) for you and cheers you on.
+ * The palette is bright and saturated — a signature violet→pink→orange "sunset" gradient for
+ * the hero moments, hot pink for the one thing you must look at (a guessed answer), lime for
+ * what it read straight off, and warm neutrals that are never pure gray or pure black.
  *
- *   printed   a stated fact — no mark at all, just the document's own ink
- *   endorsed  a judgement call — the vermilion stamp, and the only true accent here
- *   queried   answered but uncertain — petrol, the second ink of the guilloche
- *
- * Faults are a fourth ink, `alert`, and deliberately not vermilion. Sharing one red between
- * "this was concluded, check it" and "this failed" made the product's single load-bearing
- * distinction indistinguishable from an upload error at a glance.
+ *   filled    read straight from what you told it — the friendly green, nothing to check
+ *   guessed   a judgement call it made on your behalf — hot pink + a sparkle, check me
+ *   broken    a fault — coral, and never pink, so a guess never reads as an error
  */
 
 export interface Scheme {
-  /** Scroll ground: the safety-tint stock a credential is printed on. Never cream, never white. */
-  stock: string
-  /** Raised bands — header, footers, the document leaf itself. */
-  leaf: string
-  /** Every hairline. The engine-turned line, flattened to a rule. */
-  guilloche: string
-  /** The quieter hairline, for rules inside a group rather than between groups. */
-  guillocheSoft: string
-  /**
-   * The engine-turned security ground, and only that.
-   *
-   * A token of its own rather than the hairline colour, because the two need different
-   * distances from `stock` to read at the same weight: a 1px rule and a field of 0.65px curves
-   * do not survive the same contrast. Sharing them shipped a ground that was right on the pale
-   * stock and invisible on the dark one.
-   */
-  engine: string
-  /** Intaglio ink. Primary text, and the plate a primary action is struck from. */
+  /** Scroll ground. A warm near-white, faintly lilac-tinted — never pure white. */
+  surface: string
+  /** Raised cards, headers, sheets, menus. */
+  surfaceRaised: string
+  /** Muted bands and hover grounds. */
+  surfaceMuted: string
+  /** Primary text. Warm near-black, violet-tinted. */
   ink: string
   /** Secondary text. */
-  ink2: string
-  /** Labels and measures. Still >= 4.5:1 on `stock` — this scale has no decorative tier. */
-  ink3: string
+  inkMuted: string
+  /** Labels, hints, measures. Still >= 4.5:1 on `surface` — no decorative tier. */
+  inkDim: string
   /**
-   * The endorsement stamp, and nothing else: an answer this tool concluded rather than read.
+   * The one thing you must look at: an answer it guessed rather than read.
    *
-   * It used to carry errors and destructive actions too, which meant the product's one
-   * load-bearing distinction shared an ink with "something broke" — a failed upload and a
-   * guessed salary expectation spoke in the same voice. Faults now have `alert`.
+   * Hot pink, always with a sparkle. Never used for errors — a guess and a fault are
+   * different things, and sharing one colour between "check this" and "this broke" was the
+   * exact failure of the previous build.
    */
-  endorse: string
-  /** The stamp's ink bleeding into the paper — backgrounds only, never text. */
-  endorseWash: string
-  /** Faults: errors, refusals, and anything that destroys. The caution stamp, not the inspector's. */
-  alert: string
-  alertWash: string
-  /** The second ink: uncertainty, focus, and the field being written right now. */
-  query: string
-  queryWash: string
+  accent: string
+  /** Pink wash — backgrounds and chips behind a guessed answer. */
+  accentMuted: string
+  /** Filled straight off what you told it. The friendly lime. */
+  positive: string
+  positiveMuted: string
+  /** Faults and destruction. Coral, deliberately not pink. */
+  danger: string
+  dangerMuted: string
+  /** Warnings and heads-ups. Amber. */
+  warning: string
+  warningMuted: string
+  /** The violet stop of the signature sunset gradient. */
+  sparkle: string
+  /** The orange stop of the signature sunset gradient. */
+  sun: string
+  /** Hairlines that separate one group from the next. */
+  border: string
+  /** Quieter hairlines inside a group. */
+  borderMuted: string
   /**
    * Elevation, in two layers: the contact shadow and the cast one.
    *
-   * Ink-hued rather than pure black, because a shadow belongs to the material that casts it —
-   * and considerably heavier in dark, where a black shadow on a near-black ground does nothing
-   * at all. Only three things in this system float: the overflow menu, the on-page slip, and
-   * the seal. Nothing else may take these.
+   * Slightly tinted rather than pure black — a shadow belongs to the material that casts it.
+   * Heavier in dark, where a black shadow on a near-black ground separates nothing. Only
+   * floating things take these: menus, the on-page cards, the launcher.
    */
-  shadowNear: string
-  shadowFar: string
+  shadow: string
+  shadowStrong: string
 }
 
 export const LIGHT: Scheme = {
-  stock: 'oklch(96.5% 0.009 168)',
-  leaf: 'oklch(99.2% 0.004 168)',
-  guilloche: 'oklch(87% 0.022 168)',
-  guillocheSoft: 'oklch(93% 0.014 168)',
-  engine: 'oklch(84% 0.026 168)',
-  ink: 'oklch(23% 0.035 178)',
-  ink2: 'oklch(38% 0.03 178)',
-  ink3: 'oklch(46% 0.024 178)',
-  endorse: 'oklch(48% 0.19 30)',
-  endorseWash: 'oklch(94% 0.04 30)',
-  alert: 'oklch(47% 0.13 62)',
-  alertWash: 'oklch(94% 0.045 70)',
-  query: 'oklch(45% 0.1 195)',
-  queryWash: 'oklch(94% 0.03 195)',
-  shadowNear: 'oklch(20% 0.03 190 / 0.14)',
-  shadowFar: 'oklch(20% 0.03 190 / 0.26)',
+  surface: 'oklch(97.2% 0.006 320)',
+  surfaceRaised: 'oklch(99.3% 0.003 320)',
+  surfaceMuted: 'oklch(93.5% 0.007 320)',
+  ink: 'oklch(20% 0.02 300)',
+  inkMuted: 'oklch(44% 0.02 300)',
+  inkDim: 'oklch(60% 0.015 300)',
+  accent: 'oklch(55% 0.24 350)',
+  accentMuted: 'oklch(93% 0.04 350)',
+  positive: 'oklch(58% 0.16 145)',
+  positiveMuted: 'oklch(93% 0.055 145)',
+  danger: 'oklch(55% 0.22 25)',
+  dangerMuted: 'oklch(93% 0.045 25)',
+  warning: 'oklch(68% 0.15 80)',
+  warningMuted: 'oklch(94% 0.05 80)',
+  sparkle: 'oklch(52% 0.24 290)',
+  sun: 'oklch(68% 0.18 45)',
+  border: 'oklch(87% 0.008 320)',
+  borderMuted: 'oklch(92% 0.006 320)',
+  shadow: 'oklch(25% 0.02 300 / 0.08)',
+  shadowStrong: 'oklch(25% 0.02 300 / 0.16)',
 }
 
 /**
- * Not an inversion — a different physical scene.
+ * Not an inversion — a different scene.
  *
- * PRODUCT.md puts this person on a laptop, late, during a job hunt. In that light the
- * document reads the other way round: the ink becomes the ground and the printing comes up
- * pale off it, the way a passport page looks under a desk lamp with the room dark.
+ * PRODUCT.md puts this person on a laptop, late, during a job hunt. In that light the surface
+ * goes a deep violet-tinted near-black and the brights come up louder off it, the way a neon
+ * sign reads brighter in the dark.
  */
 export const DARK: Scheme = {
-  stock: 'oklch(18% 0.022 190)',
-  leaf: 'oklch(22.5% 0.026 190)',
-  guilloche: 'oklch(34% 0.03 190)',
-  guillocheSoft: 'oklch(27% 0.024 190)',
-  engine: 'oklch(62% 0.055 190)',
-  ink: 'oklch(95% 0.012 180)',
-  ink2: 'oklch(76% 0.02 180)',
-  ink3: 'oklch(64% 0.022 180)',
-  endorse: 'oklch(72% 0.17 32)',
-  endorseWash: 'oklch(30% 0.07 32)',
-  alert: 'oklch(79% 0.14 72)',
-  alertWash: 'oklch(30% 0.06 66)',
-  query: 'oklch(74% 0.11 195)',
-  queryWash: 'oklch(28% 0.05 195)',
-  shadowNear: 'oklch(0% 0 0 / 0.4)',
-  shadowFar: 'oklch(0% 0 0 / 0.6)',
+  surface: 'oklch(15% 0.022 300)',
+  surfaceRaised: 'oklch(19.5% 0.024 300)',
+  surfaceMuted: 'oklch(12% 0.018 300)',
+  ink: 'oklch(96% 0.008 320)',
+  inkMuted: 'oklch(74% 0.014 320)',
+  inkDim: 'oklch(58% 0.012 320)',
+  accent: 'oklch(70% 0.22 350)',
+  accentMuted: 'oklch(26% 0.06 350)',
+  positive: 'oklch(72% 0.17 145)',
+  positiveMuted: 'oklch(24% 0.05 145)',
+  danger: 'oklch(70% 0.19 25)',
+  dangerMuted: 'oklch(26% 0.05 25)',
+  warning: 'oklch(78% 0.14 80)',
+  warningMuted: 'oklch(26% 0.045 80)',
+  sparkle: 'oklch(70% 0.2 290)',
+  sun: 'oklch(76% 0.16 45)',
+  border: 'oklch(30% 0.02 300)',
+  borderMuted: 'oklch(23% 0.018 300)',
+  shadow: 'oklch(0% 0 0 / 0.35)',
+  shadowStrong: 'oklch(0% 0 0 / 0.55)',
 }
 
 /** Tailwind reads `--color-<name>`; the overlay reads `--aff-<name>`. Same values, same order. */
 export const TOKEN_NAMES: (keyof Scheme)[] = [
-  'stock',
-  'leaf',
-  'guilloche',
-  'guillocheSoft',
-  'engine',
+  'surface',
+  'surfaceRaised',
+  'surfaceMuted',
   'ink',
-  'ink2',
-  'ink3',
-  'endorse',
-  'endorseWash',
-  'alert',
-  'alertWash',
-  'query',
-  'queryWash',
-  'shadowNear',
-  'shadowFar',
+  'inkMuted',
+  'inkDim',
+  'accent',
+  'accentMuted',
+  'positive',
+  'positiveMuted',
+  'danger',
+  'dangerMuted',
+  'warning',
+  'warningMuted',
+  'sparkle',
+  'sun',
+  'border',
+  'borderMuted',
+  'shadow',
+  'shadowStrong',
 ]
 
-/** camelCase in TS, kebab-case in CSS. `guillocheSoft` -> `guilloche-soft`. */
+/** camelCase in TS, kebab-case in CSS. `surfaceRaised` -> `surface-raised`. */
 export function cssName(token: keyof Scheme): string {
   return token.replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`)
 }
 
 /**
- * A credential has no rounded fields. The only curve on the document is a seal, and a seal is
- * a full circle — so there is one small radius for struck controls and nothing in between.
+ * Two radii and no scale between them — but now the bubbly way round: a small one for struck
+ * controls, a full pill for buttons, chips and the launcher.
  */
-export const RADIUS_DOC = '2px'
+export const RADIUS_SM = '6px'
+export const RADIUS_MD = '12px'
+export const RADIUS_LG = '18px'
+export const RADIUS_FULL = '9999px'
 
-/** Everything vertical is a multiple of this. Documents are set on a ruled bed. */
+/** Everything vertical is a multiple of this. */
 export const RHYTHM = 4
 
+/** The one snappy ease for hovers and settles. */
 export const EASE = 'cubic-bezier(0.2, 0, 0, 1)'
 
+/** The bouncy spring for pops and celebrations — a tiny overshoot is the whole joke. */
+export const SPRING = 'cubic-bezier(0.34, 1.56, 0.64, 1)'
+
 /**
- * The engine-turned rosette, as a real Lissajous curve rather than a stock texture.
+ * The signature sunset gradient, as a CSS value (violet → pink → orange).
  *
- * Guilloche is the one ornament on a credential that is not ornament: it exists because it is
- * expensive to reproduce. It earns its place in exactly two positions — the first-run ground
- * and the empty-state ground — and nowhere else. Used as wallpaper it would be the gimmick
- * this direction risks.
+ * The one place the palette gets to be loud. Used on the primary button, the launcher, and
+ * the welcome hero — nowhere it would compete with an answer.
  */
-export function guillocheDataUri(stroke: string, opacity = 0.9, size = 104): string {
-  const cx = size / 2
-
-  /**
-   * High lobe count, shallow amplitude.
-   *
-   * The first version used seven lobes at 0.38 amplitude and rendered as a daisy — which is
-   * what a rose curve is, and the opposite of the point. Engine turning reads as a *fine*
-   * disturbance of a circle: the eye should see a ring first and the pattern second. Three
-   * co-prime frequencies at a tenth of the radius, each phase-shifted, give the interference
-   * beat a real rosette has without any of them reading as petals.
-   */
-  const rings: { lobes: number; radius: number; amplitude: number; phase: number }[] = [
-    { lobes: 23, radius: 0.46, amplitude: 0.1, phase: 0 },
-    { lobes: 19, radius: 0.36, amplitude: 0.11, phase: 0.4 },
-    { lobes: 29, radius: 0.26, amplitude: 0.09, phase: 0.9 },
-  ]
-
-  const path = rings
-    .map(({ lobes, radius, amplitude, phase }) => {
-      const points: string[] = []
-      const steps = lobes * 24
-      for (let i = 0; i <= steps; i++) {
-        const t = (i / steps) * Math.PI * 2
-        const rr = size * radius * (1 + amplitude * Math.cos(lobes * t + phase))
-        points.push(`${(cx + rr * Math.cos(t)).toFixed(2)},${(cx + rr * Math.sin(t)).toFixed(2)}`)
-      }
-      return `<polyline points="${points.join(' ')}"/>`
-    })
-    .join('')
-
-  /*
-    0.65 rather than a hairline. At 0.4 the strokes fell below one device pixel and the
-    anti-aliaser dissolved them — legible on the pale stock, effectively invisible on the dark
-    ground, which is how a texture ships looking right in exactly one of two real schemes.
-  */
-  const svg =
-    `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">` +
-    `<g fill="none" stroke="${stroke}" stroke-width="0.65" opacity="${opacity}">${path}</g>` +
-    `</svg>`
-
-  return `url("data:image/svg+xml,${encodeURIComponent(svg)}")`
+export function sunsetGradient(angle = '135deg'): string {
+  return `linear-gradient(${angle}, ${LIGHT.sparkle}, ${LIGHT.accent}, ${LIGHT.sun})`
 }
 
 /**
@@ -211,8 +183,8 @@ export function guillocheDataUri(stroke: string, opacity = 0.9, size = 104): str
  *
  * Emitted into the closed shadow root's single `<style>` node. The overlay deliberately does
  * **not** load the panel's bundled face: a webfont in a content script needs FontFace plus an
- * ArrayBuffer to survive a strict `font-src` policy, which is not worth it for four short
- * labels. Identity there is carried by the seal, the stamp, and the motion instead.
+ * ArrayBuffer to survive a strict `font-src` policy, which is not worth it for a few short
+ * labels. Identity there is carried by colour and motion instead.
  */
 export function overlayVariables(selector = ':host'): string {
   const emit = (scheme: Scheme) =>
@@ -221,16 +193,17 @@ export function overlayVariables(selector = ':host'): string {
   /**
    * Keyed to the host page, not the operating system.
    *
-   * This was a `prefers-color-scheme` media query, and it was wrong. The panel is our surface
-   * and rightly follows the OS; the overlay is a guest on a page we do not control, and a
-   * near-black slip landing on a white job application is a visitor announcing itself. The
-   * content script measures what it is standing on and sets `data-scheme`, so a light site
-   * gets the light document whatever the laptop is set to — and a site with its own dark mode
-   * gets the dark one without the user changing anything.
+   * The panel is our surface and rightly follows the OS; the overlay is a guest on a page we
+   * do not control, and a near-black card landing on a white job application is a visitor
+   * announcing itself. The content script measures what it is standing on and sets
+   * `data-scheme`, so a light site gets the light card whatever the laptop is set to.
    */
   return `:host {
-  --aff-radius: ${RADIUS_DOC};
+  --aff-radius-sm: ${RADIUS_SM};
+  --aff-radius-md: ${RADIUS_MD};
+  --aff-radius-full: ${RADIUS_FULL};
   --aff-ease: ${EASE};
+  --aff-spring: ${SPRING};
 }
 
 ${selector}, ${selector}([data-scheme="light"]) {
@@ -243,7 +216,7 @@ ${emit(DARK)}
 }
 
 /**
- * Which document to print, judged from the page's own ground.
+ * Which scheme to print, judged from the page's own ground.
  *
  * Walks outward for the first painted background — many sites leave `body` transparent and
  * colour `html`, or the other way round — and falls back to the OS only when the page declares

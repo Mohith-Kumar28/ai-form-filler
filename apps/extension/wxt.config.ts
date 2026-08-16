@@ -38,7 +38,7 @@ export default defineConfig({
    */
   manifest: {
     version_name: `0.1.0+${new Date().toISOString().replace(/\D/g, '').slice(4, 12)}`,
-    name: 'AI Form Filler',
+    name: 'Fillaform',
     description: 'Fills any form from your own knowledge base, in your own writing voice.',
     version: '0.0.1',
 
@@ -84,7 +84,7 @@ export default defineConfig({
     },
 
     side_panel: { default_path: 'sidepanel.html' },
-    action: { default_title: 'AI Form Filler' },
+    action: { default_title: 'Fillaform' },
   },
 
   vite: () => ({

@@ -14,12 +14,15 @@ import {
 import {
   AutoTextarea,
   Button,
-  EmptyState,
+  Card,
+  Chip,
+  GuessedBadge,
+  Mascot,
   Screen,
   ScreenBody,
   ScreenHeader,
 } from '../components.js'
-import { IconAlert, IconCheck, IconPen, IconStamp } from '../icons.js'
+import { IconAlert, IconCheck, IconPen, IconSparkle } from '../icons.js'
 
 type Fill = FillPlan['fills'][number]
 
@@ -42,52 +45,19 @@ function needsCheck(fill: Fill): boolean {
   return fill.inferred || fill.confidence < REVIEW_CONFIDENCE_THRESHOLD
 }
 
-/**
- * The endorsement.
- *
- * This is the signature of the whole surface, and the one thing that must never be missed: a
- * mark applied *after* the printing, off-angle, in the second ink, saying who added it and on
- * what authority. A stated answer gets none of this — it is simply printed, the way a field
- * issued with the document is. Making inference visible is the product's entire trust model.
- */
-function Endorsement({ fill }: { fill: Fill }) {
-  if (fill.inferred) {
-    // The vermilion here is the endorsement stamp and nothing else. Faults elsewhere on this
-    // screen speak in the caution ink, so a guessed answer never reads as something broken.
-    return (
-      <span className="endorse-in inline-flex shrink-0 items-center gap-1 rounded-doc border border-endorse bg-endorse-wash px-1.5 py-0.5 text-endorse">
-        <IconStamp className="size-3" />
-        <span className="mrz text-[9.5px] font-medium uppercase tracking-[0.1em]">Concluded</span>
-      </span>
-    )
-  }
-
-  if (fill.confidence < REVIEW_CONFIDENCE_THRESHOLD) {
-    return (
-      <span className="inline-flex shrink-0 items-center gap-1 rounded-doc border border-query px-1.5 py-0.5 text-query">
-        <span className="mrz text-[9.5px] font-medium uppercase tracking-[0.1em]">Unsure</span>
-        <span className="mrz text-[9.5px]">{Math.round(fill.confidence * 100)}%</span>
-      </span>
-    )
-  }
-
-  return null
-}
-
-/**
- * Points at a field on the page, from the row that is about it.
- *
- * Deduplicated against the last field asked for. Pointer movement inside a row fires
- * `mouseenter` again whenever the list reflows under a stationary cursor, and each of those
- * used to be another scroll request — with a marked field near the top of a long form and
- * another near the bottom, the page walked between them without stopping.
- */
 let lastHighlighted: string | null = null
 
 function highlight(fieldId: string): void {
   if (lastHighlighted === fieldId) return
   lastHighlighted = fieldId
   void sendMessage({ type: 'content/highlight', fieldId })
+}
+
+function confidenceLabel(pct: number): string {
+  if (pct >= 0.9) return "i'm pretty sure"
+  if (pct >= 0.7) return "i'm fairly sure"
+  if (pct >= 0.5) return 'i think so'
+  return 'total shot in the dark'
 }
 
 function AnswerEntry({
@@ -113,151 +83,158 @@ function AnswerEntry({
   const dirty = value !== fill.value
   const settled = verdict !== 'open'
 
-  /*
-    Hover only. `onFocus` bubbles from the textarea inside the row, so every keystroke that
-    moved focus re-pointed the page at this field.
-  */
   return (
-    <li
-      className="border-b border-guilloche px-4 py-3.5"
+    <Card
+      className="border-b-0 rounded-none first:rounded-t-2xl last:rounded-b-2xl"
       onMouseEnter={() => highlight(fill.fieldId)}
     >
-      <div className="flex items-start justify-between gap-2">
-        <p className="doc-label min-w-0 flex-1 normal-case tracking-[0.04em] text-ink2">
-          {fill.label || 'Untitled field'}
-        </p>
-        <Endorsement fill={fill} />
-      </div>
-
-      {notAccepted && (
-        <p className="mt-1.5 flex items-start gap-1.5 text-[11.5px] leading-snug text-alert">
-          <IconAlert className="mt-px size-3.5 shrink-0" />
-          <span>The page would not take this one. Nothing was written.</span>
-        </p>
-      )}
-
-      <div className="mt-2">
-        {fill.options.length > 0 ? (
-          /*
-            A choice question shows what was on offer. "Notion" alone tells you nothing about
-            whether the right answer was even available, and picking a different one should be
-            a tap rather than retyping a string that has to match the page exactly.
-          */
-          <div className="flex flex-wrap gap-1.5">
-            {fill.options.map((option) => {
-              const selected = option === value
-              return (
-                <button
-                  key={option}
-                  type="button"
-                  onClick={() => onResolve('edited', option)}
-                  className={`rounded-doc border px-2 py-1 text-[12px] transition-colors ${
-                    selected
-                      ? 'border-ink bg-ink text-stock'
-                      : 'border-guilloche text-ink2 hover:border-ink hover:text-ink'
-                  }`}
-                >
-                  {option}
-                </button>
-              )
-            })}
-          </div>
-        ) : (
-          <AutoTextarea
-            aria-label={fill.label || 'Answer'}
-            value={value}
-            minRows={1}
-            onChange={(event) => onEdit(event.currentTarget.value)}
-          />
-        )}
-      </div>
-
-      {rewriting && (
-        <div className="mt-2 flex flex-wrap gap-1.5">
-          {STYLES.map((style) => (
-            <Button
-              key={style.key}
-              size="sm"
-              disabled={improve.isPending}
-              onClick={() => {
-                improve.mutate(
-                  { data: { label: fill.label, value, instruction: style.key } },
-                  {
-                    onSuccess: (result) => {
-                      onEdit(result.value)
-                      setRewriting(false)
-                    },
-                  },
-                )
-              }}
-            >
-              {style.label}
-            </Button>
-          ))}
-          {improve.isPending && (
-            <span className="self-center text-[11.5px] text-ink3">Rewriting…</span>
+      <div className="px-4 py-4">
+        <div className="flex items-start justify-between gap-2">
+          <p className="min-w-0 flex-1 text-[13px] font-semibold text-ink">
+            {fill.label || 'Untitled field'}
+          </p>
+          {fill.inferred && <GuessedBadge />}
+          {!fill.inferred && fill.confidence < REVIEW_CONFIDENCE_THRESHOLD && (
+            <GuessedBadge label={`unsure · ${Math.round(fill.confidence * 100)}%`} />
           )}
         </div>
-      )}
 
-      {improve.isError && (
-        <p className="mt-1.5 text-[11.5px] text-alert" role="alert">
-          {improve.error.message}
-        </p>
-      )}
-
-      {writeError && (
-        <p className="mt-1.5 text-[11.5px] text-alert" role="alert">
-          {writeError}
-        </p>
-      )}
-
-      <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
-        {dirty ? (
-          <>
-            <Button size="sm" variant="plate" onClick={() => onResolve('edited', value)}>
-              Save to the page
-            </Button>
-            <Button size="sm" variant="quiet" onClick={() => onEdit(fill.value)}>
-              Undo
-            </Button>
-          </>
-        ) : (
-          <>
-            {needsCheck(fill) && !settled && (
-              <Button size="sm" onClick={() => onResolve('accepted', value)}>
-                <IconCheck className="size-3.5" />
-                Keep
-              </Button>
-            )}
-            {fill.options.length === 0 && (
-              <Button size="sm" variant="quiet" onClick={() => setRewriting((v) => !v)}>
-                <IconPen className="size-3.5" />
-                Rewrite
-              </Button>
-            )}
-            {verdict === 'accepted' && (
-              <span className="mrz text-[10px] uppercase tracking-[0.1em] text-ink3">
-                Confirmed
-              </span>
-            )}
-            {verdict === 'edited' && (
-              <span className="mrz text-[10px] uppercase tracking-[0.1em] text-ink3">Saved</span>
-            )}
-            <span className="flex-1" />
-            {verdict === 'cleared' ? (
-              <Button size="sm" variant="quiet" onClick={() => onResolve('edited', fill.value)}>
-                Undo clear
-              </Button>
-            ) : (
-              <Button size="sm" variant="quiet" onClick={() => onResolve('cleared', '')}>
-                Clear
-              </Button>
-            )}
-          </>
+        {notAccepted && (
+          <p className="mt-1.5 flex items-start gap-1.5 text-[12px] leading-snug text-danger">
+            <IconAlert className="mt-px size-3.5 shrink-0" />
+            <span>The page refused this one. Nothing was written.</span>
+          </p>
         )}
+
+        <div className="mt-2.5">
+          {fill.options.length > 0 ? (
+            <div className="flex flex-wrap gap-1.5">
+              {fill.options.map((option) => {
+                const selected = option === value
+                return (
+                  <button
+                    key={option}
+                    type="button"
+                    onClick={() => onResolve('edited', option)}
+                    className={`rounded-full border px-3 py-1.5 text-[12.5px] font-medium transition-colors ${
+                      selected
+                        ? 'border-accent bg-accent text-white'
+                        : 'border-border-muted text-ink-muted hover:border-border hover:text-ink'
+                    }`}
+                  >
+                    {option}
+                  </button>
+                )
+              })}
+            </div>
+          ) : (
+            <AutoTextarea
+              aria-label={fill.label || 'Answer'}
+              value={value}
+              minRows={1}
+              onChange={(event) => onEdit(event.currentTarget.value)}
+            />
+          )}
+        </div>
+
+        {(needsCheck(fill) || fill.inferred) && fill.confidence < 0.95 && (
+          <p className="mt-2 flex items-center gap-1.5 text-[12px] text-ink-dim">
+            <IconSparkle className="size-3 text-accent" />
+            {confidenceLabel(fill.confidence)} about this one
+          </p>
+        )}
+
+        {rewriting && (
+          <div className="mt-2.5 flex flex-wrap gap-1.5">
+            {STYLES.map((style) => (
+              <Button
+                key={style.key}
+                size="sm"
+                disabled={improve.isPending}
+                onClick={() => {
+                  improve.mutate(
+                    { data: { label: fill.label, value, instruction: style.key } },
+                    {
+                      onSuccess: (result) => {
+                        onEdit(result.value)
+                        setRewriting(false)
+                      },
+                    },
+                  )
+                }}
+              >
+                {style.label}
+              </Button>
+            ))}
+            {improve.isPending && (
+              <span className="self-center text-[12px] text-ink-dim">Rewriting…</span>
+            )}
+          </div>
+        )}
+
+        {improve.isError && (
+          <p className="mt-1.5 text-[12px] text-danger" role="alert">
+            {improve.error.message}
+          </p>
+        )}
+
+        {writeError && (
+          <p className="mt-1.5 text-[12px] text-danger" role="alert">
+            {writeError}
+          </p>
+        )}
+
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          {dirty ? (
+            <>
+              <Button size="sm" variant="primary" onClick={() => onResolve('edited', value)}>
+                Save to the page
+              </Button>
+              <Button size="sm" variant="ghost" onClick={() => onEdit(fill.value)}>
+                Undo
+              </Button>
+            </>
+          ) : (
+            <>
+              {needsCheck(fill) && !settled && (
+                <Button size="sm" variant="secondary" onClick={() => onResolve('accepted', value)}>
+                  <IconCheck className="size-3.5" />
+                  Keep
+                </Button>
+              )}
+              {fill.options.length === 0 && (
+                <Button size="sm" variant="ghost" onClick={() => setRewriting((v) => !v)}>
+                  <IconPen className="size-3.5" />
+                  Rewrite
+                </Button>
+              )}
+              {verdict === 'accepted' && (
+                <Chip className="bg-positive-muted text-positive">
+                  <IconCheck className="size-3" />
+                  confirmed
+                </Chip>
+              )}
+              {verdict === 'edited' && (
+                <Chip className="bg-positive-muted text-positive">
+                  <IconCheck className="size-3" />
+                  saved
+                </Chip>
+              )}
+              <span className="flex-1" />
+              {verdict === 'cleared' ? (
+                <Button size="sm" variant="ghost" onClick={() => onResolve('edited', fill.value)}>
+                  Undo clear
+                </Button>
+              ) : (
+                <Button size="sm" variant="ghost" onClick={() => onResolve('cleared', '')}>
+                  Clear
+                </Button>
+              )}
+            </>
+          )}
+        </div>
       </div>
-    </li>
+    </Card>
   )
 }
 
@@ -286,18 +263,9 @@ export function Review({
     (fill) => (draft.verdicts[fill.fieldId] ?? 'open') === 'open',
   ).length
 
-  /**
-   * Resolving a row writes to the page and verifies it.
-   *
-   * `sendMessage` resolves `{ok:false}` rather than throwing, and the content script answers
-   * `false` outright when the field is gone — discarding either produced a row that said
-   * "Saved" and showed the new answer while the form still held the old one, which is worse
-   * than the correction never being offered.
-   */
   const resolve = async (fill: Fill, verdict: Verdict, next: string) => {
     if (tabId === null) return
 
-    // Accepting writes nothing: the page already holds this value. It only records agreement.
     if (verdict !== 'accepted') {
       const result = await sendMessage({
         type: 'review/write',
@@ -315,21 +283,8 @@ export function Review({
     setValue(tabId, fill.fieldId, next)
     setVerdict(tabId, fill.fieldId, verdict)
 
-    /*
-      Take the stamp off the field, whatever the verdict was.
-
-      `review/write` already clears the mark for an edit or a clear, but accepting writes
-      nothing — so agreeing with a concluded answer used to leave its endorsement on the field
-      indefinitely, and the only way to remove a stamp was to change the answer you had just
-      said was right.
-    */
     void sendMessage({ type: 'review/resolved', fieldId: fill.fieldId })
 
-    /*
-      Only a rewrite or a confirmation teaches. Clearing says the answer was wrong without
-      saying what is right, and feeding "this was wrong" into the same index later answers are
-      retrieved from would make them worse rather than better.
-    */
     if (verdict === 'edited' || verdict === 'accepted') {
       const [tab] = await chrome.tabs.query({ active: true, currentWindow: true })
       await sendMessage({
@@ -356,36 +311,39 @@ export function Review({
   return (
     <Screen>
       <ScreenHeader
-        title={outstanding > 0 ? `${outstanding} worth checking` : 'Everything checked'}
+        title={outstanding > 0 ? `${outstanding} worth checking` : 'All good'}
         onBack={onDone}
       />
 
       <ScreenBody className="flex flex-col">
-        {/*
-          What happened to the form, and nothing else.
-
-          The per-fill cost in cents used to end this line. That is our unit economics, not the
-          reader's: this is hosted, not bring-your-own-key, so a number they cannot act on and
-          are not billed for only invites them to price their own job application. Latency goes
-          with it — they watched it happen.
-        */}
-        <p className="mrz border-b border-guilloche px-4 py-2 text-[10.5px] text-ink3">
+        <p className="px-4 py-2.5 text-[12px] font-medium text-ink-muted">
           {written} written
           {notAccepted.size > 0 && (
-            <span className="text-alert"> · {notAccepted.size} refused</span>
+            <span className="text-danger"> · {notAccepted.size} refused</span>
           )}
-          {plan.skipped.length > 0 && ` · ${plan.skipped.length} blank`}
+          {plan.skipped.length > 0 && (
+            <span className="text-ink-dim"> · {plan.skipped.length} blank</span>
+          )}
         </p>
 
         {checkable.length === 0 && settledFills.length === 0 ? (
-          <EmptyState
-            title="Nothing was written"
-            body="No field on this page could be answered from what it knows. Adding more about yourself is what changes that."
-          />
+          <div className="flex flex-1 flex-col items-center justify-center px-7 py-10 text-center">
+            <Mascot expression="happy" size={52} />
+            <h2 className="mt-4 font-display text-[17px] font-bold text-ink">
+              Nothing was written
+            </h2>
+            <p className="mt-1.5 max-w-[32ch] text-[13px] leading-relaxed text-ink-muted">
+              No field on this page could be answered from what it knows. Adding more about yourself
+              is what changes that.
+            </p>
+          </div>
         ) : (
           <>
             {checkable.length > 0 ? (
-              <ul>
+              <div className="mx-4 mt-2 flex flex-col gap-px">
+                <p className="mb-2 text-[12px] font-semibold uppercase text-ink-dim">
+                  check these — I guessed
+                </p>
                 {checkable.map((fill) => (
                   <AnswerEntry
                     key={fill.fieldId}
@@ -398,77 +356,78 @@ export function Review({
                     onEdit={(next) => tabId !== null && setValue(tabId, fill.fieldId, next)}
                   />
                 ))}
-              </ul>
+              </div>
             ) : (
-              <p className="border-b border-guilloche px-4 py-4 text-[12.5px] leading-relaxed text-ink2">
-                Every answer came straight from something you told it. Nothing here was a judgement
-                call.
+              <p className="mx-4 mt-4 rounded-2xl border border-border-muted bg-surface-raised px-4 py-3 text-[13px] leading-relaxed text-ink-muted">
+                Every answer came straight from what you told it. Nothing here was a judgement call.
               </p>
             )}
 
-            {/*
-              Answers it read straight off are collapsed by design. Research on confidence-
-              scored autofill puts the typical number needing a look at two to five; putting
-              thirty-four percentages in front of someone is how the five get missed.
-            */}
             {settledFills.length > 0 && (
-              <div className="border-b border-guilloche">
+              <div className="mx-4 mt-3">
                 <button
                   type="button"
                   onClick={() => setShowSettled((v) => !v)}
                   aria-expanded={showSettled}
-                  className="flex w-full items-center gap-2 px-4 py-3 text-left transition-colors hover:bg-guilloche-soft"
+                  className="flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-left transition-colors hover:bg-surface-muted"
                 >
-                  <IconCheck className="size-4 shrink-0 text-ink3" />
-                  <span className="flex-1 text-[12.5px] text-ink2">
+                  <IconCheck className="size-4 shrink-0 text-positive" />
+                  <span className="flex-1 text-[13px] font-medium text-ink-muted">
                     {settledFills.length} {plural(settledFills.length, 'answer')} read straight off
                   </span>
-                  <span className="mrz text-[10.5px] uppercase tracking-[0.1em] text-ink3">
-                    {showSettled ? 'Hide' : 'Show'}
+                  <span className="text-[12px] font-semibold uppercase text-ink-dim">
+                    {showSettled ? 'hide' : 'show'}
                   </span>
                 </button>
 
                 {showSettled && (
-                  <ul className="divide-y divide-guilloche-soft border-t border-guilloche-soft">
+                  <div className="mt-1 space-y-1">
                     {settledFills.map((fill) => (
-                      <li key={fill.fieldId} className="px-4 py-2.5">
-                        <p className="doc-label normal-case tracking-[0.04em]">
+                      <div
+                        key={fill.fieldId}
+                        className="rounded-xl border border-border-muted px-4 py-2.5"
+                      >
+                        <p className="text-[12px] font-semibold text-ink-muted">
                           {fill.label || 'Untitled field'}
                         </p>
-                        <p className="mt-0.5 line-clamp-3 text-[12.5px] leading-snug text-ink">
+                        <p className="mt-1 line-clamp-3 text-[13px] leading-snug text-ink">
                           {draft.values[fill.fieldId] ?? fill.value}
                         </p>
-                      </li>
+                      </div>
                     ))}
-                  </ul>
+                  </div>
                 )}
               </div>
             )}
 
             {plan.skipped.length > 0 && (
-              <details className="border-b border-guilloche">
-                <summary className="cursor-pointer px-4 py-3 text-[12.5px] text-ink2 transition-colors hover:bg-guilloche-soft">
+              <details className="mx-4 mt-1.5">
+                <summary className="cursor-pointer rounded-xl px-3 py-2.5 text-[13px] font-medium text-ink-muted transition-colors hover:bg-surface-muted">
                   {plan.skipped.length} left blank
                 </summary>
-                <ul className="divide-y divide-guilloche-soft border-t border-guilloche-soft">
+                <div className="mt-1 space-y-1">
                   {plan.skipped.map((skip) => (
-                    <li key={skip.fieldId} className="px-4 py-2">
-                      <p className="text-[11.5px] leading-snug text-ink3">
+                    <div
+                      key={skip.fieldId}
+                      className="rounded-xl border border-border-muted px-3 py-2"
+                    >
+                      <p className="text-[12px] leading-snug text-ink-dim">
                         {skip.detail ?? SKIP_REASON[skip.reason] ?? 'Left blank'}
                       </p>
-                    </li>
+                    </div>
                   ))}
-                </ul>
+                </div>
               </details>
             )}
           </>
         )}
 
-        <div className="px-4 py-4">
-          <Button variant="plate" block onClick={onDone}>
+        <div className="px-4 py-5">
+          <Button variant="primary" block size="lg" onClick={onDone}>
+            <IconSparkle className="size-4" />
             Done
           </Button>
-          <p className="mt-2 text-center text-[11.5px] text-ink3">
+          <p className="mt-2.5 text-center text-[12px] text-ink-dim">
             Submitting the form is still yours to do.
           </p>
         </div>

@@ -1,6 +1,7 @@
 import type { Request } from '@aff/shared'
 import { improveAnswer, submitFeedback } from '../generated/endpoints/fill/fill.js'
-import { signIn, signOut } from '../lib/auth.js'
+import { getProfile } from '../generated/endpoints/profile/profile.js'
+import { hasSession, signIn, signOut } from '../lib/auth.js'
 import { registerFillPort, runFillFlow } from '../lib/fill-port.js'
 import { toResult } from '../lib/messaging.js'
 
@@ -37,6 +38,28 @@ export default defineBackground(() => {
         void toResult(async () => {
           await signOut()
           return null
+        }).then(sendResponse)
+        return true
+
+      /**
+       * Known facts for the page's instant inline suggestions.
+       *
+       * The content script runs on every page and cannot call the API itself (its fetch
+       * carries the host page's origin, and the CORS allowlist is the extension's). This hop
+       * hands it just the identity fields and typed facts — enough to suggest an email or a
+       * notice period with no model call. `null` when signed out, so the page simply offers no
+       * suggestions rather than raising an error.
+       */
+      case 'profile/knownFacts':
+        void toResult(async () => {
+          if (!(await hasSession())) return null
+          try {
+            const profile = await getProfile()
+            return { identity: profile.identity, custom: profile.custom }
+          } catch {
+            // A signed-out race or a down API must not surface as an error on the page.
+            return null
+          }
         }).then(sendResponse)
         return true
 

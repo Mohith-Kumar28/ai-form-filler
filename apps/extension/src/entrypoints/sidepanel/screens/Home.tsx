@@ -2,50 +2,27 @@ import type { Account, Profile } from '../../../generated/model/index.js'
 import { openManageSubscription, openUpgrade } from '../../../lib/billing.js'
 import { formatResetDate, plural } from '../../../lib/format.js'
 import type { ActivePage } from '../../../lib/use-active-page.js'
-import { Button, Row, RowGroup, Screen, ScreenBody, ScreenHeader } from '../components.js'
-import { IconSeal } from '../icons.js'
+import {
+  Button,
+  Card,
+  Row,
+  RowGroup,
+  Screen,
+  ScreenBody,
+  ScreenHeader,
+  SkeletonText,
+} from '../components.js'
+import { IconGear, IconSparkle } from '../icons.js'
 import { useNavigation } from '../navigation.js'
 
 const PLAN_NAMES: Record<string, string> = { free: 'Free', pro: 'Pro', ultra: 'Ultra' }
 
-/**
- * The portrait oval.
- *
- * Every credential carries the holder's photograph inside a ruled frame; here that frame is
- * the whole account affordance. It replaces a header band that spent 72 of a 400px panel's
- * pixels on an avatar, a name, an email, a sign-out link, a quota sentence, a plan chip and a
- * progress rule — none of which was the task.
- */
-function PortraitButton({ account, onClick }: { account: Account; onClick: () => void }) {
-  const initials = (account.name ?? account.email)
-    .split(/[\s@.]+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part[0]?.toUpperCase())
-    .join('')
-
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-label="Your document"
-      className="flex size-7 shrink-0 items-center justify-center overflow-hidden rounded-full border border-ink text-ink transition-opacity hover:opacity-80"
-    >
-      {account.avatarUrl ? (
-        <img src={account.avatarUrl} alt="" className="size-full object-cover" />
-      ) : (
-        <span className="mrz text-[10px] font-medium">{initials}</span>
-      )}
-    </button>
-  )
-}
-
 function PageEntry({ page }: { page: ActivePage }) {
   if (page.status === 'checking') {
     return (
-      <div>
-        <div className="awaiting h-4 w-2/3 rounded-doc" />
-        <div className="awaiting mt-2 h-3 w-1/3 rounded-doc" />
+      <div className="space-y-2.5">
+        <SkeletonText className="h-5 w-3/5" />
+        <SkeletonText className="h-3.5 w-2/5" />
       </div>
     )
   }
@@ -53,13 +30,13 @@ function PageEntry({ page }: { page: ActivePage }) {
   if (page.status === 'unavailable' || page.fieldCount === 0) {
     return (
       <div>
-        <p className="truncate text-[15px] font-semibold tracking-[-0.015em] text-ink">
+        <p className="font-display text-[18px] font-bold tracking-[-0.02em] text-ink">
           {page.origin ?? 'Nothing to fill here'}
         </p>
-        <p className="mt-1 text-[12px] leading-snug text-ink2">
+        <p className="mt-1 text-[13px] leading-snug text-ink-muted">
           {page.status === 'unavailable'
             ? 'This kind of page cannot be read — browser pages and the Web Store are off limits.'
-            : 'No form found. It will appear here as soon as one does.'}
+            : 'No form found. Try a page with inputs, and it will show up here.'}
         </p>
       </div>
     )
@@ -67,11 +44,11 @@ function PageEntry({ page }: { page: ActivePage }) {
 
   return (
     <div>
-      <p className="truncate text-[15px] font-semibold tracking-[-0.015em] text-ink">
+      <p className="font-display text-[18px] font-bold tracking-[-0.02em] text-ink">
         {page.origin}
       </p>
-      <p className="mrz mt-1 text-[12px] text-ink2">
-        {page.fieldCount} {plural(page.fieldCount, 'field')}
+      <p className="mt-1 text-[13px] font-medium text-ink-muted">
+        {page.fieldCount} {plural(page.fieldCount, 'field')} found
       </p>
     </div>
   )
@@ -101,9 +78,9 @@ export function Home({
   const canFill = page.status === 'ready' && page.fieldCount > 0
 
   const blockedReason = !account.profileReady
-    ? 'Add something about yourself first.'
+    ? 'Add something about yourself first — a résumé, a link, whatever.'
     : exhausted
-      ? `Out of forms until ${formatResetDate(resetsAt)}. Upgrade your plan for more.`
+      ? `Out of forms until ${formatResetDate(resetsAt)}. Upgrade to keep going.`
       : null
 
   return (
@@ -111,51 +88,53 @@ export function Home({
       <ScreenHeader
         title={
           <span className="flex items-center gap-2">
-            <IconSeal className="size-4 shrink-0 text-ink" />
-            <span>Form Filler</span>
+            <IconSparkle className="size-4 shrink-0 text-accent" />
+            <span>you fill</span>
           </span>
         }
-        right={<PortraitButton account={account} onClick={() => nav.push({ name: 'profile' })} />}
+        right={
+          <button
+            type="button"
+            onClick={() => nav.push({ name: 'settings' })}
+            aria-label="Settings"
+            className="flex size-8 shrink-0 items-center justify-center rounded-full text-ink-muted transition-colors hover:bg-surface-muted hover:text-ink"
+          >
+            <IconGear className="size-4" />
+          </button>
+        }
       />
 
-      <ScreenBody>
-        <div className="border-b border-guilloche px-4 py-5">
+      <ScreenBody className="flex flex-col">
+        {/* The form you're looking at. */}
+        <Card className="mx-4 mb-3 mt-4 px-4 py-4">
           <PageEntry page={page} />
 
           <div className="mt-4">
             <Button
-              variant="plate"
+              variant="primary"
+              size="lg"
               block
               onClick={onFill}
               disabled={!canFill || blockedReason !== null}
             >
+              <IconSparkle className="size-4" />
               Fill this form
             </Button>
 
-            {/* The reason only. The row below is the action, and repeating it as a link here
-                made the same destination appear twice within forty pixels. */}
             {blockedReason && (
-              <p className="mt-2 text-[12px] leading-snug text-ink2">{blockedReason}</p>
+              <p className="mt-2 text-[12.5px] leading-snug text-ink-muted">{blockedReason}</p>
             )}
 
-            {/*
-              A warning at the threshold, not a counter.
-
-              The persistent "N forms left" band was the thing this redesign removed; printing
-              a register row here every time the number is under ten put it back in a smaller
-              typeface. Three is close enough to the end to be worth interrupting for, and it
-              reads as a sentence rather than a measure.
-            */}
             {!blockedReason && left <= 3 && (
-              <p className="mt-2 text-[12px] leading-snug text-ink2">
+              <p className="mt-2 text-[12.5px] leading-snug text-ink-muted">
                 {left === 0
-                  ? 'That was your last form this month.'
+                  ? 'That was your last one this month!'
                   : `${left} ${plural(left, 'form')} left this month.`}{' '}
                 {account.quota.plan === 'free' && (
                   <button
                     type="button"
                     onClick={() => void openUpgrade()}
-                    className="underline underline-offset-2 hover:text-ink"
+                    className="font-semibold text-accent underline underline-offset-2 hover:no-underline"
                   >
                     Upgrade
                   </button>
@@ -163,22 +142,18 @@ export function Home({
               </p>
             )}
           </div>
-        </div>
+        </Card>
 
         <RowGroup>
-          {/*
-            One number, not two. A trailing count of 5 beside "3 sources it can answer from"
-            asks the reader to work out which of the two matters — and the answer is always the
-            ready count, because a source still being read cannot answer anything yet.
-          */}
           <Row
-            title="Sources"
+            icon={<IconSparkle className="size-4" />}
+            title="What it knows"
             detail={
               sources.length === 0
-                ? 'Add a résumé, a link, or a few pasted lines'
+                ? 'Add a résumé, a link, or a few facts'
                 : readyCount === sources.length
                   ? `${readyCount} ${plural(readyCount, 'source')} it can answer from`
-                  : `${readyCount} of ${sources.length} ready to answer from`
+                  : `${readyCount} of ${sources.length} ready`
             }
             onClick={() => nav.push({ name: 'sources' })}
           />

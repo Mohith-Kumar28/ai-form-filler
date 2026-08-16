@@ -8,11 +8,10 @@ import {
   useRef,
   useState,
 } from 'react'
-import { guillocheDataUri } from '../../lib/tokens.js'
-import { IconAlert, IconBack, IconChevronRight, IconMore } from './icons.js'
+import { IconAlert, IconBack, IconChevronRight, IconMore, IconSparkle } from './icons.js'
 import { useNavigation } from './navigation.js'
 
-/* ── The document leaf ───────────────────────────────────────────────────── */
+/* ── The screen leaf ─────────────────────────────────────────────────────── */
 
 /**
  * Every screen is one leaf of the same document.
@@ -23,7 +22,10 @@ import { useNavigation } from './navigation.js'
  */
 export function Screen({ children }: { children: ReactNode }) {
   return (
-    <div className="flex h-full min-h-0 flex-col bg-stock" style={{ viewTransitionName: 'screen' }}>
+    <div
+      className="flex h-full min-h-0 flex-col bg-surface"
+      style={{ viewTransitionName: 'screen' }}
+    >
       {children}
     </div>
   )
@@ -43,22 +45,18 @@ export function ScreenHeader({
   const canGoBack = onBack !== undefined || nav.depth > 0
 
   return (
-    <header className="flex h-11 shrink-0 items-center gap-1 border-b border-guilloche bg-leaf pl-1 pr-2">
+    <header className="flex h-14 shrink-0 items-center gap-1.5 border-b border-border-muted px-2.5">
       {canGoBack && (
         <button
           type="button"
           onClick={onBack ?? nav.back}
           aria-label="Back"
-          className="flex size-8 shrink-0 items-center justify-center rounded-doc text-ink2 transition-colors hover:bg-guilloche-soft hover:text-ink"
+          className="flex size-8 shrink-0 items-center justify-center rounded-full text-ink-muted transition-colors hover:bg-surface-muted hover:text-ink"
         >
           <IconBack className="size-4" />
         </button>
       )}
-      <h1
-        className={`min-w-0 flex-1 truncate text-[13.5px] font-semibold tracking-[-0.01em] text-ink ${
-          canGoBack ? '' : 'pl-3'
-        }`}
-      >
+      <h1 className="min-w-0 flex-1 truncate font-display text-[16px] font-bold tracking-[-0.02em] text-ink">
         {title}
       </h1>
       {right}
@@ -79,53 +77,28 @@ export function ScreenBody({
 
 export function ScreenFooter({ children }: { children: ReactNode }) {
   return (
-    <footer className="shrink-0 border-t border-guilloche bg-leaf px-4 py-3">{children}</footer>
+    <footer className="shrink-0 border-t border-border-muted bg-surface px-4 py-3">
+      {children}
+    </footer>
   )
 }
 
-/* ── Struck controls ─────────────────────────────────────────────────────── */
+/* ── Buttons ─────────────────────────────────────────────────────────────── */
 
-type Variant = 'plate' | 'struck' | 'quiet' | 'danger'
-
-/**
- * A disabled plate stops being a plate.
- *
- * Fading a solid ink field to 40% still leaves the heaviest block on the screen — in dark it
- * reads as a light bar demanding to be pressed, which is the opposite of unavailable. An
- * unavailable action is drawn as an empty frame instead: the shape is still there, the ink
- * has not been laid down yet.
- */
-const DISABLED_PLATE =
-  'disabled:bg-transparent disabled:text-ink3 disabled:border-guilloche disabled:active:translate-y-0'
+type Variant = 'primary' | 'secondary' | 'ghost' | 'danger'
 
 const VARIANTS: Record<Variant, string> = {
-  /*
-    Utilities, not the `.plate` class.
-
-    `.plate` is plain CSS outside any `@layer`, which puts it *after* Tailwind's utilities in
-    the cascade — so `disabled:bg-transparent` lost to it and every disabled primary rendered
-    as a fully struck plate. A button offering an action that cannot be taken is worse than no
-    button, and this one looked identical to the live control beside it.
-  */
-  /*
-    The keyline is what makes this a plate rather than a button.
-
-    A struck panel on a printed document carries a hairline rule set in from its own edge —
-    the plate's border and the impression's border are two different lines. Without it this
-    was a filled rectangle indistinguishable from every secondary control in the build, which
-    is exactly what the direction contract promised it would not be.
-  */
-  plate: `relative bg-ink text-stock border border-ink hover:opacity-90 active:translate-y-px ${DISABLED_PLATE} before:pointer-events-none before:absolute before:inset-[3px] before:border before:border-stock/30 before:content-[''] disabled:before:border-transparent`,
-  struck: `border border-ink text-ink hover:bg-ink/8 active:translate-y-px ${DISABLED_PLATE}`,
-  quiet:
-    'border border-transparent text-ink2 hover:bg-guilloche-soft hover:text-ink disabled:text-ink3',
-  // Faults and destruction, in the caution ink — never the endorsement stamp's vermilion,
-  // which means one thing only: this answer was concluded rather than read.
-  danger: `border border-alert text-alert hover:bg-alert-wash active:translate-y-px ${DISABLED_PLATE}`,
+  // The signature sunset gradient. White text on a violet→pink run, pill, a little glow.
+  primary:
+    'text-white shadow-[0_2px_12px_-2px_var(--color-shadow-strong)] hover:brightness-110 active:brightness-95',
+  secondary:
+    'bg-surface-raised text-ink border border-border hover:border-ink/30 hover:bg-surface-muted',
+  ghost: 'text-ink-muted hover:bg-surface-muted hover:text-ink',
+  danger: 'text-danger border border-danger hover:bg-danger-muted',
 }
 
 export function Button({
-  variant = 'struck',
+  variant = 'secondary',
   size = 'md',
   block = false,
   loading = false,
@@ -135,7 +108,7 @@ export function Button({
   ...rest
 }: ButtonHTMLAttributes<HTMLButtonElement> & {
   variant?: Variant
-  size?: 'sm' | 'md'
+  size?: 'sm' | 'md' | 'lg'
   block?: boolean
   loading?: boolean
 }) {
@@ -145,29 +118,161 @@ export function Button({
       disabled={disabled || loading}
       aria-busy={loading || undefined}
       className={[
-        'inline-flex items-center justify-center gap-1.5 rounded-doc font-medium transition-[opacity,background-color,transform] duration-150',
-        size === 'sm' ? 'px-2.5 py-1 text-[12px]' : 'px-3.5 py-2 text-[13px]',
+        'inline-flex items-center justify-center gap-1.5 rounded-full font-semibold transition-[filter,background-color,transform] duration-150 active:translate-y-px disabled:pointer-events-none disabled:opacity-45',
+        size === 'sm'
+          ? 'px-3 py-1.5 text-[12.5px]'
+          : size === 'lg'
+            ? 'px-5 py-3 text-[15px]'
+            : 'px-4 py-2 text-[13.5px]',
         block ? 'w-full' : '',
         VARIANTS[variant],
         className,
       ]
         .filter(Boolean)
         .join(' ')}
+      style={
+        variant === 'primary'
+          ? { background: 'linear-gradient(135deg, var(--color-sparkle), var(--color-accent))' }
+          : undefined
+      }
       {...rest}
     >
-      {children}
+      {loading ? <Spinner /> : children}
     </button>
   )
 }
 
-/* ── Register rows ───────────────────────────────────────────────────────── */
+/** The one moving part allowed in a button — a tiny ring, never a big spinner. */
+function Spinner() {
+  return (
+    <span
+      aria-hidden
+      className="size-3.5 animate-spin rounded-full border-2 border-current border-t-transparent"
+    />
+  )
+}
+
+/* ── Cards, chips, badges ────────────────────────────────────────────────── */
+
+export function Card({
+  children,
+  className = '',
+  ...rest
+}: {
+  children: ReactNode
+  className?: string
+} & React.HTMLAttributes<HTMLDivElement>) {
+  return (
+    <div
+      className={`rounded-2xl border border-border-muted bg-surface-raised ${className}`}
+      {...rest}
+    >
+      {children}
+    </div>
+  )
+}
+
+export function Chip({ children, className = '' }: { children: ReactNode; className?: string }) {
+  return (
+    <span
+      className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[12px] font-medium ${className}`}
+    >
+      {children}
+    </span>
+  )
+}
 
 /**
- * A ruled row that pushes a screen.
+ * The trust badge: marks an answer the tool guessed rather than read.
  *
- * Cards are refused throughout: a credential's contents are a ruled register, and boxing each
- * entry would put a container around content that is already delimited by the rule above it.
+ * Hot pink + a sparkle, always. A stated answer gets nothing — the absence is the signal.
  */
+export function GuessedBadge({ label = 'guessed' }: { label?: string }) {
+  return (
+    <Chip className="bg-accent-muted text-accent">
+      <IconSparkle className="size-3" />
+      {label}
+    </Chip>
+  )
+}
+
+/* ── The mascot ──────────────────────────────────────────────────────────── */
+
+type Expression = 'happy' | 'think' | 'party' | 'excited'
+
+export type { Expression }
+
+/**
+ * The hype friend: a rounded blob with the sunset gradient and a face.
+ *
+ * Deliberately tiny and cheap — one SVG, a few mouth/eye variations, no image assets. It
+ * shows up where the product talks to you: welcome, filling, empty states, the done moment.
+ */
+export function Mascot({
+  expression = 'happy',
+  size = 44,
+  className = '',
+}: {
+  expression?: Expression
+  size?: number
+  className?: string
+}) {
+  const id = useId()
+  const grad = `mascot-${id.replace(/[^a-zA-Z0-9]/g, '')}`
+
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 40 40"
+      fill="none"
+      aria-hidden="true"
+      className={className}
+    >
+      <defs>
+        <linearGradient id={grad} x1="0" y1="0" x2="40" y2="40" gradientUnits="userSpaceOnUse">
+          <stop stopColor="var(--color-sparkle)" />
+          <stop offset="0.55" stopColor="var(--color-accent)" />
+          <stop offset="1" stopColor="var(--color-sun)" />
+        </linearGradient>
+      </defs>
+      <circle cx="20" cy="20" r="19" fill={`url(#${grad})`} />
+      <g fill="#fff">
+        <circle cx="14.5" cy="16.5" r="2" />
+        <circle cx="25.5" cy="16.5" r="2" />
+      </g>
+      {expression === 'happy' && (
+        <path
+          d="M15 25q5 4.5 10 0"
+          stroke="#fff"
+          strokeWidth="2"
+          strokeLinecap="round"
+          fill="none"
+        />
+      )}
+      {expression === 'think' && (
+        <g fill="#fff">
+          <circle cx="15" cy="25" r="1.4" />
+          <circle cx="20" cy="25" r="1.4" />
+          <circle cx="25" cy="25" r="1.4" />
+        </g>
+      )}
+      {expression === 'party' && (
+        <path
+          d="M13.5 24q6.5 5.5 13 0"
+          stroke="#fff"
+          strokeWidth="2"
+          strokeLinecap="round"
+          fill="none"
+        />
+      )}
+      {expression === 'excited' && <path d="M14 23.5a6 6 0 0 0 12 0z" fill="#fff" />}
+    </svg>
+  )
+}
+
+/* ── Rows ────────────────────────────────────────────────────────────────── */
+
 export function Row({
   icon,
   title,
@@ -176,58 +281,48 @@ export function Row({
   onClick,
   trailing,
   tone = 'default',
-  index,
 }: {
   icon?: ReactNode
   title: ReactNode
   detail?: ReactNode
   value?: ReactNode
   onClick?: () => void
-  /** Replaces the disclosure chevron — an overflow menu, say. */
   trailing?: ReactNode
   tone?: 'default' | 'danger'
-  /** Staggers the settle animation. Capped by the caller at 8 or the list flickers. */
-  index?: number
 }) {
   const body = (
     <>
       {icon && (
         <span
-          className={`mt-px flex size-4 shrink-0 items-center justify-center ${
-            tone === 'danger' ? 'text-alert' : 'text-ink3'
-          }`}
+          className={`mt-px flex size-4 shrink-0 items-center justify-center ${tone === 'danger' ? 'text-danger' : 'text-ink-dim'}`}
         >
           {icon}
         </span>
       )}
       <span className="min-w-0 flex-1">
-        <span className="block truncate text-[13px] text-ink">{title}</span>
-        {detail && <span className="mt-0.5 block truncate text-[11.5px] text-ink3">{detail}</span>}
+        <span
+          className={`block truncate text-[14px] ${tone === 'danger' ? 'text-danger' : 'text-ink'}`}
+        >
+          {title}
+        </span>
+        {detail && <span className="mt-0.5 block truncate text-[12px] text-ink-dim">{detail}</span>}
       </span>
-      {value && <span className="mrz shrink-0 text-[11.5px] text-ink3">{value}</span>}
-      {trailing ?? (onClick && <IconChevronRight className="size-4 shrink-0 text-ink3" />)}
+      {value && <span className="shrink-0 text-[12px] text-ink-dim">{value}</span>}
+      {trailing ?? (onClick && <IconChevronRight className="size-4 shrink-0 text-ink-dim" />)}
     </>
   )
 
   const shared = 'flex w-full items-start gap-2.5 px-4 py-3 text-left'
-  const style = index === undefined ? undefined : ({ '--i': index } as React.CSSProperties)
 
   if (!onClick) {
-    return (
-      <div className={`${shared} ${index === undefined ? '' : 'settle'}`} style={style}>
-        {body}
-      </div>
-    )
+    return <div className={shared}>{body}</div>
   }
 
   return (
     <button
       type="button"
       onClick={onClick}
-      className={`${shared} transition-colors hover:bg-guilloche-soft ${
-        index === undefined ? '' : 'settle'
-      }`}
-      style={style}
+      className={`${shared} transition-colors hover:bg-surface-muted`}
     >
       {body}
     </button>
@@ -235,13 +330,13 @@ export function Row({
 }
 
 export function RowGroup({ children }: { children: ReactNode }) {
-  return <div className="divide-y divide-guilloche-soft border-y border-guilloche">{children}</div>
+  return <div className="divide-y divide-border-muted">{children}</div>
 }
 
 /* ── Fields ──────────────────────────────────────────────────────────────── */
 
 const CONTROL =
-  'w-full rounded-doc border border-guilloche bg-leaf px-2.5 py-1.5 text-[13px] text-ink placeholder:text-ink3 transition-colors focus:border-query disabled:opacity-50'
+  'w-full rounded-xl border border-border bg-surface-raised px-3 py-2 text-[14px] text-ink placeholder:text-ink-dim transition-colors focus:border-accent disabled:opacity-50'
 
 export function Field({
   label,
@@ -261,19 +356,17 @@ export function Field({
 
   return (
     <div className="flex flex-col gap-1.5">
-      {/* Labels sit above the control, never inside it: a placeholder that vanishes on focus
-          takes the question away exactly when the person is answering it. */}
-      <label htmlFor={id} className="doc-label">
+      <label htmlFor={id} className="text-[12px] font-semibold text-ink-muted">
         {label}
       </label>
       {children({ id, describedBy: describedBy || undefined })}
       {hint && !error && (
-        <p id={hintId} className="text-[11.5px] text-ink3">
+        <p id={hintId} className="text-[12px] text-ink-dim">
           {hint}
         </p>
       )}
       {error && (
-        <p id={errorId} role="alert" className="flex items-start gap-1.5 text-[11.5px] text-alert">
+        <p id={errorId} role="alert" className="flex items-start gap-1.5 text-[12px] text-danger">
           <IconAlert className="mt-px size-3.5 shrink-0" />
           <span>{error}</span>
         </p>
@@ -318,68 +411,49 @@ export function AutoTextarea({
 
 /* ── States ──────────────────────────────────────────────────────────────── */
 
-/** Unissued stock: the shape of the row that is coming, not a spinner in its place. */
 export function SkeletonRow() {
   return (
     <div className="flex items-center gap-2.5 px-4 py-3">
-      <div className="awaiting size-4 shrink-0 rounded-doc" />
+      <div className="awaiting size-4 shrink-0 rounded-full" />
       <div className="min-w-0 flex-1">
-        <div className="awaiting h-3 w-2/5 rounded-doc" />
-        <div className="awaiting mt-1.5 h-2.5 w-1/4 rounded-doc" />
+        <div className="awaiting h-3.5 w-2/5 rounded-full" />
+        <div className="awaiting mt-1.5 h-3 w-1/4 rounded-full" />
       </div>
     </div>
   )
 }
 
+export function SkeletonText({ className = '' }: { className?: string }) {
+  return <div className={`awaiting rounded-full ${className}`} />
+}
+
 /**
- * A blank document leaf.
+ * Nothing here yet — said cheerfully.
  *
- * This is the one place the guilloche covers area rather than marking an edge, and it is
- * earned: an unissued credential is exactly a sheet with the security ground printed and
- * nothing filled in yet. Every empty state here says what to do, not that there is nothing.
+ * The mascot (or a sparkle) does the heavy lifting: every empty state says what to do next,
+ * not just that there is nothing.
  */
 export function EmptyState({
   title,
   body,
   action,
+  mascot = 'happy',
 }: {
   title: string
   body: ReactNode
   action?: ReactNode
+  mascot?: Expression
 }) {
   return (
-    <div className="relative flex flex-1 flex-col items-center justify-center px-7 py-10 text-center">
-      {/*
-        Density is carried by the token, not by an opacity multiplier: `guilloche` already sits
-        a fixed distance from `stock` in both schemes, so the ground reads at the same weight
-        in each. Fading it further made it invisible in dark while it was still legible in light.
-      */}
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-0"
-        style={{
-          // Full strength, and legibility comes from the mask below rather than from fading
-          // the ink. Halving the opacity here quietly cancelled a raise to the `engine` token
-          // and left the dark ground pixel-identical to the build it was meant to fix.
-          backgroundImage: guillocheDataUri('currentColor'),
-          backgroundRepeat: 'repeat',
-          color: 'var(--color-engine)',
-          /*
-            Cleared where the message sits, not concentrated there. Centring the ground behind
-            its own copy put an engraved field directly under the one paragraph this screen
-            exists to have read — a decorative ground that costs legibility has stopped being
-            structure, whatever world it belongs to.
-          */
-          maskImage: 'radial-gradient(circle at 50% 45%, transparent 34%, black 76%)',
-        }}
-      />
-      <div className="relative">
-        <h2 className="text-[14px] font-semibold tracking-[-0.01em] text-ink">{title}</h2>
-        <div className="mx-auto mt-1.5 max-w-[30ch] text-[12.5px] leading-relaxed text-ink2">
-          {body}
-        </div>
-        {action && <div className="mt-4 flex justify-center">{action}</div>}
+    <div className="flex flex-1 flex-col items-center justify-center px-7 py-10 text-center">
+      <Mascot expression={mascot} size={52} className="bounce" />
+      <h2 className="mt-4 font-display text-[17px] font-bold tracking-[-0.02em] text-ink">
+        {title}
+      </h2>
+      <div className="mx-auto mt-1.5 max-w-[32ch] text-[13px] leading-relaxed text-ink-muted">
+        {body}
       </div>
+      {action && <div className="mt-4 flex justify-center">{action}</div>}
     </div>
   )
 }
@@ -388,7 +462,7 @@ export function ErrorNote({ children }: { children: ReactNode }) {
   return (
     <p
       role="alert"
-      className="flex items-start gap-1.5 px-4 py-2.5 text-[12px] leading-snug text-alert"
+      className="flex items-start gap-1.5 px-4 py-2.5 text-[12.5px] leading-snug text-danger"
     >
       <IconAlert className="mt-px size-3.5 shrink-0" />
       <span className="min-w-0">{children}</span>
@@ -434,15 +508,14 @@ export function OverflowMenu({ items, label }: { items: MenuItem[]; label: strin
         aria-expanded={open}
         aria-haspopup="menu"
         onClick={() => setOpen((v) => !v)}
-        className="flex size-7 items-center justify-center rounded-doc text-ink3 transition-colors hover:bg-guilloche-soft hover:text-ink"
+        className="flex size-7 items-center justify-center rounded-full text-ink-dim transition-colors hover:bg-surface-muted hover:text-ink"
       >
         <IconMore className="size-4" />
       </button>
       {open && (
-        // eslint-disable-next-line jsx-a11y/no-noninteractive-element-to-interactive-role
         <div
           role="menu"
-          className="strike absolute right-0 top-full z-10 mt-1 min-w-[9.5rem] overflow-hidden rounded-doc border border-guilloche bg-leaf shadow-[0_6px_20px_-6px_var(--color-shadow-far),0_1px_2px_var(--color-shadow-near)]"
+          className="pop absolute right-0 top-full z-10 mt-1 min-w-[9.5rem] overflow-hidden rounded-xl border border-border bg-surface-raised p-1 shadow-[0_8px_24px_-8px_var(--color-shadow-strong)]"
         >
           {items.map((item) => (
             <button
@@ -453,8 +526,8 @@ export function OverflowMenu({ items, label }: { items: MenuItem[]; label: strin
                 setOpen(false)
                 item.onSelect()
               }}
-              className={`block w-full px-3 py-2 text-left text-[12.5px] transition-colors hover:bg-guilloche-soft ${
-                item.tone === 'danger' ? 'text-alert' : 'text-ink'
+              className={`block w-full rounded-lg px-3 py-2 text-left text-[13px] transition-colors hover:bg-surface-muted ${
+                item.tone === 'danger' ? 'text-danger' : 'text-ink'
               }`}
             >
               {item.label}
@@ -468,13 +541,6 @@ export function OverflowMenu({ items, label }: { items: MenuItem[]; label: strin
 
 /* ── Confirm sheet ───────────────────────────────────────────────────────── */
 
-/**
- * Interruption is earned here and nowhere else.
- *
- * Deleting a source removes the stored original and everything the tool remembers from it, on
- * a server, permanently. The previous build fired that mutation straight from a `Remove`
- * button sitting in the row.
- */
 export function ConfirmSheet({
   title,
   body,
@@ -543,17 +609,17 @@ export function ConfirmSheet({
         role="alertdialog"
         aria-modal="true"
         aria-label={title}
-        className="strike relative border-t border-guilloche bg-leaf px-4 pb-4 pt-3.5"
+        className="pop relative rounded-t-2xl border-t border-border bg-surface-raised px-4 pb-4 pt-4 shadow-[0_-8px_24px_-12px_var(--color-shadow-strong)]"
       >
-        <h2 className="text-[13.5px] font-semibold text-ink">{title}</h2>
-        <div className="mt-1.5 text-[12.5px] leading-relaxed text-ink2">{body}</div>
+        <h2 className="font-display text-[16px] font-bold text-ink">{title}</h2>
+        <div className="mt-1.5 text-[13px] leading-relaxed text-ink-muted">{body}</div>
         {error && (
-          <p role="alert" className="mt-2.5 text-[12px] leading-snug text-alert">
+          <p role="alert" className="mt-2.5 text-[12px] leading-snug text-danger">
             {error}
           </p>
         )}
         <div className="mt-4 flex gap-2">
-          <Button variant="quiet" block onClick={onCancel} disabled={pending} data-autofocus>
+          <Button variant="ghost" block onClick={onCancel} disabled={pending} data-autofocus>
             Cancel
           </Button>
           <Button variant="danger" block onClick={onConfirm} loading={pending}>
@@ -561,6 +627,53 @@ export function ConfirmSheet({
           </Button>
         </div>
       </div>
+    </div>
+  )
+}
+
+/* ── Segmented control ───────────────────────────────────────────────────── */
+
+export interface Segment<T extends string> {
+  key: T
+  label: string
+  icon?: ReactNode
+}
+
+export function SegmentedControl<T extends string>({
+  segments,
+  value,
+  onChange,
+  label,
+}: {
+  segments: Segment<T>[]
+  value: T
+  onChange: (value: T) => void
+  label: string
+}) {
+  return (
+    <div
+      role="tablist"
+      aria-label={label}
+      className="flex gap-1 overflow-x-auto rounded-full border border-border-muted bg-surface-muted p-1"
+    >
+      {segments.map((segment) => {
+        const selected = segment.key === value
+        return (
+          <button
+            key={segment.key}
+            type="button"
+            role="tab"
+            aria-selected={selected}
+            onClick={() => onChange(segment.key)}
+            className={`flex flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-full px-2.5 py-1.5 text-[12.5px] font-semibold transition-colors ${
+              selected ? 'bg-surface-raised text-ink shadow-sm' : 'text-ink-muted hover:text-ink'
+            }`}
+          >
+            {segment.icon}
+            {segment.label}
+          </button>
+        )
+      })}
     </div>
   )
 }

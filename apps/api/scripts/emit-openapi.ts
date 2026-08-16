@@ -15,7 +15,7 @@ const outPath = resolve(here, '../openapi.json')
 
 const document = app.getOpenAPI31Document({
   openapi: '3.1.0',
-  info: { title: 'AI Form Filler API', version: '0.1.0' },
+  info: { title: 'Fillaform API', version: '0.1.0' },
 })
 
 writeFileSync(outPath, `${JSON.stringify(document, null, 2)}\n`)

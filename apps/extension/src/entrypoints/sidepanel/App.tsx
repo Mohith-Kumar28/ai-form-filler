@@ -121,6 +121,7 @@ function Stack() {
 
   switch (screen.name) {
     case 'profile':
+    case 'settings':
       return <Profile account={account.data} />
 
     case 'sources':

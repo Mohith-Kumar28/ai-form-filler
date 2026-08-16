@@ -17,6 +17,8 @@ import {
   ScreenBody,
   ScreenFooter,
   ScreenHeader,
+  type Segment,
+  SegmentedControl,
 } from '../components.js'
 import { IconAudio, IconDocument, IconLink, IconMic, IconText, IconUpload } from '../icons.js'
 import { useNavigation } from '../navigation.js'
@@ -25,33 +27,22 @@ const MAX_UPLOAD_BYTES = 15 * 1024 * 1024
 
 type Mode = 'fact' | 'upload' | 'link' | 'text' | 'voice'
 
-/**
- * Fact leads, because it is the cheapest thing anyone can give it.
- *
- * A notice period or a visa status takes ten seconds to type and answers a question no résumé
- * contains, whereas uploading a document is the largest commitment on this screen.
- */
-const MODES: { key: Mode; label: string; icon: typeof IconDocument }[] = [
-  { key: 'fact', label: 'Fact', icon: IconText },
-  { key: 'upload', label: 'File', icon: IconDocument },
-  { key: 'link', label: 'Link', icon: IconLink },
-  { key: 'text', label: 'Note', icon: IconText },
-  { key: 'voice', label: 'Voice', icon: IconAudio },
+const MODES: Segment<Mode>[] = [
+  { key: 'fact', label: 'Fact', icon: <IconText className="size-3.5" /> },
+  { key: 'upload', label: 'File', icon: <IconDocument className="size-3.5" /> },
+  { key: 'link', label: 'Link', icon: <IconLink className="size-3.5" /> },
+  { key: 'text', label: 'Note', icon: <IconText className="size-3.5" /> },
+  { key: 'voice', label: 'Voice', icon: <IconAudio className="size-3.5" /> },
 ]
 
 /**
  * Adding a source, as its own screen with one segmented control.
- *
- * Naming is required for files, links and recordings and skipped for pasted text, which is not
- * an inconsistency: `Document (3).pdf` and a bare URL are both unrecognisable in a list a month
- * later, while pasted text carries its own first line.
  */
 export function AddSource() {
   const nav = useNavigation()
   const [mode, setMode] = useState<Mode>('fact')
   const queryClient = useQueryClient()
 
-  /** Every path ends the same way: refresh the profile, return to the list. */
   const settle = async () => {
     await queryClient.invalidateQueries({ queryKey: getGetProfileQueryKey() })
     nav.back()
@@ -61,35 +52,8 @@ export function AddSource() {
     <Screen>
       <ScreenHeader title="Add a source" />
 
-      {/*
-        A segmented control, not a second tab strip. The old screen carried its own four tabs
-        directly under the panel's other two, so the surface had two independent tab rows
-        eleven pixels apart, neither of which was navigation.
-      */}
-      <div className="shrink-0 border-b border-guilloche bg-leaf px-4 py-2.5">
-        <div
-          role="tablist"
-          aria-label="Kind of source"
-          className="flex overflow-hidden rounded-doc border border-guilloche"
-        >
-          {MODES.map(({ key, label, icon: Icon }) => (
-            <button
-              key={key}
-              type="button"
-              role="tab"
-              aria-selected={mode === key}
-              onClick={() => setMode(key)}
-              className={`flex flex-1 items-center justify-center gap-1.5 border-r border-guilloche py-1.5 text-[12px] transition-colors last:border-r-0 ${
-                mode === key
-                  ? 'bg-ink font-medium text-stock'
-                  : 'bg-leaf text-ink2 hover:bg-guilloche-soft hover:text-ink'
-              }`}
-            >
-              <Icon className="size-3.5" />
-              {label}
-            </button>
-          ))}
-        </div>
+      <div className="shrink-0 px-4 py-3">
+        <SegmentedControl segments={MODES} value={mode} onChange={setMode} label="Kind of source" />
       </div>
 
       {mode === 'fact' && <FactMode onDone={settle} />}
@@ -105,7 +69,7 @@ function Submit({
   pending,
   disabled,
   error,
-  label = 'Save source',
+  label = 'Save',
 }: {
   pending: boolean
   disabled: boolean
@@ -115,24 +79,17 @@ function Submit({
   return (
     <ScreenFooter>
       {error != null && (
-        <p className="mb-2 text-[11.5px] leading-snug text-alert" role="alert">
+        <p className="mb-2 text-[12px] leading-snug text-danger" role="alert">
           {(error as Error).message}
         </p>
       )}
-      <Button type="submit" variant="plate" block loading={pending} disabled={disabled}>
+      <Button type="submit" variant="primary" block loading={pending} disabled={disabled}>
         {pending ? 'Saving…' : label}
       </Button>
     </ScreenFooter>
   )
 }
 
-/**
- * One name, one value.
- *
- * Written straight into the profile's own key/value store rather than ingested as a document:
- * a fact is already structured, so there is nothing to extract, nothing to embed, and it
- * answers directly with no model call at the point of use.
- */
 function FactMode({ onDone }: { onDone: () => Promise<void> }) {
   const queryClient = useQueryClient()
   const profile = useGetProfile()
@@ -188,8 +145,8 @@ function FactMode({ onDone }: { onDone: () => Promise<void> }) {
           )}
         </Field>
 
-        <p className="text-[11.5px] leading-relaxed text-ink3">
-          Facts are answered directly, word for word, with no guessing involved.
+        <p className="text-[12px] leading-relaxed text-ink-dim">
+          Facts are answered word for word, with no guessing.
         </p>
       </ScreenBody>
 
@@ -221,7 +178,6 @@ function UploadMode({ onDone }: { onDone: () => Promise<void> }) {
   function accept(next: File | null) {
     if (!next) return
     setFile(next)
-    // A starting point to edit, not a value to accept blindly.
     if (label.trim() === '') setLabel(next.name.replace(/\.[^.]+$/, ''))
   }
 
@@ -246,22 +202,22 @@ function UploadMode({ onDone }: { onDone: () => Promise<void> }) {
             setDragging(false)
             accept(event.dataTransfer.files[0] ?? null)
           }}
-          className={`rounded-doc border border-dashed px-4 py-7 text-center transition-colors ${
-            dragging ? 'border-query bg-query-wash' : 'border-guilloche bg-leaf'
+          className={`rounded-2xl border border-dashed px-4 py-8 text-center transition-colors ${
+            dragging ? 'border-accent bg-accent-muted' : 'border-border-muted bg-surface-raised'
           }`}
         >
-          <IconUpload className="mx-auto size-5 text-ink3" />
-          <p className="mt-2 text-[12.5px] text-ink">
+          <IconUpload className="mx-auto size-5 text-ink-dim" />
+          <p className="mt-2 text-[13px] font-semibold text-ink">
             {file ? file.name : 'Drop a file here, or choose one'}
           </p>
-          <p className="mrz mt-1 text-[11px] text-ink3">
+          <p className="mt-1 text-[12px] text-ink-dim">
             {file ? formatBytes(file.size) : 'PDF, Word, slides, images, audio — up to 15 MB'}
           </p>
           <input
             type="file"
             aria-label="Choose a file"
             onChange={(event) => accept(event.currentTarget.files?.[0] ?? null)}
-            className="mt-3 w-full text-[11.5px] text-ink2 file:mr-2 file:rounded-doc file:border file:border-guilloche file:bg-leaf file:px-2 file:py-1 file:text-[11.5px] file:text-ink"
+            className="mt-3 w-full text-[12px] text-ink-muted file:mr-2 file:rounded-full file:border file:border-border file:bg-surface-raised file:px-3 file:py-1.5 file:text-[12px] file:font-semibold file:text-ink"
           />
         </div>
 
@@ -343,7 +299,7 @@ function LinkMode({ onDone }: { onDone: () => Promise<void> }) {
           )}
         </Field>
 
-        <p className="text-[11.5px] leading-relaxed text-ink3">
+        <p className="text-[12px] leading-relaxed text-ink-dim">
           The page is read for you, and re-read as it changes.
         </p>
       </ScreenBody>
@@ -398,13 +354,6 @@ function TextMode({ onDone }: { onDone: () => Promise<void> }) {
   )
 }
 
-/**
- * Voice notes.
- *
- * Recorded here rather than sending the user to find a recorder app: the whole reason to
- * support voice is that talking is faster than typing, and routing through the filesystem
- * gives that back. Memory transcribes it; we never do.
- */
 function VoiceMode({ onDone }: { onDone: () => Promise<void> }) {
   const [recording, setRecording] = useState(false)
   const [blob, setBlob] = useState<Blob | null>(null)
@@ -421,8 +370,6 @@ function VoiceMode({ onDone }: { onDone: () => Promise<void> }) {
     return () => clearInterval(timer)
   }, [recording])
 
-  // Releases the microphone if the panel closes mid-recording, so the browser stops showing a
-  // recording indicator for a tab that is no longer capturing anything.
   useEffect(
     () => () => {
       for (const track of recorder.current?.stream.getTracks() ?? []) track.stop()
@@ -430,7 +377,6 @@ function VoiceMode({ onDone }: { onDone: () => Promise<void> }) {
     [],
   )
 
-  // Recreating the object URL on every render leaked one per keystroke in the name field.
   const playbackUrl = useMemo(() => (blob ? URL.createObjectURL(blob) : null), [blob])
   useEffect(() => {
     if (!playbackUrl) return
@@ -476,17 +422,17 @@ function VoiceMode({ onDone }: { onDone: () => Promise<void> }) {
       }}
     >
       <ScreenBody className="flex flex-col gap-4 p-4">
-        <div className="rounded-doc border border-guilloche bg-leaf px-4 py-6 text-center">
-          <p className="mrz text-[26px] leading-none text-ink">
+        <div className="rounded-2xl border border-border-muted bg-surface-raised px-4 py-6 text-center">
+          <p className="font-display text-[30px] font-bold leading-none text-ink">
             {String(Math.floor(seconds / 60)).padStart(2, '0')}:
             {String(seconds % 60).padStart(2, '0')}
           </p>
-          <p className="mt-2 text-[11.5px] text-ink3">
+          <p className="mt-2 text-[12px] text-ink-dim">
             {recording ? 'Recording' : blob ? 'Ready to save' : 'Talk about yourself'}
           </p>
 
           <Button
-            variant={recording ? 'danger' : 'struck'}
+            variant={recording ? 'danger' : 'secondary'}
             onClick={
               recording
                 ? () => {
@@ -503,14 +449,14 @@ function VoiceMode({ onDone }: { onDone: () => Promise<void> }) {
         </div>
 
         {denied && (
-          <p className="text-[11.5px] leading-snug text-alert" role="alert">
+          <p className="text-[12px] leading-snug text-danger" role="alert">
             {denied}
           </p>
         )}
 
         {playbackUrl && (
           <>
-            {/* biome-ignore lint/a11y/useMediaCaption: the user just recorded this themselves */}
+            {/* biome-ignore lint/a11y/useMediaCaption: a voice note the user recorded themselves */}
             <audio controls src={playbackUrl} className="w-full" />
             <Field label="Name">
               {({ id, describedBy }) => (

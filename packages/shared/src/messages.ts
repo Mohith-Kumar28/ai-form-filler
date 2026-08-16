@@ -2,6 +2,7 @@ import type { Account } from './account.js'
 import type { ApiError } from './api.js'
 import type { FeedbackRequest, FillPlan } from './fill.js'
 import type { FormSchema } from './form.js'
+import type { Identity } from './profile.js'
 
 /**
  * One-shot messages over `chrome.runtime.sendMessage`. Anything that can take longer than
@@ -31,6 +32,8 @@ export type Request =
   | { type: 'overlay/cancelFill' }
   /** The chip's Review action, opening the panel on the judgement calls. */
   | { type: 'overlay/openPanel' }
+  /** Request known facts (identity + custom) for instant inline suggestions. */
+  | { type: 'profile/knownFacts' }
   | { type: 'form/detected'; form: FormSchema }
   | { type: 'feedback/submit'; payload: FeedbackRequest }
   /**
@@ -76,7 +79,9 @@ export type ResponseFor<R extends Request> = R extends { type: 'auth/signIn' }
   ? Account
   : R extends { type: 'fill/improve' }
     ? { value: string }
-    : null
+    : R extends { type: 'profile/knownFacts' }
+      ? { identity: Identity; custom: Record<string, string> } | null
+      : null
 
 /** Discriminated result so callers never have to guess whether a throw or a value came back. */
 export type Result<T> = { ok: true; value: T } | { ok: false; error: ApiError }

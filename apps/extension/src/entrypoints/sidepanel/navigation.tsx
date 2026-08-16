@@ -28,6 +28,7 @@ export type Screen =
   | { name: 'sources' }
   | { name: 'addSource' }
   | { name: 'sourceDetail'; sourceId: string }
+  | { name: 'settings' }
   | { name: 'profile' }
 
 export type ScreenName = Screen['name']

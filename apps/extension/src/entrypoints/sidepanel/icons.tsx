@@ -1,13 +1,13 @@
 /**
- * Authored on a 16px grid, one 1.5px stroke, butt caps and mitre joins throughout.
+ * Authored on a 16px grid, one 1.75px stroke, round caps and joins throughout.
  *
- * The cap and join choice is the whole character: a rounded stroke reads as a UI icon library,
- * a mitred one reads as engraving, which is the register every other mark on this surface is
- * in. Mixing a 2px library icon into a page ruled with 1px hairlines reads as two systems, so
- * there is no library here.
+ * The round join is the whole character: the previous set was mitred, which reads as
+ * engraving — the language of a credential. This surface is your hype friend, so the same
+ * geometry now rounds off, the way a friendly UI icon does, and the stroke gets a touch
+ * bolder so it holds up against the bright palette.
  */
 
-interface IconProps {
+export interface IconProps {
   className?: string
 }
 
@@ -17,9 +17,9 @@ function Svg({ className, children }: IconProps & { children: React.ReactNode })
       viewBox="0 0 16 16"
       fill="none"
       stroke="currentColor"
-      strokeWidth={1.5}
-      strokeLinecap="butt"
-      strokeLinejoin="miter"
+      strokeWidth={1.75}
+      strokeLinecap="round"
+      strokeLinejoin="round"
       aria-hidden="true"
       focusable="false"
       className={className ?? 'size-4'}
@@ -29,10 +29,44 @@ function Svg({ className, children }: IconProps & { children: React.ReactNode })
   )
 }
 
+/**
+ * The sparkle — the product's mark and the sign of a guessed answer.
+ *
+ * A four-point twinkle. It shows up on the logo, the fill button, and beside every answer it
+ * concluded rather than read, so one glyph carries both "this is the tool" and "this is the
+ * guess" — the one thing you must look at.
+ */
+export function IconSparkle(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M8 2 9.3 6.7 14 8 9.3 9.3 8 14 6.7 9.3 2 8 6.7 6.7Z" />
+    </Svg>
+  )
+}
+
+/** A cluster of sparkles — the done-celebration and empty-state cheer. */
+export function IconParty(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M8 1.75 9.2 6 13.5 8 9.2 10 8 14.25 6.8 10 2.5 8 6.8 6Z" />
+      <path d="M12.75 10.5v2.25M11.6 11.6h2.3" />
+      <path d="M3.25 2.25v1.5M2.5 3h1.5" />
+    </Svg>
+  )
+}
+
 export function IconChevronRight(props: IconProps) {
   return (
     <Svg {...props}>
       <path d="M6 3.5 10.5 8 6 12.5" />
+    </Svg>
+  )
+}
+
+export function IconChevronDown(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M3.5 6 8 10.5 12.5 6" />
     </Svg>
   )
 }
@@ -55,9 +89,16 @@ export function IconPlus(props: IconProps) {
 
 export function IconMore(props: IconProps) {
   return (
-    <Svg {...props}>
-      <path d="M3.25 8h.01M8 8h.01M12.75 8h.01" strokeWidth={2} strokeLinecap="round" />
-    </Svg>
+    <svg
+      viewBox="0 0 16 16"
+      aria-hidden="true"
+      focusable="false"
+      className={props.className ?? 'size-4'}
+    >
+      <circle cx="3.75" cy="8" r="1.35" fill="currentColor" />
+      <circle cx="8" cy="8" r="1.35" fill="currentColor" />
+      <circle cx="12.25" cy="8" r="1.35" fill="currentColor" />
+    </svg>
   )
 }
 
@@ -77,12 +118,11 @@ export function IconCheck(props: IconProps) {
   )
 }
 
-/** The document leaf, with the corner turned — every credential is a folded sheet. */
 export function IconDocument(props: IconProps) {
   return (
     <Svg {...props}>
-      <path d="M3.25 1.75h6l3.5 3.5v9h-9.5z" />
-      <path d="M9.25 1.75v3.5h3.5" />
+      <path d="M3.5 2h5.5l3.5 3.5v8.5H3.5z" />
+      <path d="M9 2v3.5h3.5" />
     </Svg>
   )
 }
@@ -108,9 +148,9 @@ export function IconText(props: IconProps) {
 export function IconImage(props: IconProps) {
   return (
     <Svg {...props}>
-      <path d="M2 2.75h12v10.5H2z" />
-      <path d="m2 10.5 3.25-3 3 2.75 2.5-2.25L14 10.75" />
-      <path d="M5.75 5.75h.01" strokeWidth={2} strokeLinecap="round" />
+      <rect x="2" y="2.75" width="12" height="10.5" rx="2" />
+      <circle cx="5.75" cy="5.75" r="1" />
+      <path d="m2.75 11.75 3.25-3 2.5 2.25 2.5-2.25 2.25 2.5" />
     </Svg>
   )
 }
@@ -118,7 +158,7 @@ export function IconImage(props: IconProps) {
 export function IconAudio(props: IconProps) {
   return (
     <Svg {...props}>
-      <path d="M2 6.5v3M5 4v8M8 2.25v11.5M11 4.75v6.5M14 6.5v3" />
+      <path d="M3 6.5v3M6 4.5v7M9 2.5v11M12 4.5v7M13.5 6.5v3" />
     </Svg>
   )
 }
@@ -126,8 +166,8 @@ export function IconAudio(props: IconProps) {
 export function IconMic(props: IconProps) {
   return (
     <Svg {...props}>
-      <path d="M6 3.25a2 2 0 0 1 4 0v4a2 2 0 0 1-4 0z" />
-      <path d="M3.5 7.5a4.5 4.5 0 0 0 9 0M8 12v2.25M5.75 14.25h4.5" />
+      <rect x="6" y="2.5" width="4" height="6.75" rx="2" />
+      <path d="M3.5 7.5a4.5 4.5 0 0 0 9 0M8 12.25v1.25M5.5 13.5h5" />
     </Svg>
   )
 }
@@ -135,7 +175,7 @@ export function IconMic(props: IconProps) {
 export function IconUpload(props: IconProps) {
   return (
     <Svg {...props}>
-      <path d="M8 10.5V2.5M4.75 5.75 8 2.5l3.25 3.25" />
+      <path d="M8 11V3M4.5 6 8 2.5 11.5 6" />
       <path d="M2.5 10.5v3h11v-3" />
     </Svg>
   )
@@ -144,8 +184,8 @@ export function IconUpload(props: IconProps) {
 export function IconExternal(props: IconProps) {
   return (
     <Svg {...props}>
-      <path d="M7 3H2.75v10.25H13V9" />
-      <path d="M9.5 2.5H13.5v4M13.5 2.5 7.75 8.25" />
+      <path d="M7 3H3v10h10V9" />
+      <path d="M9.5 2.5H13.5V6.5M13.5 2.5 7.5 8.5" />
     </Svg>
   )
 }
@@ -153,13 +193,12 @@ export function IconExternal(props: IconProps) {
 export function IconTrash(props: IconProps) {
   return (
     <Svg {...props}>
-      <path d="M2.5 4h11M6 4V2.25h4V4M4 4l.75 9.75h6.5L12 4" />
+      <path d="M2.5 4h11M6 4V2.5h4V4M4.5 4l.5 9.5h6L11.5 4" />
       <path d="M6.75 6.5v5M9.25 6.5v5" />
     </Svg>
   )
 }
 
-/** Rewrite: the correcting pen, not a magic wand. */
 export function IconPen(props: IconProps) {
   return (
     <Svg {...props}>
@@ -169,25 +208,12 @@ export function IconPen(props: IconProps) {
   )
 }
 
-/**
- * The endorsement stamp — an oval on a shaft, which is what an inspector's stamp looks like
- * from the side and what marks every answer this thing concluded rather than read.
- */
-export function IconStamp(props: IconProps) {
-  return (
-    <Svg {...props}>
-      <path d="M5.25 2.25h5.5v3.5l1.5 3.25h-8.5l1.5-3.25z" />
-      <path d="M2.5 11.5h11M2.5 13.75h11" />
-    </Svg>
-  )
-}
-
 export function IconAlert(props: IconProps) {
   return (
     <Svg {...props}>
-      <path d="M8 2 15 14H1z" />
+      <path d="M8 2.25 15 14H1z" />
       <path d="M8 6.5v3.25" />
-      <path d="M8 12h.01" strokeWidth={2} strokeLinecap="round" />
+      <circle cx="8" cy="11.75" r="0.85" fill="currentColor" stroke="none" />
     </Svg>
   )
 }
@@ -201,31 +227,50 @@ export function IconSignOut(props: IconProps) {
   )
 }
 
-/**
- * The seal: the product's mark.
- *
- * A miniature of the same engine-turned rosette the guilloche band draws, so the mark and the
- * document's security printing are demonstrably one system rather than a logo dropped onto a
- * theme. Drawn once here rather than generated, because at 16px the generated curve resolves
- * to mud.
- */
-export function IconSeal({ className }: IconProps) {
+export function IconGear(props: IconProps) {
   return (
-    <svg
-      viewBox="0 0 16 16"
-      fill="none"
-      stroke="currentColor"
-      aria-hidden="true"
-      focusable="false"
-      className={className ?? 'size-4'}
-    >
-      <circle cx="8" cy="8" r="6.75" strokeWidth={1.5} />
-      <path
-        d="M8 2.6 9.9 6.1 13.4 8 9.9 9.9 8 13.4 6.1 9.9 2.6 8 6.1 6.1z"
-        strokeWidth={1}
-        strokeLinejoin="miter"
-      />
-      <circle cx="8" cy="8" r="1.6" strokeWidth={1} />
-    </svg>
+    <Svg {...props}>
+      <circle cx="8" cy="8" r="2.1" />
+      <path d="M8 1.75v1.5M8 12.75v1.5M1.75 8h1.5M12.75 8h1.5M3.58 3.58l1.06 1.06M11.36 11.36l1.06 1.06M12.42 3.58l-1.06 1.06M4.64 11.36l-1.06 1.06" />
+    </Svg>
   )
 }
+
+export function IconMoon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M12.5 10.5A6 6 0 1 1 5.5 3.5a4.5 4.5 0 0 0 7 7Z" />
+    </Svg>
+  )
+}
+
+export function IconSun(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <circle cx="8" cy="8" r="3" />
+      <path d="M8 1.5v1.5M8 13v1.5M1.5 8H3M13 8h1.5M3.4 3.4l1.06 1.06M11.54 11.54l1.06 1.06M12.6 3.4l-1.06 1.06M4.46 11.54l-1.06 1.06" />
+    </Svg>
+  )
+}
+
+export function IconHeart(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M8 13.5S2.5 10 2.5 6.3A2.7 2.7 0 0 1 8 5.5a2.7 2.7 0 0 1 5.5.8C13.5 10 8 13.5 8 13.5Z" />
+    </Svg>
+  )
+}
+
+export function IconRefresh(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M13 8a5 5 0 1 1-1.5-3.5" />
+      <path d="M13 2.5v3h-3" />
+    </Svg>
+  )
+}
+
+// Deprecated aliases, kept so nothing breaks while the screens are rebuilt. These go away at
+// the end of the redesign once every call site points at `IconSparkle`.
+export const IconSeal = IconSparkle
+export const IconStamp = IconSparkle

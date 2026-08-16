@@ -1,0 +1,30 @@
+# Fillaform
+
+> Fillaform is a Chrome extension that fills any web form — job applications, Google Forms, event registrations, and surveys — from your own knowledge base, in your own writing voice. Every answer is stamped: read (from your profile) or concluded (inferred, in vermilion).
+
+## What Fillaform does
+
+- Ingests your resume, links, and pasted notes into a searchable knowledge graph.
+- Fills any web form — text, dropdowns, radio buttons, checkboxes, and textareas.
+- Answers open-ended questions ("Why do you want to work here?") in your own voice.
+- Marks every answer as read (unmarked) or concluded (vermilion CONCLUDED stamp) so you review only inferred answers.
+- Supports Google Forms, Greenhouse, Lever, Ashby, and a generic fallback for everything else.
+
+## Key pages
+
+- [Home](https://fillaform.in/) — overview and an interactive demo.
+- [How it works](https://fillaform.in/how-it-works) — the three-step flow.
+- [Features](https://fillaform.in/features) — the full feature list.
+- [Pricing](https://fillaform.in/pricing) — Free (5 forms/mo), Pro (50 forms/mo, $12), Ultra (300 forms/mo, $30).
+- [Compare](https://fillaform.in/compare) — Fillaform vs. other autofillers.
+- [Blog](https://fillaform.in/blog) — guides and comparisons.
+
+## Plans
+
+- **Free** — $0/mo, 5 forms per month.
+- **Pro** — $12/mo, 50 forms per month.
+- **Ultra** — $30/mo, 300 forms per month.
+
+## Privacy
+
+Fillaform does not auto-submit forms, never sells your data, and never uses it to train models. You can delete your data at any time. See the [privacy policy](https://fillaform.in/privacy).

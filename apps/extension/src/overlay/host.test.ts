@@ -76,9 +76,9 @@ describe('anchored elements', () => {
    * for nothing here, precisely so a future animation cannot quietly reclaim it.
    */
   it.each([
-    ['field-seal.ts', 'seal.style.translate'],
+    ['launcher.ts', 'launcher.style.translate'],
     ['markers.ts', 'mark.style.translate'],
-    ['markers.ts', 'tab.style.translate'],
+    ['markers.ts', 'pill.style.translate'],
   ])('%s places with %s', (file, expression) => {
     const contents = readFileSync(resolve(process.cwd(), 'src/overlay', file), 'utf8')
     expect(contents).toContain(expression)

@@ -5,6 +5,10 @@ dist/
 .wrangler/
 *.tsbuildinfo
 
+# TanStack Start generated router
+apps/web/src/routeTree.gen.ts
+.react-start/
+
 # Secrets — never commit. Worker secrets live in `wrangler secret put`.
 .dev.vars
 .env

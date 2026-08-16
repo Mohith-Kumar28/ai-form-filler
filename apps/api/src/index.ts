@@ -66,7 +66,7 @@ app.get('/v1/billing/return', (c) =>
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Payment complete — AI Form Filler</title>
+    <title>Payment complete — Fillaform</title>
     <style>
       body { font-family: ui-sans-serif, system-ui, -apple-system, sans-serif; background: #f4f2ee; color: #1a1a1a; display: grid; place-items: center; min-height: 100vh; margin: 0; }
       main { text-align: center; padding: 2rem; }
@@ -103,7 +103,7 @@ app.openAPIRegistry.registerComponent('securitySchemes', 'bearerAuth', {
  */
 app.doc31('/openapi.json', {
   openapi: '3.1.0',
-  info: { title: 'AI Form Filler API', version: '0.1.0' },
+  info: { title: 'Fillaform API', version: '0.1.0' },
 })
 
 export default app

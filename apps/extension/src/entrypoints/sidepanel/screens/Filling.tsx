@@ -1,23 +1,29 @@
 import type { FillState } from '../../../lib/use-fill.js'
-import { Button, Screen, ScreenBody, ScreenFooter, ScreenHeader } from '../components.js'
+import {
+  Button,
+  type Expression,
+  Mascot,
+  Screen,
+  ScreenBody,
+  ScreenFooter,
+  ScreenHeader,
+} from '../components.js'
 import { IconAlert, IconCheck } from '../icons.js'
 
 /**
- * The three things that actually happen, in order.
+ * The three things that actually happen, in order — now with a friend reacting to each one.
  *
- * The old surface put one rotating line in the page dock and swapped its wording every 2.4
- * seconds for the whole ten-to-twenty second run, which is a progress indicator that reports
- * nothing and a reading task the person did not ask for. A list that resolves as each stage
- * completes says the same thing once and then proves it.
+ * A list that resolves as each stage completes says the same thing once and then proves it,
+ * and the mascot's face changes with the beat so the wait feels like someone's on it.
  *
  * `routing` is deliberately absent: classification and generation are one HTTP call, so the
  * client cannot honestly tell them apart, and a stage that never resolves is worse than one
  * that was never claimed.
  */
 const STAGES = [
-  { key: 'detecting', label: 'Reading the page' },
-  { key: 'generating', label: 'Writing your answers' },
-  { key: 'applying', label: 'Filling the form' },
+  { key: 'detecting', label: 'Reading the room…', mascot: 'think' as Expression },
+  { key: 'generating', label: 'Writing your answers…', mascot: 'think' as Expression },
+  { key: 'applying', label: 'Slapping them in…', mascot: 'party' as Expression },
 ] as const
 
 const ORDER: Record<string, number> = { detecting: 0, generating: 1, applying: 2 }
@@ -33,44 +39,53 @@ export function Filling({
 }) {
   const current = ORDER[state.stage ?? 'detecting'] ?? 0
   const failed = state.status === 'error'
+  const active = STAGES[Math.min(current, STAGES.length - 1)] ?? STAGES[0]
 
   return (
     <Screen>
-      <ScreenHeader title="Filling" onBack={onCancel} />
+      <ScreenHeader title="On it" onBack={onCancel} />
 
-      <ScreenBody className="px-4 py-5">
-        <p className="text-[15px] font-semibold tracking-[-0.015em] text-ink">
-          {fieldCount > 0 ? `${fieldCount} fields on this page` : 'Working through the form'}
+      <ScreenBody className="flex flex-col items-center px-6 py-8 text-center">
+        <Mascot expression={failed ? 'happy' : active.mascot} size={72} className="bounce" />
+
+        <p className="mt-5 font-display text-[18px] font-bold tracking-[-0.02em] text-ink">
+          {failed ? "oof. that one didn't land." : active.label}
         </p>
 
-        <ol className="mt-5 space-y-0 border-y border-guilloche">
+        {!failed && (
+          <p className="mt-1 text-[13px] text-ink-muted">
+            {fieldCount > 0 ? `${fieldCount} fields on this page` : 'Working through the form'}
+          </p>
+        )}
+
+        <ol className="mt-6 w-full space-y-1.5">
           {STAGES.map(({ key, label }, index) => {
             const done = index < current || state.status === 'done'
-            const active = index === current && state.status === 'running'
+            const isActive = index === current && state.status === 'running'
 
             return (
               <li
                 key={key}
-                className="flex items-center gap-2.5 border-b border-guilloche-soft py-3 last:border-b-0"
+                className="flex items-center gap-2.5 rounded-full border border-border-muted bg-surface-raised px-3.5 py-2.5"
               >
                 <span className="flex size-4 shrink-0 items-center justify-center">
                   {done ? (
-                    <IconCheck className="size-4 text-ink" />
-                  ) : active ? (
-                    <Ticking />
+                    <IconCheck className="size-4 text-positive" />
+                  ) : isActive ? (
+                    <span className="pulse-dot size-2.5 rounded-full bg-accent" />
                   ) : (
-                    <span className="size-1.5 rounded-full bg-guilloche" />
+                    <span className="size-2 rounded-full bg-border" />
                   )}
                 </span>
                 <span
-                  className={`flex-1 text-[13px] ${
-                    done ? 'text-ink2' : active ? 'font-medium text-ink' : 'text-ink3'
+                  className={`flex-1 text-left text-[13.5px] ${
+                    done ? 'text-ink-dim' : isActive ? 'font-semibold text-ink' : 'text-ink-dim'
                   }`}
                 >
                   {label}
                 </span>
-                {active && key === 'applying' && state.stageTotal ? (
-                  <span className="mrz text-[11.5px] text-ink2">
+                {isActive && key === 'applying' && state.stageTotal ? (
+                  <span className="text-[12px] font-semibold text-ink-muted">
                     {state.stageDone ?? 0}/{state.stageTotal}
                   </span>
                 ) : null}
@@ -82,39 +97,23 @@ export function Filling({
         {failed ? (
           <p
             role="alert"
-            className="mt-4 flex items-start gap-1.5 text-[12.5px] leading-snug text-alert"
+            className="mt-5 flex items-start gap-1.5 text-left text-[13px] leading-snug text-danger"
           >
             <IconAlert className="mt-px size-3.5 shrink-0" />
             <span>{state.error?.message ?? 'Something went wrong.'}</span>
           </p>
         ) : (
-          <p className="mt-4 text-[12px] leading-relaxed text-ink3">
-            Answers are written into the page as they arrive. Nothing is submitted — that stays
-            yours.
+          <p className="mt-5 text-[12.5px] leading-relaxed text-ink-dim">
+            Answers land on the page as they arrive. Nothing gets submitted — that stays yours.
           </p>
         )}
       </ScreenBody>
 
       <ScreenFooter>
-        <Button block variant={failed ? 'plate' : 'quiet'} onClick={onCancel}>
+        <Button block variant={failed ? 'primary' : 'ghost'} onClick={onCancel}>
           {failed ? 'Back' : 'Stop'}
         </Button>
       </ScreenFooter>
     </Screen>
-  )
-}
-
-/**
- * The one moving part on the screen.
- *
- * A rotating border ring is the generic spinner; this is the seal being impressed — a mark
- * that grows and settles on the beat of the work rather than spinning free of it.
- */
-function Ticking() {
-  return (
-    <span className="relative flex size-3.5 items-center justify-center" aria-hidden>
-      <span className="absolute size-3.5 rounded-full border border-query opacity-40" />
-      <span className="impress size-1.5 rounded-full bg-query" />
-    </span>
   )
 }

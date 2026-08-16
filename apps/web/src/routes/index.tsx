@@ -1,0 +1,106 @@
+import { createFileRoute } from '@tanstack/react-router'
+import { Hero } from '@/components/Hero'
+import { ExtensionDemo } from '@/components/ExtensionDemo'
+import { HowItWorks } from '@/components/HowItWorks'
+import { FeaturesGrid } from '@/components/FeaturesGrid'
+import { ReadVsGuessed } from '@/components/ReadVsGuessed'
+import { WhereItWorks } from '@/components/WhereItWorks'
+import { PricingCards } from '@/components/PricingCards'
+import { FAQ } from '@/components/FAQ'
+import { ChromeCTA } from '@/components/ChromeCTA'
+import { Reveal } from '@/components/Reveal'
+import { buildMeta, canonicalLink, jsonLd } from '@/lib/seo'
+import { site } from '@/lib/site'
+
+export const Route = createFileRoute('/')({
+  head: () => ({
+    meta: [
+      ...buildMeta({
+        title: `${site.name} — Fill any form, in your own voice`,
+        description: site.description,
+        path: '/',
+      }),
+    ],
+    links: [canonicalLink('/')],
+    scripts: [
+      jsonLd({
+        '@context': 'https://schema.org',
+        '@type': 'WebSite',
+        name: site.name,
+        url: site.domain,
+        description: site.description,
+      }),
+    ],
+  }),
+  component: Home,
+})
+
+function Home() {
+  return (
+    <>
+      <Hero />
+
+      <section id="demo" className="border-t border-border-muted bg-surface-muted py-20 md:py-28">
+        <div className="mx-auto max-w-6xl px-6">
+          <Reveal>
+            <p className="text-center text-[13px] font-semibold uppercase tracking-[0.1em] text-accent">
+              Try it — no install
+            </p>
+            <h2 className="display mt-3 text-center text-[30px] text-ink md:text-[42px]">
+              Watch a form fill itself
+            </h2>
+            <p className="mx-auto mt-4 max-w-[52ch] text-center text-[14px] leading-relaxed text-ink-muted">
+              This is the real extension, shrunk onto the page. Click{' '}
+              <span className="font-semibold text-ink">Fill this form</span> and watch the side
+              panel work through it — reading the room, writing your answers, slapping them in —
+              then flag the answers it guessed in hot pink.
+            </p>
+          </Reveal>
+          <Reveal delay={0.15} className="mt-12">
+            <ExtensionDemo />
+          </Reveal>
+        </div>
+      </section>
+
+      <HowItWorks />
+
+      <section className="py-20 md:py-28">
+        <div className="mx-auto max-w-6xl px-6">
+          <Reveal>
+            <p className="text-center text-[13px] font-semibold uppercase tracking-[0.1em] text-accent">
+              Features
+            </p>
+            <h2 className="display mt-3 text-center text-[30px] text-ink md:text-[42px]">
+              Everything it fills
+            </h2>
+          </Reveal>
+          <div className="mt-14">
+            <FeaturesGrid />
+          </div>
+        </div>
+      </section>
+
+      <ReadVsGuessed />
+      <WhereItWorks />
+
+      <section className="border-t border-border-muted bg-surface-muted py-20 md:py-28">
+        <div className="mx-auto max-w-6xl px-6">
+          <Reveal>
+            <p className="text-center text-[13px] font-semibold uppercase tracking-[0.1em] text-accent">
+              Pricing
+            </p>
+            <h2 className="display mt-3 text-center text-[30px] text-ink md:text-[42px]">
+              Pick your pace
+            </h2>
+          </Reveal>
+          <div className="mt-16">
+            <PricingCards />
+          </div>
+        </div>
+      </section>
+
+      <FAQ />
+      <ChromeCTA />
+    </>
+  )
+}

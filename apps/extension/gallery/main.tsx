@@ -15,26 +15,13 @@ import { cssName, DARK, LIGHT, TOKEN_NAMES } from '../src/lib/tokens.js'
 import './stub-chrome.js'
 import { ACCOUNT, ACCOUNT_LOW_QUOTA, EMPTY_PROFILE, PLAN, PROFILE, REPORT } from './fixtures.js'
 
-/**
- * The review gallery.
- *
- * Every screen at its real width, with real content, in one page — because the finish review
- * happens against screenshots, and a reviewer with no browser can only check what it is shown.
- * The alternative was reviewing nine screens one signed-in session at a time.
- *
- * The scheme is declared explicitly from `tokens.ts` rather than left to
- * `prefers-color-scheme`. Headless Chrome answers that query `dark` and offers no flag to
- * change it, so a "light" capture would silently have been a second dark one — which is
- * exactly the kind of thing a screenshot review is supposed to catch, not produce.
- */
-
 const scheme = new URLSearchParams(location.search).get('scheme') === 'dark' ? DARK : LIGHT
 const style = document.createElement('style')
 style.textContent = `:root { color-scheme: ${scheme === DARK ? 'dark' : 'light'}; ${TOKEN_NAMES.map(
   (token) => `--color-${cssName(token)}: ${scheme[token]};`,
 ).join(' ')} }`
 document.head.appendChild(style)
-document.body.style.background = scheme.stock
+document.body.style.background = scheme.surface
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { retry: false, staleTime: Number.POSITIVE_INFINITY } },
@@ -60,12 +47,12 @@ function Frame({ label, note, children }: { label: string; note?: string; childr
   return (
     <figure className="m-0 flex flex-col gap-2">
       <figcaption className="px-1">
-        <span className="mrz text-[11px] font-medium uppercase tracking-[0.1em] text-ink">
+        <span className="text-[11px] font-semibold uppercase tracking-[0.1em] text-ink-dim">
           {label}
         </span>
-        {note && <span className="ml-2 text-[11px] text-ink3">{note}</span>}
+        {note && <span className="ml-2 text-[11px] text-ink-dim">{note}</span>}
       </figcaption>
-      <div className="h-[720px] w-[400px] overflow-hidden border border-guilloche bg-stock">
+      <div className="h-[720px] w-[400px] overflow-hidden border border-border-muted rounded-xl bg-surface">
         <NavigationProvider>{children}</NavigationProvider>
       </div>
     </figure>
@@ -75,7 +62,7 @@ function Frame({ label, note, children }: { label: string; note?: string; childr
 function Gallery() {
   return (
     <QueryClientProvider client={queryClient}>
-      <div className="min-h-screen bg-stock p-8">
+      <div className="min-h-screen bg-surface p-8">
         <div className="grid grid-cols-[repeat(auto-fill,400px)] gap-x-8 gap-y-10">
           <Frame label="Welcome" note="signed out, first run">
             <Welcome />
@@ -151,7 +138,7 @@ function Gallery() {
             <SourceDetail sourceId="src_1" profile={PROFILE} />
           </Frame>
 
-          <Frame label="Profile">
+          <Frame label="Settings">
             <Profile account={ACCOUNT} />
           </Frame>
         </div>

@@ -1,5 +1,5 @@
 ---
-name: AI Form Filler
+name: Fillaform
 description: A credential document that fills forms and says which answers it read and which it concluded.
 colors:
   stock: "oklch(96.5% 0.009 168)"
@@ -139,7 +139,7 @@ components:
     size: "18px"
 ---
 
-# Design System: AI Form Filler
+# Design System: Fillaform
 
 ## Overview
 

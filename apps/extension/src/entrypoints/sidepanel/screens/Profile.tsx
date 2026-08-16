@@ -2,26 +2,10 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import type { Account } from '../../../generated/model/index.js'
 import { formatResetDate, plural } from '../../../lib/format.js'
 import { sendMessage } from '../../../lib/messaging.js'
-import { Row, RowGroup, Screen, ScreenBody, ScreenHeader } from '../components.js'
+import { Card, Mascot, Screen, ScreenBody, ScreenHeader } from '../components.js'
 import { IconSignOut } from '../icons.js'
 
 const PLAN_LABEL: Record<string, string> = { free: 'Free', pro: 'Pro', ultra: 'Ultra' }
-
-/**
- * The register entry.
- *
- * A credential's data page is a two-column register — field name in the label register on the
- * left, value on the right — and every fact on this screen is one. It is the same component
- * the identity editor reads back as, which is why the two screens feel like one document.
- */
-function Entry({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div className="flex items-baseline justify-between gap-3 px-4 py-2.5">
-      <span className="doc-label shrink-0">{label}</span>
-      <span className="min-w-0 truncate text-right text-[13px] text-ink">{children}</span>
-    </div>
-  )
-}
 
 export function Profile({ account }: { account: Account }) {
   const queryClient = useQueryClient()
@@ -43,68 +27,62 @@ export function Profile({ account }: { account: Account }) {
 
   return (
     <Screen>
-      <ScreenHeader title="Your document" />
+      <ScreenHeader title="Settings" />
 
       <ScreenBody>
-        <div className="flex items-center gap-3 border-b border-guilloche px-4 py-4">
-          <span className="flex size-12 shrink-0 items-center justify-center overflow-hidden rounded-full border border-ink">
-            {account.avatarUrl ? (
-              <img src={account.avatarUrl} alt="" className="size-full object-cover" />
-            ) : (
-              <span className="mrz text-[13px] text-ink">
-                {(account.name ?? account.email).slice(0, 2).toUpperCase()}
-              </span>
-            )}
-          </span>
+        <div className="flex items-center gap-3 px-4 py-5">
+          {account.avatarUrl ? (
+            <img src={account.avatarUrl} alt="" className="size-12 shrink-0 rounded-full" />
+          ) : (
+            <Mascot expression="happy" size={48} className="shrink-0" />
+          )}
           <div className="min-w-0">
             {account.name && (
-              <p className="truncate text-[14px] font-semibold tracking-[-0.01em] text-ink">
-                {account.name}
-              </p>
+              <p className="truncate font-display text-[16px] font-bold text-ink">{account.name}</p>
             )}
-            <p className="truncate text-[12px] text-ink2">{account.email}</p>
+            <p className="truncate text-[12.5px] text-ink-muted">{account.email}</p>
           </div>
         </div>
 
-        <section className="border-b border-guilloche pb-3.5 pt-4">
-          <p className="px-4 text-[15px] text-ink">
-            <span className={`mrz font-medium ${exhausted ? 'text-alert' : 'text-ink'}`}>
-              {left}
-            </span>{' '}
-            of <span className="mrz">{limit}</span> {plural(limit, 'form')} left this month
+        <Card className="mx-4 px-4 py-4">
+          <p className="text-[15px] font-semibold text-ink">
+            <span className={`font-bold ${exhausted ? 'text-danger' : 'text-ink'}`}>{left}</span> of{' '}
+            {limit} {plural(limit, 'form')} left this month
           </p>
 
-          {/*
-            No bar. It restated a quantity the register directly beneath it already prints as
-            `USED 13 / 50`, which is a soft graphic standing in for a number the document
-            spells out twice.
-          */}
-          <div className="mt-2.5 divide-y divide-guilloche-soft">
-            <Entry label="Used">
-              <span className="mrz">
+          <div className="mt-3 space-y-1 text-[13px]">
+            <div className="flex justify-between">
+              <span className="text-ink-muted">Used</span>
+              <span className="font-medium text-ink">
                 {used} / {limit}
               </span>
-            </Entry>
-            <Entry label="Resets">{formatResetDate(resetsAt)}</Entry>
-            <Entry label="Plan">{PLAN_LABEL[plan] ?? plan}</Entry>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-ink-muted">Resets</span>
+              <span className="font-medium text-ink">{formatResetDate(resetsAt)}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-ink-muted">Plan</span>
+              <span className="font-medium text-ink">{PLAN_LABEL[plan] ?? plan}</span>
+            </div>
           </div>
-        </section>
+        </Card>
 
-        <RowGroup>
-          {/*
-            Not tinted vermilion: signing out is reversible, and the endorsement ink means
-            inference, error, or destruction. Spending it here would devalue it where it counts.
-          */}
-          <Row
-            icon={<IconSignOut className="size-4" />}
-            title={signOut.isPending ? 'Signing out…' : 'Sign out'}
+        <div className="mx-4 mt-3">
+          <button
+            type="button"
             onClick={() => signOut.mutate()}
-            trailing={<span />}
-          />
-        </RowGroup>
+            className="flex w-full items-center gap-2.5 rounded-2xl border border-border-muted bg-surface-raised px-4 py-3 text-left transition-colors hover:bg-danger-muted"
+          >
+            <IconSignOut className="size-4 text-ink-muted" />
+            <span className="flex-1 text-[14px] font-medium text-ink">
+              {signOut.isPending ? 'Signing out…' : 'Sign out'}
+            </span>
+          </button>
+        </div>
 
         {signOut.isError && (
-          <p role="alert" className="px-4 py-3 text-[12px] text-alert">
+          <p role="alert" className="px-4 py-3 text-[13px] text-danger">
             {signOut.error.message}
           </p>
         )}

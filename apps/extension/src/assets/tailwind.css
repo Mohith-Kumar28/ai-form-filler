@@ -5,108 +5,118 @@
   and the page overlay's inlined CSS string. `src/lib/tokens.test.ts` fails if they diverge —
   the previous build kept two hand-maintained palettes and they had already drifted.
 
-  biome.json turns `noUnknownTypeSelector` off for CSS. The rule's selector list predates the
-  View Transitions API and `::-webkit-scrollbar`, both of which are shipped and used below, so
-  in this project it only ever fires as a false positive. It stays on everywhere else.
+  The world: your hype friend who does the boring homework for you. Bright, saturated,
+  playful — a signature sunset gradient (violet → pink → orange) for the hero moments, hot
+  pink for a guessed answer, lime for what it read straight off. Warm neutrals, never pure
+  gray or black.
 */
 
 /*
-  Bundled rather than system.
-
-  The side panel is an extension-origin page, so there is no CSP obstacle and no network
-  request. Archivo carries a width axis from 62% to 125%, which is what lets a document's two
-  registers — tracked condensed caps for a field label, normal width for prose — come from one
-  90KB file instead of two families.
-
-  Chivo Mono is the machine-readable zone, and it is Archivo's sibling from the same foundry —
-  so the register that carries the numbers and the one that carries the prose are demonstrably
-  one system rather than two faces that happen to sit together.
+  Self-hosted, bundled. Display face carries the personality (a trendy grotesque); body stays
+  neutral and legible. Both variable, both woff2, both loaded from /fonts so there is no
+  network request at runtime.
 */
 @font-face {
-  font-family: "Archivo";
-  src: url("/fonts/archivo-var.woff2") format("woff2-variations");
-  font-weight: 400 700;
-  font-stretch: 62% 125%;
+  font-family: "Bricolage Grotesque";
+  src: url("/fonts/bricolage-grotesque-var.woff2") format("woff2-variations");
+  font-weight: 200 800;
   font-style: normal;
   font-display: block;
 }
 
 @font-face {
-  font-family: "Chivo Mono";
-  src: url("/fonts/chivo-mono-var.woff2") format("woff2-variations");
-  font-weight: 400 600;
+  font-family: "Inter";
+  src: url("/fonts/inter-var.woff2") format("woff2-variations");
+  font-weight: 100 900;
   font-style: normal;
   font-display: block;
 }
 
 @theme {
-  /* The safety-tint stock a credential is printed on. Deliberately neither cream nor white. */
-  --color-stock: oklch(96.5% 0.009 168);
-  --color-leaf: oklch(99.2% 0.004 168);
-  --color-guilloche: oklch(87% 0.022 168);
-  --color-guilloche-soft: oklch(93% 0.014 168);
-  /* The engine-turned ground only. Needs a different distance from `stock` than a hairline
-     does: 0.65px curves and a 1px rule do not survive the same contrast. */
-  --color-engine: oklch(84% 0.026 168);
+  /* Surfaces — warm, faintly lilac-tinted, never pure white or gray. */
+  --color-surface: oklch(97.2% 0.006 320);
+  --color-surface-raised: oklch(99.3% 0.003 320);
+  --color-surface-muted: oklch(93.5% 0.007 320);
 
-  /* Intaglio ink. Every tier clears 4.5:1 on `stock`; there is no decorative text colour. */
-  --color-ink: oklch(23% 0.035 178);
-  --color-ink2: oklch(38% 0.03 178);
-  --color-ink3: oklch(46% 0.024 178);
+  /* Text ramp. Every tier clears 4.5:1 on `surface`. */
+  --color-ink: oklch(20% 0.02 300);
+  --color-ink-muted: oklch(44% 0.02 300);
+  --color-ink-dim: oklch(60% 0.015 300);
 
-  /* The endorsement stamp — an answer it concluded rather than read. Nothing else. */
-  --color-endorse: oklch(48% 0.19 30);
-  --color-endorse-wash: oklch(94% 0.04 30);
+  /* The guessed answer — hot pink, always with a sparkle. Never for errors. */
+  --color-accent: oklch(55% 0.24 350);
+  --color-accent-muted: oklch(93% 0.04 350);
 
-  /* Faults: errors, refusals, destruction. Kept off the stamp so the one distinction the
-     product exists to make never shares an ink with "something broke". */
-  --color-alert: oklch(47% 0.13 62);
-  --color-alert-wash: oklch(94% 0.045 70);
+  /* Filled straight off what you told it. The friendly lime. */
+  --color-positive: oklch(58% 0.16 145);
+  --color-positive-muted: oklch(93% 0.055 145);
 
-  /* The second ink: uncertainty, focus, and whatever is happening right now. */
-  --color-query: oklch(45% 0.1 195);
-  --color-query-wash: oklch(94% 0.03 195);
+  /* Faults and destruction. Coral, deliberately not pink. */
+  --color-danger: oklch(55% 0.22 25);
+  --color-danger-muted: oklch(93% 0.045 25);
 
-  /* Elevation, ink-hued rather than black. Only the overflow menu, the on-page slip and the
-     seal float; nothing else may take these. */
-  --color-shadow-near: oklch(20% 0.03 190 / 0.14);
-  --color-shadow-far: oklch(20% 0.03 190 / 0.26);
+  /* Warnings and heads-ups. */
+  --color-warning: oklch(68% 0.15 80);
+  --color-warning-muted: oklch(94% 0.05 80);
 
-  --radius-doc: 2px;
+  /* The signature sunset gradient's stops. */
+  --color-sparkle: oklch(52% 0.24 290);
+  --color-sun: oklch(68% 0.18 45);
 
-  --font-sans: "Archivo", ui-sans-serif, system-ui, sans-serif;
-  --font-mono: "Chivo Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  /* Hairlines. */
+  --color-border: oklch(87% 0.008 320);
+  --color-border-muted: oklch(92% 0.006 320);
+
+  /* Elevation — tinted, not black. Only floating things take these. */
+  --color-shadow: oklch(25% 0.02 300 / 0.08);
+  --color-shadow-strong: oklch(25% 0.02 300 / 0.16);
+
+  /* Bubbly radii. */
+  --radius-sm: 6px;
+  --radius-md: 12px;
+  --radius-lg: 18px;
+  --radius-full: 9999px;
+
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Bricolage Grotesque", "Inter", ui-sans-serif, system-ui, sans-serif;
 }
 
 @media (prefers-color-scheme: dark) {
   @theme {
     /*
-      Not an inversion — a different scene. PRODUCT.md puts this person on a laptop, late,
-      during a job hunt; in that light the ink becomes the ground and the printing comes up
-      pale off it, the way a passport page looks under a desk lamp with the room dark.
+      Not an inversion — a different scene. This person is on a laptop, late, during a job
+      hunt; in that light the surface goes a deep violet-tinted near-black and the brights
+      come up louder off it, the way a neon sign reads brighter in the dark.
     */
-    --color-stock: oklch(18% 0.022 190);
-    --color-leaf: oklch(22.5% 0.026 190);
-    --color-guilloche: oklch(34% 0.03 190);
-    --color-guilloche-soft: oklch(27% 0.024 190);
-    --color-engine: oklch(62% 0.055 190);
+    --color-surface: oklch(15% 0.022 300);
+    --color-surface-raised: oklch(19.5% 0.024 300);
+    --color-surface-muted: oklch(12% 0.018 300);
 
-    --color-ink: oklch(95% 0.012 180);
-    --color-ink2: oklch(76% 0.02 180);
-    --color-ink3: oklch(64% 0.022 180);
+    --color-ink: oklch(96% 0.008 320);
+    --color-ink-muted: oklch(74% 0.014 320);
+    --color-ink-dim: oklch(58% 0.012 320);
 
-    --color-endorse: oklch(72% 0.17 32);
-    --color-endorse-wash: oklch(30% 0.07 32);
+    --color-accent: oklch(70% 0.22 350);
+    --color-accent-muted: oklch(26% 0.06 350);
 
-    --color-alert: oklch(79% 0.14 72);
-    --color-alert-wash: oklch(30% 0.06 66);
+    --color-positive: oklch(72% 0.17 145);
+    --color-positive-muted: oklch(24% 0.05 145);
 
-    --color-query: oklch(74% 0.11 195);
-    --color-query-wash: oklch(28% 0.05 195);
+    --color-danger: oklch(70% 0.19 25);
+    --color-danger-muted: oklch(26% 0.05 25);
+
+    --color-warning: oklch(78% 0.14 80);
+    --color-warning-muted: oklch(26% 0.045 80);
+
+    --color-sparkle: oklch(70% 0.2 290);
+    --color-sun: oklch(76% 0.16 45);
+
+    --color-border: oklch(30% 0.02 300);
+    --color-border-muted: oklch(23% 0.018 300);
 
     /* Much heavier here: a black shadow on a near-black ground separates nothing. */
-    --color-shadow-near: oklch(0% 0 0 / 0.4);
-    --color-shadow-far: oklch(0% 0 0 / 0.6);
+    --color-shadow: oklch(0% 0 0 / 0.35);
+    --color-shadow-strong: oklch(0% 0 0 / 0.55);
   }
 }
 
@@ -117,56 +127,48 @@ body,
 }
 
 body {
-  background: var(--color-stock);
+  background: var(--color-surface);
   color: var(--color-ink);
   font-family: var(--font-sans);
-  font-size: 13px;
+  font-size: 14px;
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
 }
 
-/*
-  The document's label register.
-
-  Condensed, tracked caps is how every field on a credential is titled — it is the width axis
-  doing the work, not a second typeface. Reserved for field labels and section titles; running
-  prose never takes it.
-*/
-.doc-label {
-  font-stretch: 80%;
-  font-weight: 600;
-  font-size: 10px;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--color-ink3);
+/* The display register: big, bouncy, a little loud. For headers and hero moments only. */
+.display {
+  font-family: var(--font-display);
+  font-weight: 700;
+  letter-spacing: -0.02em;
 }
 
 /*
-  The machine-readable zone.
-
-  Counts, quotas, confidence, sizes, timings, costs — quantities that are compared against
-  each other and therefore need to align. Never a category label: mono as a costume for
-  "technical" is the thing this replaces.
+  The signature sunset gradient, applied as text or as a background. The one place the palette
+  gets to be loud — never behind an answer someone has to read.
 */
-.mrz {
-  font-family: var(--font-mono);
-  font-variant-numeric: tabular-nums;
-  letter-spacing: -0.01em;
+.sunset-text {
+  background: linear-gradient(135deg, var(--color-sparkle), var(--color-accent), var(--color-sun));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.sunset-bg {
+  background: linear-gradient(135deg, var(--color-sparkle), var(--color-accent), var(--color-sun));
 }
 
 /*
-  One authored moment, in two parts.
+  Motion.
 
-  `strike` is the plate landing — a primary action, a screen arriving. `endorse-in` is the
-  stamp being applied: it comes in over-scaled and slightly off-angle and settles, because
-  that is what pressing a stamp onto paper looks like and it is the one thing in this
-  interface that must not be missed.
+  `pop` is the springy settle — a tiny overshoot, because that is the whole joke.
+  `bounce` is the mascot's idle wiggle. `confetti` is the completion celebration, applied
+  per-piece via a CSS variable for its angle and delay.
 */
-@keyframes strike {
+@keyframes pop {
   from {
     opacity: 0;
-    transform: translateY(3px);
+    transform: scale(0.92) translateY(4px);
   }
   to {
     opacity: 1;
@@ -174,55 +176,22 @@ body {
   }
 }
 
-.strike {
-  animation: strike 260ms cubic-bezier(0.2, 0, 0, 1) both;
+.pop {
+  animation: pop 260ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
 }
 
-@keyframes endorse-in {
-  0% {
-    opacity: 0;
-    transform: rotate(-4deg) scale(1.18);
-  }
-  60% {
-    opacity: 1;
-  }
-  100% {
-    opacity: 1;
-    transform: rotate(-1.5deg) scale(1);
-  }
-}
-
-.endorse-in {
-  animation: endorse-in 320ms cubic-bezier(0.2, 0, 0, 1) both;
-}
-
-/* Rows settle in sequence, the way a document is set line by line. Capped by the caller. */
-.settle {
-  animation: strike 240ms cubic-bezier(0.2, 0, 0, 1) both;
-  animation-delay: calc(var(--i, 0) * 22ms);
-}
-
-/*
-  The impression.
-
-  Tailwind's `animate-pulse` was standing in for this, which is a generic opacity fade on a
-  two-second loop — the spinner this world refuses, wearing a different shape. A seal being
-  pressed swells and settles; that is the beat the fill screen keeps.
-*/
-@keyframes impress {
+@keyframes bounce {
   0%,
   100% {
-    scale: 0.72;
-    opacity: 0.55;
+    transform: translateY(0);
   }
-  45% {
-    scale: 1;
-    opacity: 1;
+  50% {
+    transform: translateY(-14%);
   }
 }
 
-.impress {
-  animation: impress 1400ms cubic-bezier(0.2, 0, 0, 1) infinite;
+.bounce {
+  animation: bounce 1.2s ease-in-out infinite;
 }
 
 @keyframes shimmer {
@@ -231,29 +200,45 @@ body {
   }
 }
 
-/* Unissued stock waiting for its printing. Sized to the row it stands in, never a spinner. */
+/* Waiting for content: sized to the element it stands in, never a spinner. */
 .awaiting {
   background: linear-gradient(
     100deg,
-    var(--color-guilloche-soft) 30%,
-    var(--color-leaf) 50%,
-    var(--color-guilloche-soft) 70%
+    var(--color-surface-muted) 30%,
+    var(--color-surface-raised) 50%,
+    var(--color-surface-muted) 70%
   );
   background-size: 200% 100%;
   animation: shimmer 1.6s linear infinite;
 }
 
+/* A soft pulse for the "thinking" dot. */
+@keyframes pulse-dot {
+  0%,
+  100% {
+    scale: 0.8;
+    opacity: 0.5;
+  }
+  50% {
+    scale: 1.25;
+    opacity: 1;
+  }
+}
+
+.pulse-dot {
+  animation: pulse-dot 1400ms cubic-bezier(0.2, 0, 0, 1) infinite;
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .strike,
-  .endorse-in,
-  .settle,
+  .pop,
+  .bounce,
   .awaiting,
-  .impress {
+  .pulse-dot {
     animation: none;
   }
 
   .awaiting {
-    background: var(--color-guilloche-soft);
+    background: var(--color-surface-muted);
   }
 
   /*
@@ -271,15 +256,14 @@ body {
 }
 
 ::selection {
-  background: var(--color-query-wash);
+  background: var(--color-accent-muted);
   color: var(--color-ink);
 }
 
 *:focus-visible {
-  outline: 2px solid var(--color-query);
-  outline-offset: 1px;
-  /* The ring follows the control it outlines. There is one radius in this system. */
-  border-radius: var(--radius-doc);
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
 }
 
 /*
@@ -339,22 +323,21 @@ html[data-nav="back"]::view-transition-old(screen) {
   animation-name: leaf-out-back;
 }
 
-/* The panel is a document, not a scrolling web page: no rubber-band, no bounce chrome. */
+/* The panel is an app, not a scrolling web page: no rubber-band, no bounce chrome. */
 ::-webkit-scrollbar {
   width: 10px;
   height: 10px;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: var(--color-guilloche);
+  background: var(--color-border);
   border: 3px solid transparent;
   background-clip: content-box;
-  /* Not a pill. A document with a 2px corner everywhere does not grow one here. */
-  border-radius: var(--radius-doc);
+  border-radius: var(--radius-full);
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--color-ink3);
+  background: var(--color-ink-dim);
   background-clip: content-box;
 }
 

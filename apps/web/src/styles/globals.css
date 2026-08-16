@@ -1,0 +1,270 @@
+@import "tailwindcss";
+
+/*
+ * "The Hype Friend" — the palette that ships in the Chrome extension.
+ *
+ * Bright, saturated, playful. A signature violet→pink→orange "sunset" gradient for
+ * the hero moments, hot pink for a guessed answer, lime for what it read straight off,
+ * and warm neutrals that are never pure gray or pure black.
+ *
+ * The one place the palette gets to be loud — never behind an answer someone has to read.
+ */
+
+@font-face {
+  font-family: "Bricolage Grotesque";
+  src: url("/fonts/bricolage-grotesque-var.woff2") format("woff2-variations");
+  font-weight: 200 800;
+  font-style: normal;
+  font-display: block;
+}
+
+@font-face {
+  font-family: "Inter";
+  src: url("/fonts/inter-var.woff2") format("woff2-variations");
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: block;
+}
+
+:root {
+  --surface: oklch(97.2% 0.006 320);
+  --surface-raised: oklch(99.3% 0.003 320);
+  --surface-muted: oklch(93.5% 0.007 320);
+  --ink: oklch(20% 0.02 300);
+  --ink-muted: oklch(44% 0.02 300);
+  --ink-dim: oklch(60% 0.015 300);
+  --accent: oklch(55% 0.24 350);
+  --accent-muted: oklch(93% 0.04 350);
+  --positive: oklch(58% 0.16 145);
+  --positive-muted: oklch(93% 0.055 145);
+  --danger: oklch(55% 0.22 25);
+  --danger-muted: oklch(93% 0.045 25);
+  --warning: oklch(68% 0.15 80);
+  --warning-muted: oklch(94% 0.05 80);
+  --sparkle: oklch(52% 0.24 290);
+  --sun: oklch(68% 0.18 45);
+  --border: oklch(87% 0.008 320);
+  --border-muted: oklch(92% 0.006 320);
+  --shadow: oklch(25% 0.02 300 / 0.08);
+  --shadow-strong: oklch(25% 0.02 300 / 0.16);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --surface: oklch(15% 0.022 300);
+    --surface-raised: oklch(19.5% 0.024 300);
+    --surface-muted: oklch(12% 0.018 300);
+    --ink: oklch(96% 0.008 320);
+    --ink-muted: oklch(74% 0.014 320);
+    --ink-dim: oklch(58% 0.012 320);
+    --accent: oklch(70% 0.22 350);
+    --accent-muted: oklch(26% 0.06 350);
+    --positive: oklch(72% 0.17 145);
+    --positive-muted: oklch(24% 0.05 145);
+    --danger: oklch(70% 0.19 25);
+    --danger-muted: oklch(26% 0.05 25);
+    --warning: oklch(78% 0.14 80);
+    --warning-muted: oklch(26% 0.045 80);
+    --sparkle: oklch(70% 0.2 290);
+    --sun: oklch(76% 0.16 45);
+    --border: oklch(30% 0.02 300);
+    --border-muted: oklch(23% 0.018 300);
+    --shadow: oklch(0% 0 0 / 0.35);
+    --shadow-strong: oklch(0% 0 0 / 0.55);
+  }
+}
+
+@theme inline {
+  --color-surface: var(--surface);
+  --color-surface-raised: var(--surface-raised);
+  --color-surface-muted: var(--surface-muted);
+  --color-ink: var(--ink);
+  --color-ink-muted: var(--ink-muted);
+  --color-ink-dim: var(--ink-dim);
+  --color-accent: var(--accent);
+  --color-accent-muted: var(--accent-muted);
+  --color-positive: var(--positive);
+  --color-positive-muted: var(--positive-muted);
+  --color-danger: var(--danger);
+  --color-danger-muted: var(--danger-muted);
+  --color-warning: var(--warning);
+  --color-warning-muted: var(--warning-muted);
+  --color-sparkle: var(--sparkle);
+  --color-sun: var(--sun);
+  --color-border: var(--border);
+  --color-border-muted: var(--border-muted);
+  --color-shadow: var(--shadow);
+  --color-shadow-strong: var(--shadow-strong);
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Bricolage Grotesque", "Inter", ui-sans-serif, system-ui, sans-serif;
+  --radius-sm: 6px;
+  --radius-md: 12px;
+  --radius-lg: 18px;
+  --radius-xl: 24px;
+  --radius-full: 9999px;
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --ease-smooth: cubic-bezier(0.2, 0, 0, 1);
+  --shadow-glow: 0 2px 12px -2px var(--shadow-strong);
+  --shadow-card: 0 8px 24px -8px var(--shadow-strong);
+}
+
+:root {
+  color-scheme: light dark;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background-color: var(--surface);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+::selection {
+  background-color: var(--accent-muted);
+  color: var(--ink);
+}
+
+*:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+/* Display register — Bricolage, big, bouncy, a little loud. */
+.display {
+  font-family: var(--font-display);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+/* The signature sunset gradient, as text or background. */
+.sunset-text {
+  background: linear-gradient(135deg, var(--sparkle), var(--accent), var(--sun));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.sunset-bg {
+  background: linear-gradient(135deg, var(--sparkle), var(--accent), var(--sun));
+}
+
+.sunset-bg-broad {
+  background: linear-gradient(160deg, var(--sparkle), var(--accent) 45%, var(--sun));
+}
+
+/* ── Animations ──────────────────────────────────────────────────────────── */
+
+@keyframes pop {
+  from {
+    opacity: 0;
+    transform: scale(0.92) translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.animate-pop {
+  animation: pop 260ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+@keyframes bounce {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-14%);
+  }
+}
+
+.animate-bounce {
+  animation: bounce 1.2s ease-in-out infinite;
+}
+
+@keyframes shimmer {
+  to {
+    background-position-x: -200%;
+  }
+}
+
+.animate-shimmer {
+  background: linear-gradient(
+    100deg,
+    var(--surface-muted) 30%,
+    var(--surface-raised) 50%,
+    var(--surface-muted) 70%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.6s linear infinite;
+}
+
+@keyframes pulse-dot {
+  0%,
+  100% {
+    scale: 0.8;
+    opacity: 0.5;
+  }
+  50% {
+    scale: 1.25;
+    opacity: 1;
+  }
+}
+
+.animate-pulse-dot {
+  animation: pulse-dot 1400ms cubic-bezier(0.2, 0, 0, 1) infinite;
+}
+
+@keyframes guilloche-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes float {
+  0%,
+  100% {
+    transform: translateY(0) rotate(0deg);
+  }
+  33% {
+    transform: translateY(-10px) rotate(1deg);
+  }
+  66% {
+    transform: translateY(-4px) rotate(-1deg);
+  }
+}
+
+.animate-float {
+  animation: float 6s ease-in-out infinite;
+}
+
+@keyframes confetti-piece {
+  0% {
+    transform: translate(0, 0) rotate(0deg) scale(1);
+    opacity: 1;
+  }
+  100% {
+    transform: translate(var(--cx, 0px), var(--cy, -80px)) rotate(var(--cr, 720deg)) scale(0);
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
