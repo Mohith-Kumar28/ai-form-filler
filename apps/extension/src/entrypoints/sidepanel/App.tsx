@@ -105,7 +105,7 @@ function Stack() {
         return <Sources profile={profile.data} />
 
       case 'addInfo':
-        return <AddSource />
+        return <AddSource initial={screen.initial} />
 
       case 'sourceDetail':
         return <SourceDetail sourceId={screen.sourceId} profile={profile.data} />

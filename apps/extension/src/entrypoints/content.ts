@@ -6,7 +6,7 @@ import { type AnimatedFill, runFillAnimation } from '../overlay/animate.js'
 import { type CardHandle, mountMenuCard, mountReviewCard } from '../overlay/card.js'
 import { burstConfetti } from '../overlay/confetti.js'
 import { createFeedbackCapture, displayValueOf } from '../overlay/feedback.js'
-import { isOverlayEvent } from '../overlay/host.js'
+import { GLYPH, getOverlayHost, isOverlayEvent, isOverlayHost } from '../overlay/host.js'
 import { type LauncherHandle, mountLauncher } from '../overlay/launcher.js'
 import { type FieldMark, mountFieldMark } from '../overlay/markers.js'
 import { positionScheduler } from '../overlay/scheduler.js'
@@ -36,8 +36,6 @@ export default defineContentScript({
 
     let knownFacts: KnownFacts | null = null
     let knownFactsPending: Promise<void> | null = null
-    let suggestionTimer: ReturnType<typeof setTimeout> | null = null
-    let suggestionHover = false
 
     /** Fetched lazily on first focus, so pages the user never touches cost nothing. */
     function ensureKnownFacts(): Promise<KnownFacts | null> {
@@ -59,19 +57,6 @@ export default defineContentScript({
         string[] | undefined
       >
       muted = (stored[MUTED_KEY] ?? []).includes(location.origin)
-    }
-
-    async function setMuted() {
-      const stored = (await chrome.storage.local.get(MUTED_KEY)) as Record<
-        string,
-        string[] | undefined
-      >
-      const current = stored[MUTED_KEY] ?? []
-      if (current.includes(location.origin)) return
-      await chrome.storage.local.set({ [MUTED_KEY]: [...current, location.origin] })
-      muted = true
-      launcher?.destroy()
-      launcher = null
     }
 
     void loadMuted()
@@ -112,98 +97,114 @@ export default defineContentScript({
       return fieldIdFor(element) !== null
     }
 
-    // ── the launcher ────────────────────────────────────────────────────────
+    // ── cards & the launcher ────────────────────────────────────────────────
 
     function closeCard(): void {
       card?.close()
       card = null
     }
 
-    /**
-     * The per-field inline card, on every fillable field — the way Grammarly underlines a
-     * sentence rather than parking a single toolbar somewhere on the page.
-     *
-     * Two shapes, one card:
-     *   - a field it already knows the answer to (name, email, a typed fact) offers that
-     *     answer, filled instantly, no model call;
-     *   - anything else offers to write it with AI, on the spot.
-     */
-    const SUGGEST_DELAY_MS = 150
+    // ── field-side trigger (the "session thingy") ──────────────────────────
+    // A small sparkle icon on the right-side of every focused fillable field. Clicking it
+    // opens a menu with field-level actions: instant fill for known values, AI for the rest,
+    // or the whole form at once.
 
-    function openInlineCard(
-      element: HTMLElement,
-      field: { label: string },
-      option: { kind: 'fromYou'; value: string } | { kind: 'ai' },
-    ) {
+    let fieldTrigger: HTMLElement | null = null
+    let fieldTriggerTarget: HTMLElement | null = null
+
+    function mountFieldTrigger(element: HTMLElement) {
+      destroyFieldTrigger()
+      const { root } = getOverlayHost()
+      const trigger = document.createElement('button')
+      trigger.type = 'button'
+      trigger.className = 'field-trigger'
+      trigger.setAttribute('aria-label', 'Fill this field')
+      trigger.innerHTML = GLYPH.sparkle
+
+      const place = () => {
+        const rect = element.getBoundingClientRect()
+        const size = 22
+        trigger.style.translate = `${Math.round(rect.right - size - 6)}px ${Math.round(rect.top + (rect.height - size) / 2)}px`
+      }
+      place()
+
+      trigger.addEventListener('mousedown', (event) => event.preventDefault())
+      trigger.addEventListener('click', () => {
+        if (element !== document.activeElement) return
+        openFieldMenu(element)
+      })
+
+      root.appendChild(trigger)
+      fieldTrigger = trigger
+      fieldTriggerTarget = element
+    }
+
+    function destroyFieldTrigger() {
+      fieldTrigger?.remove()
+      fieldTrigger = null
+      fieldTriggerTarget = null
+    }
+
+    function openFieldMenu(element: HTMLElement) {
+      if (!detection) return
       const fieldId = fieldIdFor(element)
-      const detectedField = fieldId ? detection?.elements.get(fieldId) : null
-      if (!detectedField || !detection) return
+      if (!fieldId) return
+      const field = detection.form.fields.find((f) => f.id === fieldId)
+      const detectedField = detection.elements.get(fieldId)
+      if (!field || !detectedField) return
 
       closeCard()
       const rect = element.getBoundingClientRect()
       const anchor = { top: rect.top, left: rect.left, width: rect.width, height: rect.height }
-      const fillValue = option.kind === 'fromYou' ? option.value : null
+      const total = detection.form.fields.length
 
-      card = mountMenuCard({
-        kind: 'menu',
-        anchor,
-        question: field.label,
-        actions:
-          option.kind === 'fromYou'
-            ? [{ id: 'fill', label: option.value, glyph: 'check' }]
-            : [{ id: 'generate', label: 'Write it with AI', glyph: 'sparkle' }],
-        note:
-          option.kind === 'fromYou'
-            ? { text: 'from you' }
-            : { text: "you haven't given it this yet" },
-        autofocus: false,
-        onSelect: (id) => {
-          closeCard()
-          if (id === 'fill' && fillValue)
-            void detection?.adapter.applyValue(detectedField, fillValue)
-          else if (id === 'generate') requestFill('field', element)
-        },
-        onClose: closeCard,
-      })
-
-      card.element.addEventListener('pointerenter', () => {
-        suggestionHover = true
-      })
-      card.element.addEventListener('pointerleave', () => {
-        suggestionHover = false
-      })
-    }
-
-    function maybeShowInline(element: HTMLElement) {
-      if (filling || card) return
-      if (suggestionTimer !== null) clearTimeout(suggestionTimer)
-      suggestionTimer = setTimeout(() => {
+      void ensureKnownFacts().then((facts) => {
         if (element !== document.activeElement) return
-        if (!detection) return
-        const fieldId = fieldIdFor(element)
-        if (!fieldId) return
-        const field = detection.form.fields.find((f) => f.id === fieldId)
-        const detectedField = detection.elements.get(fieldId)
-        if (!field || !detectedField) return
+        closeCard()
 
-        // Only when empty — a field already answered should not be second-guessed.
-        const current = detection.adapter.readValue(detectedField)
-        if (current && current.trim() !== '') return
+        const suggestion = facts
+          ? suggestForField(
+              { label: field.label, autocomplete: field.autocomplete, kind: field.kind },
+              facts,
+            )
+          : null
 
-        void ensureKnownFacts().then((facts) => {
-          if (element !== document.activeElement) return
-          const suggestion = facts
-            ? suggestForField(
-                { label: field.label, autocomplete: field.autocomplete, kind: field.kind },
-                facts,
-              )
-            : null
-          if (suggestion)
-            openInlineCard(element, field, { kind: 'fromYou', value: suggestion.value })
-          else openInlineCard(element, field, { kind: 'ai' })
+        const actions: Array<{
+          id: string
+          label: string
+          glyph: 'check' | 'sparkle' | 'form'
+        }> = []
+        if (suggestion) actions.push({ id: 'fill', label: 'Fill this field', glyph: 'check' })
+        actions.push({ id: 'generate', label: 'Write this with AI', glyph: 'sparkle' })
+        actions.push({
+          id: 'form',
+          label: `Fill all ${total} ${total === 1 ? 'field' : 'fields'}`,
+          glyph: 'form',
         })
-      }, SUGGEST_DELAY_MS)
+
+        card = mountMenuCard({
+          kind: 'menu',
+          anchor,
+          question: field.label,
+          actions,
+          autofocus: false,
+          onSelect: (id) => {
+            closeCard()
+            if (id === 'fill' && suggestion)
+              void detection?.adapter.applyValue(detectedField, suggestion.value)
+            else if (id === 'generate') requestFill('field', element)
+            else if (id === 'form') requestFill('form')
+          },
+          onClose: closeCard,
+        })
+      })
     }
+
+    // ── the launcher ────────────────────────────────────────────────────────
+    // The pill at the bottom-right of the page. One click opens the side panel and starts
+    // filling the form — no popup menu, just straight into it. While a fill is running it
+    // becomes the progress indicator, and when it is done it shows the result; clicking it
+    // then reopens the panel to the review.
 
     function ensureLauncher() {
       if (muted || !detection || detection.form.fields.length === 0) return
@@ -214,52 +215,12 @@ export default defineContentScript({
       const total = detection.form.fields.length
       launcher = mountLauncher({
         fieldCount: total,
-        onOpen: () => openMenu(),
-        onReview: () => void chrome.runtime.sendMessage({ type: 'overlay/openPanel' }),
-      })
-    }
-
-    function openMenu() {
-      if (card) {
-        closeCard()
-        return
-      }
-
-      const anchor = launcher?.anchorRect()
-      if (!anchor) return
-
-      const active = document.activeElement as HTMLElement | null
-      const focusedFieldId = active && isFillable(active) ? fieldIdFor(active) : null
-      const total = detection?.form.fields.length ?? 0
-
-      const actions: Array<{
-        id: string
-        label: string
-        glyph: 'sparkle' | 'form' | 'panel' | 'mute'
-        disabled?: boolean
-      }> = [{ id: 'form', label: `Fill all ${total} fields`, glyph: 'form' }]
-
-      if (focusedFieldId) {
-        actions.unshift({ id: 'field', label: 'Fill this field', glyph: 'sparkle' })
-      }
-
-      actions.push(
-        { id: 'panel', label: 'Open the panel', glyph: 'panel', disabled: false },
-        { id: 'mute', label: 'Not on this site', glyph: 'mute', disabled: false },
-      )
-
-      card = mountMenuCard({
-        kind: 'menu',
-        anchor,
-        actions,
-        onSelect: (id) => {
-          closeCard()
-          if (id === 'form') requestFill('form')
-          else if (id === 'field') requestFill('field', active ?? undefined)
-          else if (id === 'panel') void chrome.runtime.sendMessage({ type: 'overlay/openPanel' })
-          else if (id === 'mute') void setMuted()
+        onOpen: () => {
+          void chrome.runtime
+            .sendMessage({ type: 'overlay/openPanel' })
+            .then(() => requestFill('form'))
         },
-        onClose: closeCard,
+        onReview: () => void chrome.runtime.sendMessage({ type: 'overlay/openPanel' }),
       })
     }
 
@@ -603,19 +564,21 @@ export default defineContentScript({
 
     document.addEventListener('pointerdown', onPointerDown, true)
 
-    // Instant suggestions: watch focus on fillable fields.
+    // Field trigger: show on focus, hide on blur.
     const onFocusIn = (event: FocusEvent) => {
       const target = event.target as HTMLElement | null
       if (!target || muted || !isFillable(target)) return
-      maybeShowInline(target)
+      mountFieldTrigger(target)
     }
 
-    const onFocusOut = () => {
-      if (suggestionTimer !== null) clearTimeout(suggestionTimer)
-      // One frame, so focus moving *into* the suggestion card does not read as leaving the field.
+    const onFocusOut = (event: FocusEvent) => {
+      const target = event.target as HTMLElement | null
+      // One frame, so focus moving *into* the overlay (a menu item) does not read as leaving
+      // the field, and a tab to the next field does not tear down the trigger it just mounted.
       requestAnimationFrame(() => {
+        if (target && fieldTriggerTarget === target) destroyFieldTrigger()
         if (!card) return
-        if (suggestionHover) return
+        if (isOverlayHost(document.activeElement)) return
         closeCard()
       })
     }
@@ -643,7 +606,7 @@ export default defineContentScript({
       document.removeEventListener('pointerdown', onPointerDown, true)
       document.removeEventListener('focusin', onFocusIn, true)
       document.removeEventListener('focusout', onFocusOut, true)
-      if (suggestionTimer !== null) clearTimeout(suggestionTimer)
+      destroyFieldTrigger()
       closeCard()
       clearMarks()
       launcher?.destroy()

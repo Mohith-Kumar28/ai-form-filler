@@ -25,6 +25,7 @@ import {
   ScreenBody,
   ScreenFooter,
   ScreenHeader,
+  SegmentedControl,
   SkeletonRow,
 } from '../components.js'
 import {
@@ -262,6 +263,8 @@ export function Sources({ profile }: { profile: Profile | undefined }) {
   const nav = useNavigation()
   const queryClient = useQueryClient()
 
+  const [tab, setTab] = useState<'facts' | 'sources'>('facts')
+
   const [identity, setIdentity] = useState<ProfileIdentity>(profile?.identity ?? { links: {} })
   const [facts, setFacts] = useState<Record<string, string>>(profile?.custom ?? {})
   const [newFact, setNewFact] = useState('')
@@ -328,19 +331,36 @@ export function Sources({ profile }: { profile: Profile | undefined }) {
   ].sort()
 
   const sources = profile?.sources ?? []
-  const nothingYet = profile !== undefined && sources.length === 0 && !profile.identity.fullName
 
   return (
     <Screen>
       <ScreenHeader
         title="Your info"
         right={
-          <Button size="sm" onClick={() => nav.push({ name: 'addInfo' })} aria-label="Add a source">
+          <Button
+            size="sm"
+            onClick={() =>
+              nav.push({ name: 'addInfo', initial: tab === 'facts' ? 'fact' : 'upload' })
+            }
+            aria-label={tab === 'facts' ? 'Add a fact' : 'Add a source'}
+          >
             <IconPlus className="size-3.5" />
             Add
           </Button>
         }
       />
+
+      <div className="shrink-0 px-4 py-3">
+        <SegmentedControl
+          segments={[
+            { key: 'facts' as const, label: 'Facts' },
+            { key: 'sources' as const, label: 'Sources' },
+          ]}
+          value={tab}
+          onChange={setTab}
+          label="What to show"
+        />
+      </div>
 
       <ScreenBody className="relative flex flex-col">
         {profile === undefined ? (
@@ -349,23 +369,7 @@ export function Sources({ profile }: { profile: Profile | undefined }) {
             <SkeletonRow />
             <SkeletonRow />
           </div>
-        ) : nothingYet ? (
-          <EmptyState
-            title="Nothing here yet"
-            mascot="happy"
-            body={
-              <>
-                Give it a résumé, a link to your site, or a few facts about yourself. It answers
-                forms from whatever is here — the more it knows, the less it has to guess.
-              </>
-            }
-            action={
-              <Button variant="primary" onClick={() => nav.push({ name: 'addInfo' })}>
-                Add the first one
-              </Button>
-            }
-          />
-        ) : (
+        ) : tab === 'facts' ? (
           <>
             <p className="px-4 py-2 text-[12px] font-semibold uppercase text-ink-dim">About you</p>
             {IDENTITY_FIELDS.map(({ key, label, type }) => (
@@ -429,32 +433,45 @@ export function Sources({ profile }: { profile: Profile | undefined }) {
                 Add
               </Button>
             </div>
-
+          </>
+        ) : sources.length === 0 ? (
+          <EmptyState
+            title="No sources yet"
+            mascot="happy"
+            body={
+              <>
+                Add a résumé, a link, a note, or a voice recording. It reads you out of whatever is
+                here.
+              </>
+            }
+            action={
+              <Button
+                variant="primary"
+                onClick={() => nav.push({ name: 'addInfo', initial: 'upload' })}
+              >
+                Add a source
+              </Button>
+            }
+          />
+        ) : (
+          <>
             <p className="px-4 py-2 text-[12px] font-semibold uppercase text-ink-dim">
-              {sources.length === 0
-                ? 'Documents'
-                : `${sources.length} ${plural(sources.length, 'document')}`}
+              {`${sources.length} ${plural(sources.length, 'document')}`}
             </p>
-            {sources.length === 0 ? (
-              <p className="border-b border-border-muted px-4 py-3 text-[13px] leading-relaxed text-ink-muted">
-                A résumé, a link to your site, a voice note — anything it can read you out of.
-              </p>
-            ) : (
-              <div>
-                {sources.map((source, i) => (
-                  <SourceRow
-                    key={source.id}
-                    source={source}
-                    index={Math.min(i, 8)}
-                    onRename={(label) => rename.mutate({ id: source.id, data: { label } })}
-                    onRemove={() => {
-                      setRemoveError(null)
-                      setPendingRemoval(source)
-                    }}
-                  />
-                ))}
-              </div>
-            )}
+            <div>
+              {sources.map((source, i) => (
+                <SourceRow
+                  key={source.id}
+                  source={source}
+                  index={Math.min(i, 8)}
+                  onRename={(label) => rename.mutate({ id: source.id, data: { label } })}
+                  onRemove={() => {
+                    setRemoveError(null)
+                    setPendingRemoval(source)
+                  }}
+                />
+              ))}
+            </div>
           </>
         )}
 

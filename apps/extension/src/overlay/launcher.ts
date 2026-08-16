@@ -44,7 +44,7 @@ export function mountLauncher(options: {
   root.appendChild(launcher)
 
   // State the pill can be in. `busy` renders a spinner + progress; `result` renders the
-  // summary and routes a click to review; `idle` renders the field count and opens the menu.
+  // summary and routes a click to review; `idle` renders the call to action and opens the menu.
   let mode: 'idle' | 'busy' | 'result' = 'idle'
   let fieldCount = options.fieldCount
   let result = { written: 0, needLook: 0 }
@@ -62,10 +62,34 @@ export function mountLauncher(options: {
       return
     }
     launcher.dataset.busy = 'false'
-    launcher.innerHTML = `${GLYPH.sparkle}<span>${fieldCount} ${fieldCount === 1 ? 'field' : 'fields'}</span>`
+    launcher.innerHTML = `${GLYPH.sparkle}<span>Fill ${fieldCount} ${
+      fieldCount === 1 ? 'field' : 'fields'
+    }</span>`
   }
 
   render()
+
+  // ── Position ─────────────────────────────────────────────────────────────
+  // The position is held in `pos` — the single source of truth — and mirrored onto the
+  // standalone `translate` property, which the entrance animation's `scale` never touches.
+  // Reading the position back out of the style string (as a previous version did) never
+  // matched and silently snapped the pill to the bottom-right on every drag.
+  let pos = {
+    x: window.innerWidth - launcher.offsetWidth - EDGE,
+    y: window.innerHeight - launcher.offsetHeight - EDGE,
+  }
+
+  const clampX = (x: number) =>
+    Math.min(Math.max(EDGE, x), window.innerWidth - launcher.offsetWidth - EDGE)
+  const clampY = (y: number) =>
+    Math.min(Math.max(EDGE, y), window.innerHeight - launcher.offsetHeight - EDGE)
+
+  const applyPosition = (x: number, y: number) => {
+    pos = { x, y }
+    launcher.style.translate = `${Math.round(x)}px ${Math.round(y)}px`
+  }
+
+  applyPosition(pos.x, pos.y)
 
   // ── Drag + click ─────────────────────────────────────────────────────────
   // The pill is both draggable and clickable. A click opens the menu; a drag moves it. The
@@ -78,32 +102,14 @@ export function mountLauncher(options: {
     dragging: boolean
   } | null = null
 
-  const clampX = (x: number) =>
-    Math.min(Math.max(EDGE, x), window.innerWidth - launcher.offsetWidth - EDGE)
-  const clampY = (y: number) =>
-    Math.min(Math.max(EDGE, y), window.innerHeight - launcher.offsetHeight - EDGE)
-
-  const setPosition = (x: number, y: number) => {
-    launcher.style.translate = `${Math.round(x)}px ${Math.round(y)}px`
-  }
-
-  const parsePosition = (): { x: number; y: number } | null => {
-    const match = /translate\s*:\s*([\d.-]+)px ([\d.-]+)px/.exec(launcher.style.translate)
-    const x = match?.[1]
-    const y = match?.[2]
-    if (x === undefined || y === undefined) return null
-    return { x: Number.parseFloat(x), y: Number.parseFloat(y) }
-  }
-
   launcher.addEventListener('pointerdown', (event) => {
     if (mode === 'busy') return
     launcher.setPointerCapture(event.pointerId)
-    const current = parsePosition()
     dragState = {
       startX: event.clientX,
       startY: event.clientY,
-      origX: current?.x ?? window.innerWidth - launcher.offsetWidth - EDGE,
-      origY: current?.y ?? window.innerHeight - launcher.offsetHeight - EDGE,
+      origX: pos.x,
+      origY: pos.y,
       dragging: false,
     }
   })
@@ -114,16 +120,13 @@ export function mountLauncher(options: {
     const dy = event.clientY - dragState.startY
     if (!dragState.dragging && Math.hypot(dx, dy) < DRAG_THRESHOLD) return
     dragState.dragging = true
-    setPosition(clampX(dragState.origX + dx), clampY(dragState.origY + dy))
+    applyPosition(clampX(dragState.origX + dx), clampY(dragState.origY + dy))
   })
 
   launcher.addEventListener('pointerup', () => {
     if (!dragState) return
     const wasDrag = dragState.dragging
-    if (wasDrag) {
-      const current = parsePosition()
-      if (current) void chrome.storage.local.set({ [POSITION_KEY]: current })
-    }
+    if (wasDrag) void chrome.storage.local.set({ [POSITION_KEY]: pos })
     dragState = null
 
     if (wasDrag) return
@@ -131,27 +134,19 @@ export function mountLauncher(options: {
     else if (mode === 'idle') options.onOpen()
   })
 
-  // Place at the remembered position, or bottom-right.
+  // Restore the remembered position, or stay bottom-right.
   void chrome.storage.local.get(POSITION_KEY).then((stored) => {
     const saved = (stored as Record<string, { x: number; y: number } | undefined>)[POSITION_KEY]
-    if (saved) {
-      setPosition(clampX(saved.x), clampY(saved.y))
-    } else {
-      setPosition(
-        window.innerWidth - launcher.offsetWidth - EDGE,
-        window.innerHeight - launcher.offsetHeight - EDGE,
-      )
-    }
+    if (saved) applyPosition(clampX(saved.x), clampY(saved.y))
   })
 
+  // Keep it on screen when the window resizes underneath it.
+  const onResize = () => applyPosition(clampX(pos.x), clampY(pos.y))
+  window.addEventListener('resize', onResize)
+
   const anchorRect = (): Rect => {
-    const current = parsePosition()
-    return {
-      top: current?.y ?? window.innerHeight - launcher.offsetHeight - EDGE,
-      left: current?.x ?? EDGE,
-      width: launcher.offsetWidth,
-      height: launcher.offsetHeight,
-    }
+    const rect = launcher.getBoundingClientRect()
+    return { top: rect.top, left: rect.left, width: rect.width, height: rect.height }
   }
 
   return {
@@ -175,6 +170,9 @@ export function mountLauncher(options: {
       mode = 'idle'
       render()
     },
-    destroy: () => launcher.remove(),
+    destroy: () => {
+      window.removeEventListener('resize', onResize)
+      launcher.remove()
+    },
   }
 }

@@ -79,6 +79,28 @@ ${overlayVariables(':host')}
   cursor: default;
 }
 
+/* ── The field trigger ─────────────────────────────────────────────────────
+   A small sparkle icon beside a focused field. Clicking it opens the field's
+   action menu: fill this one, write it with AI, or fill the whole form.      */
+.field-trigger {
+  position: fixed;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border: 0;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--aff-sparkle), var(--aff-accent));
+  color: #fff;
+  cursor: pointer;
+  pointer-events: auto;
+  box-shadow: 0 2px 8px -2px var(--aff-shadow-strong);
+  animation: pop-in 160ms var(--aff-ease) both;
+}
+.field-trigger svg { width: 12px; height: 12px; }
+.field-trigger:focus-visible { outline: 2px solid var(--aff-accent); outline-offset: 2px; }
+
 .launcher-ring {
   width: 14px;
   height: 14px;
@@ -328,7 +350,7 @@ ${overlayVariables(':host')}
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .launcher, .card, .mark, .check-pill { animation: none !important; }
+  .launcher, .card, .mark, .check-pill, .field-trigger { animation: none !important; }
   .mark[data-state="filled"],
   .mark[data-state="failed"] { opacity: 0; }
 }
@@ -373,6 +395,11 @@ export function prefersReducedMotion(): boolean {
 
 export function isOverlayEvent(event: Event): boolean {
   return event.composedPath().some((node) => node instanceof HTMLElement && node.id === HOST_ID)
+}
+
+/** Whether focus is inside the overlay host — a closed root reports itself, not its children. */
+export function isOverlayHost(node: unknown): boolean {
+  return node instanceof HTMLElement && node.id === HOST_ID
 }
 
 /** Inline SVG, matching the panel's authored set: 16px grid, 1.75px stroke, round joins. */

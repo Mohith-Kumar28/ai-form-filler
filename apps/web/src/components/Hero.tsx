@@ -97,7 +97,9 @@ export function Hero() {
           <p className="mb-3 text-center text-[12px] font-semibold uppercase tracking-[0.1em] text-ink-dim lg:text-left">
             Click Fill this form
           </p>
-          <ExtensionDemo />
+          <div className="mx-auto w-full max-w-[640px] lg:max-w-full">
+            <ExtensionDemo />
+          </div>
         </motion.div>
       </div>
     </section>

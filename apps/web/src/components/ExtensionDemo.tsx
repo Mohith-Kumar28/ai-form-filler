@@ -146,26 +146,26 @@ export function ExtensionDemo() {
   }, [])
 
   return (
-    <div className="mx-auto w-full max-w-[920px]">
+    <div className="w-full">
       <div className="overflow-hidden rounded-2xl border border-border-muted bg-surface-muted shadow-card">
         {/* Browser chrome */}
-        <div className="flex items-center gap-2 border-b border-border-muted bg-surface px-4 py-2.5">
+        <div className="flex items-center gap-2 border-b border-border-muted bg-surface px-3 py-2 md:px-4 md:py-2.5">
           <div className="flex gap-1.5">
-            <div className="size-3 rounded-full" style={{ background: 'var(--danger)' }} />
-            <div className="size-3 rounded-full" style={{ background: 'var(--warning)' }} />
-            <div className="size-3 rounded-full" style={{ background: 'var(--positive)' }} />
+            <div className="size-2.5 rounded-full md:size-3" style={{ background: 'var(--danger)' }} />
+            <div className="size-2.5 rounded-full md:size-3" style={{ background: 'var(--warning)' }} />
+            <div className="size-2.5 rounded-full md:size-3" style={{ background: 'var(--positive)' }} />
           </div>
-          <div className="mx-auto flex h-7 w-full max-w-[380px] items-center rounded-full border border-border-muted bg-surface-muted px-3">
-            <span className="text-[11px] text-ink-dim">
+          <div className="mx-auto flex h-6 w-full max-w-[280px] items-center rounded-full border border-border-muted bg-surface-muted px-2 md:h-7 md:max-w-[380px] md:px-3">
+            <span className="truncate text-[10px] text-ink-dim md:text-[11px]">
               boards.greenhouse.io/alderman-roe/jobs/engineering-manager
             </span>
           </div>
-          <div className="w-[52px]" />
+          <div className="w-10 md:w-[52px]" />
         </div>
 
-        <div className="flex min-h-[540px] flex-col md:flex-row">
+        <div className="flex min-h-[420px] flex-col md:min-h-[520px] md:flex-row">
           {/* Form area — the web page */}
-          <div className="flex-1 border-r border-border-muted bg-surface p-5 md:p-6">
+          <div className="flex-1 border-r border-border-muted bg-surface p-3 md:p-6">
             <div className="space-y-1">
               <p className="text-[11px] font-semibold uppercase tracking-[0.1em] text-ink-dim">
                 Job application
@@ -176,7 +176,7 @@ export function ExtensionDemo() {
               <p className="text-[12px] text-ink-muted">Alderman & Roe · Bristol, UK · Remote</p>
             </div>
 
-            <div className="mt-5 space-y-3.5">
+            <div className="mt-4 space-y-3 md:space-y-3.5">
               {FORM_FIELDS.map((field) => (
                 <div key={field.id} className="space-y-1">
                   <label className="text-[12px] font-semibold text-ink-muted">
@@ -259,8 +259,8 @@ export function ExtensionDemo() {
             </div>
           </div>
 
-          {/* Side panel — the extension UI, 400px equivalent */}
-          <div className="flex w-full shrink-0 flex-col border-t border-border-muted bg-surface md:w-[400px] md:border-t-0 md:border-l">
+          {/* Side panel — the extension UI */}
+          <div className="flex w-full shrink-0 flex-col border-t border-border-muted bg-surface md:w-[42%] md:min-w-[320px] md:border-t-0 md:border-l">
             <AnimatePresence mode="wait">
               {state === 'home' && <HomePanel key="home" onFill={startFill} />}
               {state === 'filling' && <FillingPanel key="filling" stage={stage} />}

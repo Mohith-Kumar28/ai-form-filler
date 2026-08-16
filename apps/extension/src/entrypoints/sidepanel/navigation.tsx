@@ -19,13 +19,16 @@ import {
 
 export type TabName = 'home' | 'yourInfo' | 'account'
 
+/** What kind of thing the "Add to your info" screen should start on. */
+export type AddKind = 'fact' | 'upload' | 'link' | 'text' | 'voice'
+
 export type Screen =
   | { name: 'home' }
   | { name: 'yourInfo' }
   | { name: 'account' }
   | { name: 'filling' }
   | { name: 'review' }
-  | { name: 'addInfo' }
+  | { name: 'addInfo'; initial?: AddKind }
   | { name: 'sourceDetail'; sourceId: string }
 
 export type ScreenName = Screen['name']

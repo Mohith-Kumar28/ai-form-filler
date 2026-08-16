@@ -38,9 +38,9 @@ const MODES: Segment<Mode>[] = [
 /**
  * Adding a source, as its own screen with one segmented control.
  */
-export function AddSource() {
+export function AddSource({ initial }: { initial?: Mode }) {
   const nav = useNavigation()
-  const [mode, setMode] = useState<Mode>('fact')
+  const [mode, setMode] = useState<Mode>(initial ?? 'fact')
   const queryClient = useQueryClient()
 
   const settle = async () => {
