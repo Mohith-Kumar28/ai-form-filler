@@ -12,11 +12,11 @@ import {
   type Verdict,
 } from '../../../lib/review-store.js'
 import {
+  AiBadge,
   AutoTextarea,
   Button,
   Card,
   Chip,
-  GuessedBadge,
   Mascot,
   Screen,
   ScreenBody,
@@ -53,11 +53,9 @@ function highlight(fieldId: string): void {
   void sendMessage({ type: 'content/highlight', fieldId })
 }
 
-function confidenceLabel(pct: number): string {
-  if (pct >= 0.9) return "i'm pretty sure"
-  if (pct >= 0.7) return "i'm fairly sure"
-  if (pct >= 0.5) return 'i think so'
-  return 'total shot in the dark'
+function confidenceNote(fill: Fill): string {
+  if (fill.inferred) return 'The AI wrote this from your other answers — check it.'
+  return 'The AI is not confident about this one.'
 }
 
 function AnswerEntry({
@@ -93,10 +91,7 @@ function AnswerEntry({
           <p className="min-w-0 flex-1 text-[13px] font-semibold text-ink">
             {fill.label || 'Untitled field'}
           </p>
-          {fill.inferred && <GuessedBadge />}
-          {!fill.inferred && fill.confidence < REVIEW_CONFIDENCE_THRESHOLD && (
-            <GuessedBadge label={`unsure · ${Math.round(fill.confidence * 100)}%`} />
-          )}
+          <AiBadge />
         </div>
 
         {notAccepted && (
@@ -137,10 +132,10 @@ function AnswerEntry({
           )}
         </div>
 
-        {(needsCheck(fill) || fill.inferred) && fill.confidence < 0.95 && (
+        {needsCheck(fill) && (
           <p className="mt-2 flex items-center gap-1.5 text-[12px] text-ink-dim">
             <IconSparkle className="size-3 text-accent" />
-            {confidenceLabel(fill.confidence)} about this one
+            {confidenceNote(fill)}
           </p>
         )}
 
@@ -311,7 +306,7 @@ export function Review({
   return (
     <Screen>
       <ScreenHeader
-        title={outstanding > 0 ? `${outstanding} worth checking` : 'All good'}
+        title={outstanding > 0 ? `${outstanding} need a look` : 'All good'}
         onBack={onDone}
       />
 
@@ -333,8 +328,8 @@ export function Review({
               Nothing was written
             </h2>
             <p className="mt-1.5 max-w-[32ch] text-[13px] leading-relaxed text-ink-muted">
-              No field on this page could be answered from what it knows. Adding more about yourself
-              is what changes that.
+              No field here could be answered. Add more about yourself in My info — that's what
+              changes it.
             </p>
           </div>
         ) : (
@@ -342,7 +337,7 @@ export function Review({
             {checkable.length > 0 ? (
               <div className="mx-4 mt-2 flex flex-col gap-px">
                 <p className="mb-2 text-[12px] font-semibold uppercase text-ink-dim">
-                  check these — I guessed
+                  the AI wrote these — take a look
                 </p>
                 {checkable.map((fill) => (
                   <AnswerEntry
@@ -359,7 +354,7 @@ export function Review({
               </div>
             ) : (
               <p className="mx-4 mt-4 rounded-2xl border border-border-muted bg-surface-raised px-4 py-3 text-[13px] leading-relaxed text-ink-muted">
-                Every answer came straight from what you told it. Nothing here was a judgement call.
+                Everything came from your own info. Nothing to check.
               </p>
             )}
 
@@ -373,7 +368,7 @@ export function Review({
                 >
                   <IconCheck className="size-4 shrink-0 text-positive" />
                   <span className="flex-1 text-[13px] font-medium text-ink-muted">
-                    {settledFills.length} {plural(settledFills.length, 'answer')} read straight off
+                    {settledFills.length} {plural(settledFills.length, 'answer')} from you
                   </span>
                   <span className="text-[12px] font-semibold uppercase text-ink-dim">
                     {showSettled ? 'hide' : 'show'}

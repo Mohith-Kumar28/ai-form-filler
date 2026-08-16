@@ -9,38 +9,46 @@ import {
 } from 'react'
 
 /**
- * An eight-screen stack, not a router.
+ * A tiny navigation model: three root tabs and a stack of screens that push on top of them.
  *
- * `@tanstack/react-router` was a dependency of this package and imported nowhere; adopting it
- * would buy URL parsing, route trees and code splitting for a surface with no URLs, no deep
- * links and eight screens. What is actually needed is a push/pop stack whose transition this
- * file can author directly, which is about sixty lines.
- *
- * The old panel had no navigation at all — screens appeared by state precedence inside one
- * component's early returns, so nothing had a back gesture and the review had to be rendered
- * above the account gates to keep its edits alive.
+ * The panel is a docked control surface, not a website, so there are no URLs to parse. The
+ * three tabs are the whole app — Fill, My info, Account — and everything else (filling in
+ * progress, a review, adding a source, a source's detail) pushes on top of whichever tab is
+ * current and pops back to it.
  */
+
+export type TabName = 'home' | 'yourInfo' | 'account'
 
 export type Screen =
   | { name: 'home' }
+  | { name: 'yourInfo' }
+  | { name: 'account' }
   | { name: 'filling' }
   | { name: 'review' }
-  | { name: 'sources' }
-  | { name: 'addSource' }
+  | { name: 'addInfo' }
   | { name: 'sourceDetail'; sourceId: string }
-  | { name: 'settings' }
-  | { name: 'profile' }
 
 export type ScreenName = Screen['name']
 
+/** Root tab order, used to pick a slide direction when switching tabs. */
+const TAB_ORDER: TabName[] = ['home', 'yourInfo', 'account']
+
+function isTab(screen: Screen): screen is { name: TabName } {
+  return TAB_ORDER.includes(screen.name as TabName)
+}
+
 interface NavigationValue {
   screen: Screen
+  /** Which root tab is underneath, or `null` while a pushed screen is on top. */
+  tab: TabName | null
   depth: number
   push: (screen: Screen) => void
   /** Swaps the top of the stack, so Back skips the screen being left behind. */
   replace: (screen: Screen) => void
   back: () => void
-  /** Unwinds to Home. Used when a screen's subject stops existing under it. */
+  /** Switches root tabs. */
+  goToTab: (tab: TabName) => void
+  /** Unwinds to the Fill tab. */
   home: () => void
 }
 
@@ -87,7 +95,6 @@ export function NavigationProvider({ children }: { children: ReactNode }) {
       if (transitioning.current) return
       transitioning.current = true
       runTransition(direction, () => setStack(next))
-      // One frame is enough: the commit has run and React has the new stack.
       requestAnimationFrame(() => {
         transitioning.current = false
       })
@@ -95,19 +102,30 @@ export function NavigationProvider({ children }: { children: ReactNode }) {
     [],
   )
 
-  const value = useMemo<NavigationValue>(
-    () => ({
-      screen: stack[stack.length - 1] ?? HOME,
+  const value = useMemo<NavigationValue>(() => {
+    const screen = stack[stack.length - 1] ?? HOME
+    const tab = isTab(screen) ? screen.name : (stack.findLast(isTab)?.name ?? 'home')
+
+    return {
+      screen,
+      tab,
       depth: stack.length - 1,
-      push: (screen) => navigate('forward', (prev) => [...prev, screen]),
-      replace: (screen) => navigate('forward', (prev) => [...prev.slice(0, -1), screen]),
+      push: (next) => navigate('forward', (prev) => [...prev, next]),
+      replace: (next) => navigate('forward', (prev) => [...prev.slice(0, -1), next]),
       back: () => navigate('back', (prev) => (prev.length > 1 ? prev.slice(0, -1) : prev)),
+      goToTab: (next) =>
+        navigate(TAB_ORDER.indexOf(next) > TAB_ORDER.indexOf(tab) ? 'forward' : 'back', () => [
+          screenForTab(next),
+        ]),
       home: () => navigate('back', () => [HOME]),
-    }),
-    [stack, navigate],
-  )
+    }
+  }, [stack, navigate])
 
   return <NavigationContext.Provider value={value}>{children}</NavigationContext.Provider>
+}
+
+function screenForTab(tab: TabName): Screen {
+  return { name: tab }
 }
 
 export function useNavigation(): NavigationValue {

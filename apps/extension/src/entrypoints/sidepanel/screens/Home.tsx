@@ -1,21 +1,9 @@
 import type { Account, Profile } from '../../../generated/model/index.js'
-import { openManageSubscription, openUpgrade } from '../../../lib/billing.js'
 import { formatResetDate, plural } from '../../../lib/format.js'
 import type { ActivePage } from '../../../lib/use-active-page.js'
-import {
-  Button,
-  Card,
-  Row,
-  RowGroup,
-  Screen,
-  ScreenBody,
-  ScreenHeader,
-  SkeletonText,
-} from '../components.js'
-import { IconGear, IconSparkle } from '../icons.js'
+import { Button, Card, Screen, ScreenBody, ScreenHeader, SkeletonText } from '../components.js'
+import { IconSparkle } from '../icons.js'
 import { useNavigation } from '../navigation.js'
-
-const PLAN_NAMES: Record<string, string> = { free: 'Free', pro: 'Pro', ultra: 'Ultra' }
 
 function PageEntry({ page }: { page: ActivePage }) {
   if (page.status === 'checking') {
@@ -36,7 +24,7 @@ function PageEntry({ page }: { page: ActivePage }) {
         <p className="mt-1 text-[13px] leading-snug text-ink-muted">
           {page.status === 'unavailable'
             ? 'This kind of page cannot be read — browser pages and the Web Store are off limits.'
-            : 'No form found. Try a page with inputs, and it will show up here.'}
+            : 'No form found. Open a page with inputs and it will show up here.'}
         </p>
       </div>
     )
@@ -89,23 +77,13 @@ export function Home({
         title={
           <span className="flex items-center gap-2">
             <IconSparkle className="size-4 shrink-0 text-accent" />
-            <span>you fill</span>
+            <span>Fillaform</span>
           </span>
-        }
-        right={
-          <button
-            type="button"
-            onClick={() => nav.push({ name: 'settings' })}
-            aria-label="Settings"
-            className="flex size-8 shrink-0 items-center justify-center rounded-full text-ink-muted transition-colors hover:bg-surface-muted hover:text-ink"
-          >
-            <IconGear className="size-4" />
-          </button>
         }
       />
 
       <ScreenBody className="flex flex-col">
-        {/* The form you're looking at. */}
+        {/* The form in front of you. */}
         <Card className="mx-4 mb-3 mt-4 px-4 py-4">
           <PageEntry page={page} />
 
@@ -121,62 +99,36 @@ export function Home({
               Fill this form
             </Button>
 
-            {blockedReason && (
+            {blockedReason ? (
               <p className="mt-2 text-[12.5px] leading-snug text-ink-muted">{blockedReason}</p>
-            )}
-
-            {!blockedReason && left <= 3 && (
-              <p className="mt-2 text-[12.5px] leading-snug text-ink-muted">
-                {left === 0
-                  ? 'That was your last one this month!'
-                  : `${left} ${plural(left, 'form')} left this month.`}{' '}
-                {account.quota.plan === 'free' && (
-                  <button
-                    type="button"
-                    onClick={() => void openUpgrade()}
-                    className="font-semibold text-accent underline underline-offset-2 hover:no-underline"
-                  >
-                    Upgrade
-                  </button>
-                )}
+            ) : (
+              <p className="mt-2 text-[12px] leading-snug text-ink-dim">
+                {readyCount > 0
+                  ? `${readyCount} ${plural(readyCount, 'source')} ready in My info`
+                  : 'Add yourself in My info so it has something to answer from'}
+                {left <= 3 && ` · ${left} ${plural(left, 'form')} left this month`}
               </p>
             )}
           </div>
         </Card>
 
-        <RowGroup>
-          <Row
-            icon={<IconSparkle className="size-4" />}
-            title="What it knows"
-            detail={
-              sources.length === 0
-                ? 'Add a résumé, a link, or a few facts'
-                : readyCount === sources.length
-                  ? `${readyCount} ${plural(readyCount, 'source')} it can answer from`
-                  : `${readyCount} of ${sources.length} ready`
-            }
-            onClick={() => nav.push({ name: 'sources' })}
-          />
-          {hasLastFill && (
-            <Row
-              title="Last fill on this page"
-              detail="What it wrote, and what it guessed"
-              onClick={() => nav.push({ name: 'review' })}
-            />
-          )}
-          <Row
-            title="Plan"
-            detail={
-              account.subscription?.status === 'trial'
-                ? `${PLAN_NAMES[account.quota.plan]} trial · ${left} ${plural(left, 'form')} left`
-                : `${PLAN_NAMES[account.quota.plan]} · ${used}/${limit} this month`
-            }
-            value={account.quota.plan === 'free' ? 'Upgrade' : 'Manage'}
-            onClick={() =>
-              account.quota.plan === 'free' ? void openUpgrade() : void openManageSubscription()
-            }
-          />
-        </RowGroup>
+        {hasLastFill && (
+          <button
+            type="button"
+            onClick={() => nav.push({ name: 'review' })}
+            className="mx-4 flex items-center gap-2.5 rounded-2xl border border-border-muted bg-surface-raised px-4 py-3 text-left transition-colors hover:bg-surface-muted"
+          >
+            <IconSparkle className="size-4 shrink-0 text-accent" />
+            <span className="min-w-0 flex-1">
+              <span className="block text-[13.5px] font-semibold text-ink">
+                Last fill on this page
+              </span>
+              <span className="block text-[12px] text-ink-dim">
+                What it wrote, and what needs a look
+              </span>
+            </span>
+          </button>
+        )}
       </ScreenBody>
     </Screen>
   )

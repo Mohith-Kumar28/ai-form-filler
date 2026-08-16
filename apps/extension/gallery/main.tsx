@@ -122,11 +122,11 @@ function Gallery() {
             <Review plan={PLAN} report={REPORT} tabId={1} onDone={() => undefined} />
           </Frame>
 
-          <Frame label="Sources" note="about you, facts, documents">
+          <Frame label="Your info" note="about you, facts, documents">
             <Sources profile={PROFILE} />
           </Frame>
 
-          <Frame label="Sources" note="empty">
+          <Frame label="Your info" note="empty">
             <Sources profile={EMPTY_PROFILE} />
           </Frame>
 
@@ -138,7 +138,7 @@ function Gallery() {
             <SourceDetail sourceId="src_1" profile={PROFILE} />
           </Frame>
 
-          <Frame label="Settings">
+          <Frame label="Account">
             <Profile account={ACCOUNT} />
           </Frame>
         </div>

@@ -1,8 +1,9 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import type { Account } from '../../../generated/model/index.js'
+import { openManageSubscription, openUpgrade } from '../../../lib/billing.js'
 import { formatResetDate, plural } from '../../../lib/format.js'
 import { sendMessage } from '../../../lib/messaging.js'
-import { Card, Mascot, Screen, ScreenBody, ScreenHeader } from '../components.js'
+import { Button, Card, Mascot, Screen, ScreenBody, ScreenHeader } from '../components.js'
 import { IconSignOut } from '../icons.js'
 
 const PLAN_LABEL: Record<string, string> = { free: 'Free', pro: 'Pro', ultra: 'Ultra' }
@@ -27,7 +28,7 @@ export function Profile({ account }: { account: Account }) {
 
   return (
     <Screen>
-      <ScreenHeader title="Settings" />
+      <ScreenHeader title="Account" />
 
       <ScreenBody>
         <div className="flex items-center gap-3 px-4 py-5">
@@ -66,6 +67,15 @@ export function Profile({ account }: { account: Account }) {
               <span className="font-medium text-ink">{PLAN_LABEL[plan] ?? plan}</span>
             </div>
           </div>
+
+          <Button
+            variant={plan === 'free' ? 'primary' : 'secondary'}
+            block
+            className="mt-4"
+            onClick={() => (plan === 'free' ? void openUpgrade() : void openManageSubscription())}
+          >
+            {plan === 'free' ? 'Upgrade' : 'Manage subscription'}
+          </Button>
         </Card>
 
         <div className="mx-4 mt-3">

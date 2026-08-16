@@ -120,16 +120,21 @@ export default defineContentScript({
     }
 
     /**
-     * An instant suggestion on a focused field that already has a known answer.
+     * The per-field inline card, on every fillable field — the way Grammarly underlines a
+     * sentence rather than parking a single toolbar somewhere on the page.
      *
-     * This is the zero-latency path: name, email, phone, location, links and typed facts are
-     * filled straight from the profile with no model call. Only free-text fields, only when
-     * they are empty, only when there is a reasonably specific match — a wrong suggestion on a
-     * job application is worse than none.
+     * Two shapes, one card:
+     *   - a field it already knows the answer to (name, email, a typed fact) offers that
+     *     answer, filled instantly, no model call;
+     *   - anything else offers to write it with AI, on the spot.
      */
     const SUGGEST_DELAY_MS = 150
 
-    function openSuggestion(element: HTMLElement, suggestion: { label: string; value: string }) {
+    function openInlineCard(
+      element: HTMLElement,
+      field: { label: string },
+      option: { kind: 'fromYou'; value: string } | { kind: 'ai' },
+    ) {
       const fieldId = fieldIdFor(element)
       const detectedField = fieldId ? detection?.elements.get(fieldId) : null
       if (!detectedField || !detection) return
@@ -137,19 +142,26 @@ export default defineContentScript({
       closeCard()
       const rect = element.getBoundingClientRect()
       const anchor = { top: rect.top, left: rect.left, width: rect.width, height: rect.height }
+      const fillValue = option.kind === 'fromYou' ? option.value : null
 
       card = mountMenuCard({
         kind: 'menu',
         anchor,
-        question: suggestion.label,
-        actions: [{ id: 'fill', label: suggestion.value, glyph: 'sparkle' }],
-        note: { text: 'from your profile' },
+        question: field.label,
+        actions:
+          option.kind === 'fromYou'
+            ? [{ id: 'fill', label: option.value, glyph: 'check' }]
+            : [{ id: 'generate', label: 'Write it with AI', glyph: 'sparkle' }],
+        note:
+          option.kind === 'fromYou'
+            ? { text: 'from you' }
+            : { text: "you haven't given it this yet" },
         autofocus: false,
         onSelect: (id) => {
           closeCard()
-          if (id === 'fill') {
-            void detection?.adapter.applyValue(detectedField, suggestion.value)
-          }
+          if (id === 'fill' && fillValue)
+            void detection?.adapter.applyValue(detectedField, fillValue)
+          else if (id === 'generate') requestFill('field', element)
         },
         onClose: closeCard,
       })
@@ -162,7 +174,7 @@ export default defineContentScript({
       })
     }
 
-    function maybeSuggest(element: HTMLElement) {
+    function maybeShowInline(element: HTMLElement) {
       if (filling || card) return
       if (suggestionTimer !== null) clearTimeout(suggestionTimer)
       suggestionTimer = setTimeout(() => {
@@ -179,12 +191,16 @@ export default defineContentScript({
         if (current && current.trim() !== '') return
 
         void ensureKnownFacts().then((facts) => {
-          if (!facts || element !== document.activeElement) return
-          const suggestion = suggestForField(
-            { label: field.label, autocomplete: field.autocomplete, kind: field.kind },
-            facts,
-          )
-          if (suggestion) openSuggestion(element, suggestion)
+          if (element !== document.activeElement) return
+          const suggestion = facts
+            ? suggestForField(
+                { label: field.label, autocomplete: field.autocomplete, kind: field.kind },
+                facts,
+              )
+            : null
+          if (suggestion)
+            openInlineCard(element, field, { kind: 'fromYou', value: suggestion.value })
+          else openInlineCard(element, field, { kind: 'ai' })
         })
       }, SUGGEST_DELAY_MS)
     }
@@ -263,8 +279,6 @@ export default defineContentScript({
         anchor,
         question: fill.label || 'This answer',
         value: draft,
-        concluded: fill.inferred,
-        confidence: fill.confidence,
         onValueChange: (value) => {
           draft = value
           slipDrafts.set(fieldId, value)
@@ -430,10 +444,9 @@ export default defineContentScript({
         })
       }
 
-      const concluded = new Set(plan.fills.filter((f) => f.inferred).map((f) => f.fieldId))
-      const unsure = new Set(
+      const aiWrote = new Set(
         plan.fills
-          .filter((f) => !f.inferred && f.confidence < REVIEW_CONFIDENCE_THRESHOLD)
+          .filter((f) => f.inferred || f.confidence < REVIEW_CONFIDENCE_THRESHOLD)
           .map((f) => f.fieldId),
       )
 
@@ -443,11 +456,7 @@ export default defineContentScript({
         onFieldEnd: (fieldId, ok) => {
           completed += 1
           launcher?.setBusy(completed, animated.length)
-          marks
-            .get(fieldId)
-            ?.setState(
-              !ok ? 'failed' : concluded.has(fieldId) || unsure.has(fieldId) ? 'guessed' : 'filled',
-            )
+          marks.get(fieldId)?.setState(!ok ? 'failed' : aiWrote.has(fieldId) ? 'aiWrote' : 'filled')
         },
       })
 
@@ -598,7 +607,7 @@ export default defineContentScript({
     const onFocusIn = (event: FocusEvent) => {
       const target = event.target as HTMLElement | null
       if (!target || muted || !isFillable(target)) return
-      maybeSuggest(target)
+      maybeShowInline(target)
     }
 
     const onFocusOut = () => {

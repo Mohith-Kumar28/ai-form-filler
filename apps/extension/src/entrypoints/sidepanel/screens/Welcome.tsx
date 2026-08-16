@@ -53,7 +53,7 @@ export function Welcome() {
 
         <p className="mt-3 max-w-[34ch] text-[14px] leading-relaxed text-ink-muted">
           Give it your résumé, your site, a few pasted notes. It fills any form from that — and
-          flags every answer it guessed, so you know what to check.
+          marks what the AI wrote, so you know what to check.
         </p>
 
         <Button

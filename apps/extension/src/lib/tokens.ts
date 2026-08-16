@@ -9,12 +9,12 @@
  *
  * The world: your hype friend who does the boring homework (forms) for you and cheers you on.
  * The palette is bright and saturated — a signature violet→pink→orange "sunset" gradient for
- * the hero moments, hot pink for the one thing you must look at (a guessed answer), lime for
- * what it read straight off, and warm neutrals that are never pure gray or pure black.
+ * the hero moments, hot pink for the one thing you must look at (an answer the AI wrote), lime
+ * for what came from you, and warm neutrals that are never pure gray or pure black.
  *
- *   filled    read straight from what you told it — the friendly green, nothing to check
- *   guessed   a judgement call it made on your behalf — hot pink + a sparkle, check me
- *   broken    a fault — coral, and never pink, so a guess never reads as an error
+ *   filled    came from your own info — the friendly green, nothing to check
+ *   aiWrote   the AI wrote it on your behalf — hot pink + a sparkle, needs a look
+ *   broken    a fault — coral, and never pink, so an AI answer never reads as an error
  */
 
 export interface Scheme {
@@ -31,9 +31,9 @@ export interface Scheme {
   /** Labels, hints, measures. Still >= 4.5:1 on `surface` — no decorative tier. */
   inkDim: string
   /**
-   * The one thing you must look at: an answer it guessed rather than read.
+   * The one thing you must look at: an answer the AI wrote rather than read off your info.
    *
-   * Hot pink, always with a sparkle. Never used for errors — a guess and a fault are
+   * Hot pink, always with a sparkle. Never used for errors — an AI answer and a fault are
    * different things, and sharing one colour between "check this" and "this broke" was the
    * exact failure of the previous build.
    */

@@ -27,7 +27,7 @@ const STEPS = [
 
 export function HowItWorks() {
   return (
-    <section className="border-t border-border-muted bg-surface-muted py-20 md:py-28">
+    <section id="how-it-works" className="border-t border-border-muted bg-surface-muted py-20 md:py-28">
       <div className="mx-auto max-w-6xl px-6">
         <Reveal>
           <p className="text-center text-[13px] font-semibold uppercase tracking-[0.1em] text-accent">

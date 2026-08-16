@@ -333,13 +333,9 @@ export function Sources({ profile }: { profile: Profile | undefined }) {
   return (
     <Screen>
       <ScreenHeader
-        title="What it knows"
+        title="Your info"
         right={
-          <Button
-            size="sm"
-            onClick={() => nav.push({ name: 'addSource' })}
-            aria-label="Add a source"
-          >
+          <Button size="sm" onClick={() => nav.push({ name: 'addInfo' })} aria-label="Add a source">
             <IconPlus className="size-3.5" />
             Add
           </Button>
@@ -355,7 +351,7 @@ export function Sources({ profile }: { profile: Profile | undefined }) {
           </div>
         ) : nothingYet ? (
           <EmptyState
-            title="Nothing on file yet"
+            title="Nothing here yet"
             mascot="happy"
             body={
               <>
@@ -364,7 +360,7 @@ export function Sources({ profile }: { profile: Profile | undefined }) {
               </>
             }
             action={
-              <Button variant="primary" onClick={() => nav.push({ name: 'addSource' })}>
+              <Button variant="primary" onClick={() => nav.push({ name: 'addInfo' })}>
                 Add the first one
               </Button>
             }

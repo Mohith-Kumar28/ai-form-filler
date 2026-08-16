@@ -8,8 +8,16 @@ import {
   useRef,
   useState,
 } from 'react'
-import { IconAlert, IconBack, IconChevronRight, IconMore, IconSparkle } from './icons.js'
-import { useNavigation } from './navigation.js'
+import {
+  IconAlert,
+  IconBack,
+  IconChevronRight,
+  IconDocument,
+  IconGear,
+  IconMore,
+  IconSparkle,
+} from './icons.js'
+import { type TabName, useNavigation } from './navigation.js'
 
 /* ── The screen leaf ─────────────────────────────────────────────────────── */
 
@@ -80,6 +88,47 @@ export function ScreenFooter({ children }: { children: ReactNode }) {
     <footer className="shrink-0 border-t border-border-muted bg-surface px-4 py-3">
       {children}
     </footer>
+  )
+}
+
+/* ── The tab bar ─────────────────────────────────────────────────────────── */
+
+const TABS: { key: TabName; label: string; icon: (props: { className?: string }) => ReactNode }[] =
+  [
+    { key: 'home', label: 'Fill', icon: IconSparkle },
+    { key: 'yourInfo', label: 'My info', icon: IconDocument },
+    { key: 'account', label: 'Account', icon: IconGear },
+  ]
+
+/**
+ * The three roots of the panel. Only shown while a root tab is on top — a pushed screen
+ * (filling, review, add, detail) gets the back button instead.
+ */
+export function TabBar() {
+  const nav = useNavigation()
+
+  return (
+    <nav className="shrink-0 border-t border-border-muted bg-surface-raised px-2 pb-1 pt-1.5">
+      <div className="flex">
+        {TABS.map(({ key, label, icon: Icon }) => {
+          const active = nav.tab === key
+          return (
+            <button
+              key={key}
+              type="button"
+              onClick={() => nav.goToTab(key)}
+              aria-current={active ? 'page' : undefined}
+              className={`flex flex-1 flex-col items-center gap-0.5 rounded-xl py-1.5 text-[11px] font-semibold transition-colors ${
+                active ? 'text-accent' : 'text-ink-dim hover:text-ink'
+              }`}
+            >
+              <Icon className="size-[18px]" />
+              {label}
+            </button>
+          )
+        })}
+      </div>
+    </nav>
   )
 }
 
@@ -183,11 +232,11 @@ export function Chip({ children, className = '' }: { children: ReactNode; classN
 }
 
 /**
- * The trust badge: marks an answer the tool guessed rather than read.
+ * Marks an answer the AI wrote rather than read off the user's own info.
  *
- * Hot pink + a sparkle, always. A stated answer gets nothing — the absence is the signal.
+ * Pink + sparkle — a clear signal this needs a look.
  */
-export function GuessedBadge({ label = 'guessed' }: { label?: string }) {
+export function AiBadge({ label = 'AI wrote it' }: { label?: string }) {
   return (
     <Chip className="bg-accent-muted text-accent">
       <IconSparkle className="size-3" />

@@ -45,9 +45,6 @@ interface ReviewCard extends BaseSpec {
   kind: 'review'
   question: string
   value: string
-  /** `true` for an inference, `false` for a merely low-confidence answer. */
-  concluded: boolean
-  confidence: number
   onValueChange: (value: string) => void
   /** Rewrites in a named style, in place. */
   onImprove: (instruction: string) => Promise<string>
@@ -210,9 +207,7 @@ export function mountReviewCard(spec: ReviewCard): CardHandle {
   head.style.gap = '8px'
   const stamp = document.createElement('span')
   stamp.className = 'card-stamp'
-  stamp.innerHTML = `${GLYPH.sparkle}<span>${
-    spec.concluded ? 'guessed' : `unsure · ${Math.round(spec.confidence * 100)}%`
-  }</span>`
+  stamp.innerHTML = `${GLYPH.sparkle}<span>AI wrote it</span>`
   head.appendChild(stamp)
   const label = document.createElement('span')
   label.style.minWidth = '0'

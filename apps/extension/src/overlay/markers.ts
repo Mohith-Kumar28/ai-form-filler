@@ -7,13 +7,13 @@ import { positionScheduler } from './scheduler.js'
  * Overlaid because writing to the page's own elements fights the site's styles, and any
  * leftover style on teardown is a visible bug on someone else's page.
  *
- *   filled    read straight off what you told it — green briefly, then leaves
- *   guessed   concluded rather than read — pink, persists, with a "check" pill
+ *   filled    came from the user's own info — green briefly, then leaves
+ *   aiWrote   the AI wrote it — pink, persists, with a "check" pill
  *   active    being written right now — pink ring
  *   failed    the page refused the value — coral briefly, then leaves
  */
 
-export type MarkState = 'active' | 'filled' | 'guessed' | 'failed'
+export type MarkState = 'active' | 'filled' | 'aiWrote' | 'failed'
 
 export interface FieldMark {
   setState: (state: MarkState) => void
@@ -28,7 +28,7 @@ export function mountFieldMark(element: HTMLElement, onReview?: () => void): Fie
   mark.className = 'mark'
   root.appendChild(mark)
 
-  /** The "check" pill on guessed fields — the only clickable part of the mark. */
+  /** The "check" pill on AI-written fields — the only clickable part of the mark. */
   let pill: HTMLElement | null = null
   let box: { top: number; left: number; width: number; height: number } | null = null
 
@@ -77,7 +77,7 @@ export function mountFieldMark(element: HTMLElement, onReview?: () => void): Fie
   return {
     setState: (state) => {
       mark.setAttribute('data-state', state)
-      if (state === 'guessed') ensurePill()
+      if (state === 'aiWrote') ensurePill()
       else removePill()
     },
     flash: () => {

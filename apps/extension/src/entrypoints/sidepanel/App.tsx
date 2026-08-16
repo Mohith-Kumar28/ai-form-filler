@@ -7,7 +7,7 @@ import { hasSession } from '../../lib/auth.js'
 import { onSessionEnded } from '../../lib/session.js'
 import { useActivePage } from '../../lib/use-active-page.js'
 import { useFill } from '../../lib/use-fill.js'
-import { Screen, ScreenBody, ScreenHeader, SkeletonRow } from './components.js'
+import { Screen, ScreenBody, ScreenHeader, SkeletonRow, TabBar } from './components.js'
 import { NavigationProvider, useNavigation } from './navigation.js'
 import { AddSource } from './screens/AddSource.js'
 import { Filling } from './screens/Filling.js'
@@ -21,16 +21,10 @@ import { Welcome } from './screens/Welcome.js'
 function useSignedIn() {
   const queryClient = useQueryClient()
 
-  /**
-   * The session can end during a request the panel never made — a fill running in the
-   * background, or a press on the page chip. Without this the panel keeps rendering the
-   * signed-in view and shows whatever the failed request threw.
-   */
   useEffect(
     () =>
       onSessionEnded(() => {
         queryClient.setQueryData(['session'], false)
-        // Drop the cached account and profile: they belong to a session that is over.
         queryClient.clear()
       }),
     [queryClient],
@@ -39,14 +33,6 @@ function useSignedIn() {
   return useQuery({ queryKey: ['session'], queryFn: hasSession })
 }
 
-/**
- * Navigation follows the fill, rather than the fill hijacking whatever screen is open.
- *
- * A fill can start from the page as easily as from Home, so this watches the state machine
- * instead of hanging the transitions off the button: starting pushes the progress screen, and
- * finishing *replaces* it with the review, so Back from a review lands on Home rather than on
- * a progress list for work that is already over.
- */
 function useFillNavigation(status: string) {
   const nav = useNavigation()
   const previous = useRef(status)
@@ -71,11 +57,7 @@ function useFillNavigation(status: string) {
 function Stack() {
   const nav = useNavigation()
   const account = useGetAccount({
-    query: {
-      // The plan flips server-side via webhook, which the panel cannot observe directly.
-      // Poll so a completed checkout is reflected without a manual panel reopen.
-      refetchInterval: 5000,
-    },
+    query: { refetchInterval: 5000 },
   })
   const profile = useGetProfile()
   const page = useActivePage()
@@ -86,7 +68,7 @@ function Stack() {
   if (account.isPending) {
     return (
       <Screen>
-        <ScreenHeader title="Form Filler" />
+        <ScreenHeader title="Fillaform" />
         <ScreenBody aria-busy>
           <SkeletonRow />
           <SkeletonRow />
@@ -95,21 +77,14 @@ function Stack() {
     )
   }
 
-  /**
-   * An auth failure renders nothing at all.
-   *
-   * `onSessionEnded` is already swapping the whole panel to the signed-out view, so an error
-   * here would flash red for one frame on the way to a sign-in button the user is about to
-   * see anyway.
-   */
   if (isAuthError((account.error as { code?: string } | null)?.code)) return null
 
   if (account.isError || !account.data) {
     return (
       <Screen>
-        <ScreenHeader title="Form Filler" />
+        <ScreenHeader title="Fillaform" />
         <ScreenBody className="flex items-center justify-center px-6">
-          <p className="text-center text-[12.5px] leading-relaxed text-alert" role="alert">
+          <p className="text-center text-[12.5px] leading-relaxed text-danger" role="alert">
             {account.error?.message ?? 'Could not load your account.'}
           </p>
         </ScreenBody>
@@ -118,71 +93,81 @@ function Stack() {
   }
 
   const screen = nav.screen
+  const isRoot = nav.tab !== null
+  const accountData = account.data
 
-  switch (screen.name) {
-    case 'profile':
-    case 'settings':
-      return <Profile account={account.data} />
+  function render() {
+    switch (screen.name) {
+      case 'account':
+        return <Profile account={accountData} />
 
-    case 'sources':
-      return <Sources profile={profile.data} />
+      case 'yourInfo':
+        return <Sources profile={profile.data} />
 
-    case 'addSource':
-      return <AddSource />
+      case 'addInfo':
+        return <AddSource />
 
-    case 'sourceDetail':
-      return <SourceDetail sourceId={screen.sourceId} profile={profile.data} />
+      case 'sourceDetail':
+        return <SourceDetail sourceId={screen.sourceId} profile={profile.data} />
 
-    case 'filling':
-      return (
-        <Filling
-          state={fill.state}
-          fieldCount={page.fieldCount}
-          onCancel={() => {
-            fill.reset()
-            nav.home()
-          }}
-        />
-      )
+      case 'filling':
+        return (
+          <Filling
+            state={fill.state}
+            fieldCount={page.fieldCount}
+            onCancel={() => {
+              fill.reset()
+              nav.home()
+            }}
+          />
+        )
 
-    case 'review':
-      return fill.state.plan ? (
-        <Review
-          plan={fill.state.plan}
-          report={fill.state.report}
-          tabId={fill.state.tabId ?? page.tabId}
-          onDone={() => {
-            fill.reset()
-            nav.home()
-          }}
-        />
-      ) : (
-        <Home
-          account={account.data}
-          profile={profile.data}
-          page={page}
-          hasLastFill={false}
-          onFill={() => void fill.start({ overwriteExisting: false })}
-        />
-      )
+      case 'review':
+        return fill.state.plan ? (
+          <Review
+            plan={fill.state.plan}
+            report={fill.state.report}
+            tabId={fill.state.tabId ?? page.tabId}
+            onDone={() => {
+              fill.reset()
+              nav.home()
+            }}
+          />
+        ) : (
+          <Home
+            account={accountData}
+            profile={profile.data}
+            page={page}
+            hasLastFill={false}
+            onFill={() => void fill.start({ overwriteExisting: false })}
+          />
+        )
 
-    default:
-      return (
-        <Home
-          account={account.data}
-          profile={profile.data}
-          page={page}
-          hasLastFill={fill.state.status === 'done' && fill.state.plan !== undefined}
-          onFill={() => void fill.start({ overwriteExisting: false })}
-        />
-      )
+      default:
+        return (
+          <Home
+            account={accountData}
+            profile={profile.data}
+            page={page}
+            hasLastFill={fill.state.status === 'done' && fill.state.plan !== undefined}
+            onFill={() => void fill.start({ overwriteExisting: false })}
+          />
+        )
+    }
   }
+
+  return (
+    <Screen>
+      {render()}
+      {isRoot && <TabBar />}
+    </Screen>
+  )
 }
 
 export function App() {
   const session = useSignedIn()
 
-  if (session.isPending) return <div className="h-full bg-stock" />
+  if (session.isPending) return <div className="h-full bg-surface" />
   if (!session.data) return <Welcome />
 
   return (

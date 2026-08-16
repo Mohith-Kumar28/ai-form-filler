@@ -23,7 +23,7 @@ export interface LauncherHandle {
   /** Viewport rect of the pill, for anchoring the menu card. */
   anchorRect: () => Rect
   setBusy: (done: number, total: number) => void
-  setResult: (written: number, worthChecking: number) => void
+  setResult: (written: number, needLook: number) => void
   setFieldCount: (count: number) => void
   reset: () => void
   destroy: () => void
@@ -47,7 +47,7 @@ export function mountLauncher(options: {
   // summary and routes a click to review; `idle` renders the field count and opens the menu.
   let mode: 'idle' | 'busy' | 'result' = 'idle'
   let fieldCount = options.fieldCount
-  let result = { written: 0, worthChecking: 0 }
+  let result = { written: 0, needLook: 0 }
 
   const render = () => {
     if (mode === 'busy') {
@@ -57,7 +57,7 @@ export function mountLauncher(options: {
     if (mode === 'result') {
       launcher.dataset.busy = 'false'
       launcher.innerHTML = `${GLYPH.check}<span>${result.written} filled${
-        result.worthChecking > 0 ? ` · ${result.worthChecking} to check` : ''
+        result.needLook > 0 ? ` · ${result.needLook} need a look` : ''
       }</span>`
       return
     }
@@ -162,9 +162,9 @@ export function mountLauncher(options: {
       launcher.dataset.busy = 'true'
       launcher.innerHTML = `<span class="launcher-ring"></span><span>${done}/${total}</span>`
     },
-    setResult: (written, worthChecking) => {
+    setResult: (written, needLook) => {
       mode = 'result'
-      result = { written, worthChecking }
+      result = { written, needLook }
       render()
     },
     setFieldCount: (count) => {

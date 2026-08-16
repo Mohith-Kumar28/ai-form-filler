@@ -270,7 +270,7 @@ ${overlayVariables(':host')}
 
 .mark[data-state="filled"] { --mark-color: var(--aff-positive); }
 .mark[data-state="failed"] { --mark-color: var(--aff-danger); }
-.mark[data-state="guessed"] { --mark-color: var(--aff-accent); opacity: 1; }
+.mark[data-state="aiWrote"] { --mark-color: var(--aff-accent); opacity: 1; }
 
 @keyframes mark-settle {
   0% { opacity: 1; }

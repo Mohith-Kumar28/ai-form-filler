@@ -21,8 +21,6 @@ export const Route = createRootRoute({
     links: [
       { rel: 'canonical', href: `${site.domain}/` },
       { rel: 'icon', type: 'image/svg+xml', href: '/favicon.svg' },
-      { rel: 'preload', href: '/fonts/bricolage-grotesque-var.woff2', as: 'font', type: 'font/woff2', crossOrigin: 'anonymous' },
-      { rel: 'preload', href: '/fonts/inter-var.woff2', as: 'font', type: 'font/woff2', crossOrigin: 'anonymous' },
       { rel: 'stylesheet', href: appCss },
     ],
     scripts: [softwareAppSchema()],

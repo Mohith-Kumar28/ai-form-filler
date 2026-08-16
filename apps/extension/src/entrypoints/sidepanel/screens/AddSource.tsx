@@ -50,7 +50,7 @@ export function AddSource() {
 
   return (
     <Screen>
-      <ScreenHeader title="Add a source" />
+      <ScreenHeader title="Add to your info" />
 
       <div className="shrink-0 px-4 py-3">
         <SegmentedControl segments={MODES} value={mode} onChange={setMode} label="Kind of source" />
