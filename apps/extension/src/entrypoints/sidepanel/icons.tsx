@@ -270,6 +270,23 @@ export function IconRefresh(props: IconProps) {
   )
 }
 
+export function IconCrown(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M2.5 12.5h11M3 10.5 2 5l3.5 2.5L8 3l2.5 4.5L14 5l-1 5.5" />
+    </Svg>
+  )
+}
+
+export function IconLock(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <rect x="3.5" y="7" width="9" height="7" rx="1.5" />
+      <path d="M5.5 7V5a2.5 2.5 0 0 1 5 0v2" />
+    </Svg>
+  )
+}
+
 // Deprecated aliases, kept so nothing breaks while the screens are rebuilt. These go away at
 // the end of the redesign once every call site points at `IconSparkle`.
 export const IconSeal = IconSparkle

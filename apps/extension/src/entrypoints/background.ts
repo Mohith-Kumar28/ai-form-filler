@@ -1,4 +1,5 @@
 import type { Request } from '@aff/shared'
+import { getAccount } from '../generated/endpoints/account/account.js'
 import { improveAnswer, submitFeedback } from '../generated/endpoints/fill/fill.js'
 import { getProfile } from '../generated/endpoints/profile/profile.js'
 import { hasSession, signIn, signOut } from '../lib/auth.js'
@@ -221,6 +222,23 @@ export default defineBackground(() => {
         void toResult(async () => {
           await chrome.sidePanel.open({ tabId: request.tabId })
           return null
+        }).then(sendResponse)
+        return true
+
+      case 'account/quota':
+        void toResult(async () => {
+          if (!(await hasSession())) return null
+          try {
+            const account = await getAccount()
+            return {
+              used: account.quota.used,
+              limit: account.quota.limit,
+              plan: account.quota.plan,
+              exhausted: account.quota.used >= account.quota.limit,
+            }
+          } catch {
+            return null
+          }
         }).then(sendResponse)
         return true
 

@@ -1,8 +1,18 @@
+import { useState } from 'react'
 import type { Account, Profile } from '../../../generated/model/index.js'
-import { formatResetDate, plural } from '../../../lib/format.js'
+import { plural } from '../../../lib/format.js'
 import type { ActivePage } from '../../../lib/use-active-page.js'
-import { Button, Card, Screen, ScreenBody, ScreenHeader, SkeletonText } from '../components.js'
-import { IconSparkle } from '../icons.js'
+import {
+  Button,
+  Card,
+  ProBadge,
+  Screen,
+  ScreenBody,
+  ScreenHeader,
+  SkeletonText,
+  UpgradeSheet,
+} from '../components.js'
+import { IconCrown, IconSparkle } from '../icons.js'
 import { useNavigation } from '../navigation.js'
 
 function PageEntry({ page }: { page: ActivePage }) {
@@ -59,17 +69,25 @@ export function Home({
   const sources = profile?.sources ?? []
   const readyCount = sources.filter((source) => source.status === 'ready').length
 
-  const { used, limit, resetsAt } = account.quota
+  const { used, limit, plan } = account.quota
   const left = Math.max(0, limit - used)
   const exhausted = used >= limit
+  const [showUpgrade, setShowUpgrade] = useState(false)
 
   const canFill = page.status === 'ready' && page.fieldCount > 0
 
-  const blockedReason = !account.profileReady
+  const profileBlocked = !account.profileReady
+  const blockedReason = profileBlocked
     ? 'Add something about yourself first — a résumé, a link, whatever.'
-    : exhausted
-      ? `Out of forms until ${formatResetDate(resetsAt)}. Upgrade to keep going.`
-      : null
+    : null
+
+  const handleFill = () => {
+    if (exhausted) {
+      setShowUpgrade(true)
+      return
+    }
+    onFill()
+  }
 
   return (
     <Screen>
@@ -80,10 +98,11 @@ export function Home({
             <span>Fillaform</span>
           </span>
         }
+        usage={{ used, limit, plan }}
+        right={plan !== 'free' ? <ProBadge plan={plan} /> : undefined}
       />
 
       <ScreenBody className="flex flex-col">
-        {/* The form in front of you. */}
         <Card className="mx-4 mb-3 mt-4 px-4 py-4">
           <PageEntry page={page} />
 
@@ -92,21 +111,33 @@ export function Home({
               variant="primary"
               size="lg"
               block
-              onClick={onFill}
+              onClick={handleFill}
               disabled={!canFill || blockedReason !== null}
             >
               <IconSparkle className="size-4" />
-              Fill this form
+              {exhausted ? 'Upgrade to fill' : 'Fill this form'}
             </Button>
 
             {blockedReason ? (
               <p className="mt-2 text-[12.5px] leading-snug text-ink-muted">{blockedReason}</p>
+            ) : exhausted ? (
+              <p className="mt-2 text-[12.5px] leading-snug text-ink-muted">
+                You've used all {limit} forms this month.{' '}
+                <button
+                  type="button"
+                  onClick={() => setShowUpgrade(true)}
+                  className="font-semibold text-accent underline-offset-2 hover:underline"
+                >
+                  Upgrade to Pro
+                </button>{' '}
+                to keep going.
+              </p>
             ) : (
               <p className="mt-2 text-[12px] leading-snug text-ink-dim">
                 {readyCount > 0
                   ? `${readyCount} ${plural(readyCount, 'source')} ready in My info`
                   : 'Add yourself in My info so it has something to answer from'}
-                {left <= 3 && ` · ${left} ${plural(left, 'form')} left this month`}
+                {left <= 3 && left > 0 && ` · ${left} ${plural(left, 'form')} left this month`}
               </p>
             )}
           </div>
@@ -129,7 +160,66 @@ export function Home({
             </span>
           </button>
         )}
+
+        {plan === 'free' && (
+          <div className="mx-4 mt-4 mb-4 rounded-2xl border border-border-muted bg-surface-raised px-4 py-4">
+            <div className="flex items-center gap-2">
+              <IconCrown className="size-4 text-accent" />
+              <p className="text-[13px] font-semibold text-ink">Why upgrade?</p>
+            </div>
+            <div className="mt-2.5 space-y-2">
+              {[
+                { label: 'Unlimited fills', detail: 'No monthly cap' },
+                { label: 'Better AI models', detail: 'Frontier models for complex forms' },
+                { label: 'Larger uploads', detail: 'Up to 30 MB per file' },
+                { label: 'More sources', detail: 'Store up to 25 documents' },
+              ].map((perk) => (
+                <div key={perk.label} className="flex items-start gap-2">
+                  <span className="mt-0.5 flex size-4 shrink-0 items-center justify-center">
+                    <svg
+                      viewBox="0 0 16 16"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth={2}
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      className="size-3 text-accent"
+                      aria-hidden="true"
+                    >
+                      <path d="M3.5 8.5 6.5 11.5 12.5 5" />
+                    </svg>
+                  </span>
+                  <div>
+                    <span className="text-[12.5px] font-medium text-ink">{perk.label}</span>
+                    <span className="ml-1.5 text-[12px] text-ink-dim">{perk.detail}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowUpgrade(true)}
+              className="mt-3 w-full rounded-full py-2 text-[13px] font-bold text-white transition-[filter] hover:brightness-110 active:brightness-95"
+              style={{
+                background: 'linear-gradient(135deg, var(--color-sparkle), var(--color-accent))',
+              }}
+            >
+              Upgrade to Pro
+            </button>
+          </div>
+        )}
       </ScreenBody>
+
+      {showUpgrade && (
+        <UpgradeSheet
+          onClose={() => setShowUpgrade(false)}
+          reason={
+            exhausted
+              ? `You've used all ${limit} free forms this month. Upgrade to Pro for unlimited fills and never hit a wall again.`
+              : undefined
+          }
+        />
+      )}
     </Screen>
   )
 }

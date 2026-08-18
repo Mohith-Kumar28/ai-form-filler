@@ -1,6 +1,13 @@
-import { ApiErrorResponse } from '@aff/shared'
+import {
+  ApiErrorResponse,
+  PLAN_FACT_LIMITS,
+  PLAN_SOURCE_LIMITS,
+  PLAN_UPLOAD_LIMITS,
+} from '@aff/shared'
 import { createRoute, OpenAPIHono, z } from '@hono/zod-openapi'
+import { count, eq } from 'drizzle-orm'
 import { drizzle } from 'drizzle-orm/d1'
+import { profileSources } from '../db/schema.js'
 import type { AppEnv } from '../env.js'
 import { requireAuth } from '../middleware/auth.js'
 import { rateLimit } from '../middleware/quota.js'
@@ -14,12 +21,7 @@ import {
   TextSourceRequest,
 } from '../openapi/schemas.js'
 import { fetchUrlAsMarkdown } from '../profile/fetch-url.js'
-import {
-  isPreviewableInline,
-  MAX_UPLOAD_BYTES,
-  mediaTypeFor,
-  sourceKindFor,
-} from '../profile/media.js'
+import { isPreviewableInline, mediaTypeFor, sourceKindFor } from '../profile/media.js'
 import { parseFreeform } from '../profile/parse.js'
 import { structureSource } from '../profile/structure.js'
 import {
@@ -101,6 +103,19 @@ const patchProfileRoute = createRoute({
 
 profileRoutes.openapi(patchProfileRoute, async (c) => {
   const patch = c.req.valid('json')
+  const account = c.get('account')
+  const factLimit = PLAN_FACT_LIMITS[account.quota.plan]
+
+  if (patch.custom) {
+    const factCount = Object.keys(patch.custom).length
+    if (factCount > factLimit) {
+      throw new ApiErrorResponse(
+        'LIMIT_EXCEEDED',
+        `Your plan allows ${factLimit} custom facts. Upgrade to add more.`,
+      )
+    }
+  }
+
   const updated = await updateStructured(drizzle(c.env.DB), c.get('userId'), definedKeysOnly(patch))
   return c.json(updated, 200)
 })
@@ -128,6 +143,20 @@ profileRoutes.openapi(addTextSourceRoute, async (c) => {
   const body = c.req.valid('json')
   const db = drizzle(c.env.DB)
   const userId = c.get('userId')
+  const account = c.get('account')
+
+  const sourceLimit = PLAN_SOURCE_LIMITS[account.quota.plan]
+  const sourceRows = await db
+    .select({ count: count() })
+    .from(profileSources)
+    .where(eq(profileSources.userId, userId))
+  const currentSources = sourceRows[0]?.count ?? 0
+  if (currentSources >= sourceLimit) {
+    throw new ApiErrorResponse(
+      'LIMIT_EXCEEDED',
+      `Your plan allows ${sourceLimit} sources. Upgrade to add more.`,
+    )
+  }
 
   if (body.url) {
     const label = body.label?.trim()
@@ -234,11 +263,27 @@ profileRoutes.openapi(uploadSourceRoute, async (c) => {
   const { file, label } = c.req.valid('form')
   const db = drizzle(c.env.DB)
   const userId = c.get('userId')
+  const account = c.get('account')
 
-  if (file.size > MAX_UPLOAD_BYTES) {
+  const sourceLimit = PLAN_SOURCE_LIMITS[account.quota.plan]
+  const sourceRows = await db
+    .select({ count: count() })
+    .from(profileSources)
+    .where(eq(profileSources.userId, userId))
+  const currentSources = sourceRows[0]?.count ?? 0
+  if (currentSources >= sourceLimit) {
+    throw new ApiErrorResponse(
+      'LIMIT_EXCEEDED',
+      `Your plan allows ${sourceLimit} sources. Upgrade to add more.`,
+    )
+  }
+
+  const maxUpload = PLAN_UPLOAD_LIMITS[account.quota.plan]
+  if (file.size > maxUpload) {
+    const maxMB = Math.round(maxUpload / 1024 / 1024)
     throw new ApiErrorResponse(
       'INVALID_REQUEST',
-      `That file is ${(file.size / 1024 / 1024).toFixed(1)} MB. The limit is 15 MB.`,
+      `That file is ${(file.size / 1024 / 1024).toFixed(1)} MB. The limit for your plan is ${maxMB} MB.`,
     )
   }
 

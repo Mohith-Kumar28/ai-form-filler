@@ -1,6 +1,9 @@
 import { useQueryClient } from '@tanstack/react-query'
 import { useEffect, useRef, useState } from 'react'
-import { getGetAccountQueryKey } from '../../../generated/endpoints/account/account.js'
+import {
+  getGetAccountQueryKey,
+  useGetAccount,
+} from '../../../generated/endpoints/account/account.js'
 import {
   getGetProfileQueryKey,
   useDeleteSource,
@@ -12,6 +15,7 @@ import type {
   ProfileIdentity,
   ProfileSourcesItem,
 } from '../../../generated/model/index.js'
+import { openUpgrade } from '../../../lib/billing.js'
 import { formatCount, plural } from '../../../lib/format.js'
 import { IDENTITY_FIELDS } from '../../../lib/identity-fields.js'
 import { faviconUrl, formatBytes, hostnameOf, openSourceInTab } from '../../../lib/source-file.js'
@@ -21,6 +25,7 @@ import {
   EmptyState,
   Input,
   OverflowMenu,
+  ProBadge,
   Screen,
   ScreenBody,
   ScreenFooter,
@@ -33,6 +38,7 @@ import {
   IconAudio,
   IconCheck,
   IconClose,
+  IconCrown,
   IconDocument,
   IconImage,
   IconLink,
@@ -40,6 +46,9 @@ import {
   IconText,
 } from '../icons.js'
 import { useNavigation } from '../navigation.js'
+
+const SOURCE_LIMITS = { free: 5, pro: 25, ultra: 100 } as const
+const FACT_LIMITS = { free: 10, pro: 50, ultra: 200 } as const
 
 const KIND_ICON = {
   document: IconDocument,
@@ -263,6 +272,10 @@ function SourceRow({
 export function Sources({ profile }: { profile: Profile | undefined }) {
   const nav = useNavigation()
   const queryClient = useQueryClient()
+  const account = useGetAccount()
+  const plan = (account.data?.quota.plan ?? 'free') as keyof typeof SOURCE_LIMITS
+  const sourceLimit = SOURCE_LIMITS[plan]
+  const factLimit = FACT_LIMITS[plan]
 
   const [tab, setTab] = useState<'facts' | 'sources'>('facts')
 
@@ -333,35 +346,92 @@ export function Sources({ profile }: { profile: Profile | undefined }) {
   ].sort()
 
   const sources = profile?.sources ?? []
+  const sourceCount = sources.length
+  const factCount =
+    Object.keys(facts).length +
+    IDENTITY_FIELDS.filter((f) => {
+      const val = (identity[f.key as keyof ProfileIdentity] as string | undefined) ?? ''
+      return val.trim() !== ''
+    }).length +
+    Object.keys(identity.links ?? {}).filter((k) => {
+      const val = identity.links?.[k] ?? ''
+      return val.trim() !== ''
+    }).length
+  const atSourceLimit = sourceCount >= sourceLimit
+  const atFactLimit = factCount >= factLimit
 
   return (
     <Screen>
       <ScreenHeader
         title="Your info"
+        usage={
+          account.data
+            ? {
+                used: account.data.quota.used,
+                limit: account.data.quota.limit,
+                plan: account.data.quota.plan,
+              }
+            : undefined
+        }
         right={
-          tab === 'facts' ? (
-            <Button
-              size="sm"
-              variant={adding ? 'primary' : 'secondary'}
-              onClick={() => {
-                setAdding((v) => !v)
-                setNewFact('')
-              }}
-              aria-label="Add a fact"
-            >
-              {adding ? <IconCheck className="size-3.5" /> : <IconPlus className="size-3.5" />}
-              {adding ? 'Done' : 'Add'}
-            </Button>
-          ) : (
-            <Button
-              size="sm"
-              onClick={() => nav.push({ name: 'addInfo', initial: 'upload' })}
-              aria-label="Add a source"
-            >
-              <IconPlus className="size-3.5" />
-              Add
-            </Button>
-          )
+          <div className="flex items-center gap-1.5">
+            {plan !== 'free' && <ProBadge plan={plan} />}
+            {tab === 'facts' ? (
+              <div className="flex items-center gap-1.5">
+                {atFactLimit && plan === 'free' && (
+                  <button
+                    type="button"
+                    onClick={() => void openUpgrade()}
+                    className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-bold text-white transition-[filter] hover:brightness-110"
+                    style={{
+                      background:
+                        'linear-gradient(135deg, var(--color-sparkle), var(--color-accent))',
+                    }}
+                  >
+                    <IconCrown className="size-3" />
+                    Upgrade
+                  </button>
+                )}
+                <Button
+                  size="sm"
+                  variant={adding ? 'primary' : 'secondary'}
+                  onClick={() => {
+                    setAdding((v) => !v)
+                    setNewFact('')
+                  }}
+                  aria-label="Add a fact"
+                >
+                  {adding ? <IconCheck className="size-3.5" /> : <IconPlus className="size-3.5" />}
+                  {adding ? 'Done' : 'Add'}
+                </Button>
+              </div>
+            ) : (
+              <div className="flex items-center gap-1.5">
+                {atSourceLimit && plan === 'free' && (
+                  <button
+                    type="button"
+                    onClick={() => void openUpgrade()}
+                    className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-bold text-white transition-[filter] hover:brightness-110"
+                    style={{
+                      background:
+                        'linear-gradient(135deg, var(--color-sparkle), var(--color-accent))',
+                    }}
+                  >
+                    <IconCrown className="size-3" />
+                    Upgrade
+                  </button>
+                )}
+                <Button
+                  size="sm"
+                  onClick={() => nav.push({ name: 'addInfo', initial: 'upload' })}
+                  aria-label="Add a source"
+                >
+                  <IconPlus className="size-3.5" />
+                  Add
+                </Button>
+              </div>
+            )}
+          </div>
         }
       />
 
@@ -483,9 +553,20 @@ export function Sources({ profile }: { profile: Profile | undefined }) {
           />
         ) : (
           <>
-            <p className="px-4 py-2 text-[12px] font-semibold uppercase text-ink-dim">
-              {`${sources.length} ${plural(sources.length, 'document')}`}
-            </p>
+            <div className="flex items-center justify-between px-4 py-2">
+              <p className="text-[12px] font-semibold uppercase text-ink-dim">
+                {`${sources.length} of ${sourceLimit} ${plural(sourceLimit, 'source')}`}
+              </p>
+              {plan === 'free' && sources.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => void openUpgrade()}
+                  className="text-[11px] font-semibold text-accent hover:underline"
+                >
+                  Upgrade for more
+                </button>
+              )}
+            </div>
             <div>
               {sources.map((source, i) => (
                 <SourceRow

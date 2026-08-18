@@ -24,6 +24,8 @@ export interface LauncherHandle {
   setBusy: (done: number, total: number) => void
   /** Pulsing animation while thinking (before the pill appears). */
   setLoading: (loading: boolean) => void
+  /** Shows an upgrade indicator instead of the field count. */
+  setExhausted: () => void
   /** Back to the idle circle + badge. */
   reset: () => void
   destroy: () => void
@@ -188,6 +190,11 @@ export function mountLauncher(options: { onOpen: () => void; onStop: () => void 
       settleLoading()
       wrap.setAttribute('data-filling', 'true')
       progressText.textContent = `${done}/${total}`
+    },
+    setExhausted: () => {
+      settleLoading()
+      countBadge.textContent = 'Upgrade'
+      countBadge.setAttribute('data-exhausted', 'true')
     },
     setLoading: (loading) => {
       if (loading) {

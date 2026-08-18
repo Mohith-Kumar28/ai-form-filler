@@ -108,6 +108,12 @@ ${overlayVariables(':host')}
   box-shadow: 0 1px 4px -1px var(--aff-shadow);
 }
 
+.launcher-count[data-exhausted="true"] {
+  background: linear-gradient(135deg, var(--aff-sparkle), var(--aff-accent));
+  color: #fff;
+  font-weight: 700;
+}
+
 /* The stop button, filling only. Placed below the pill so it stays on screen. */
 .launcher-stop {
   position: absolute;

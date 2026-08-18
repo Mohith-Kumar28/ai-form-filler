@@ -19,6 +19,27 @@ export const PLAN_LIMITS = {
   ultra: 300,
 } as const
 
+/** Maximum sources (documents, links, notes) a user can store, per plan. */
+export const PLAN_SOURCE_LIMITS = {
+  free: 5,
+  pro: 25,
+  ultra: 100,
+} as const
+
+/** Maximum custom facts a user can store, per plan. */
+export const PLAN_FACT_LIMITS = {
+  free: 10,
+  pro: 50,
+  ultra: 200,
+} as const
+
+/** Maximum upload file size in bytes, per plan. */
+export const PLAN_UPLOAD_LIMITS = {
+  free: 15 * 1024 * 1024,
+  pro: 30 * 1024 * 1024,
+  ultra: 50 * 1024 * 1024,
+} as const
+
 export const FILL_PORT = 'aff:fill' as const
 
 /**

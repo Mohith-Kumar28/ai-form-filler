@@ -69,6 +69,7 @@ export type Request =
    */
   | { type: 'fill/improve'; label: string; value: string; instruction: string }
   | { type: 'sidepanel/open'; tabId: number }
+  | { type: 'account/quota' }
 
 /**
  * `null` rather than `void` for the no-payload cases: these cross a `postMessage` boundary
@@ -81,7 +82,9 @@ export type ResponseFor<R extends Request> = R extends { type: 'auth/signIn' }
     ? { value: string }
     : R extends { type: 'profile/knownFacts' }
       ? { identity: Identity; custom: Record<string, string> } | null
-      : null
+      : R extends { type: 'account/quota' }
+        ? { used: number; limit: number; plan: string; exhausted: boolean }
+        : null
 
 /** Discriminated result so callers never have to guess whether a throw or a value came back. */
 export type Result<T> = { ok: true; value: T } | { ok: false; error: ApiError }

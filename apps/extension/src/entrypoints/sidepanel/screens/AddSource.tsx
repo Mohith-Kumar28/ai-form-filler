@@ -1,5 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { useGetAccount } from '../../../generated/endpoints/account/account.js'
 import {
   addTextSource,
   getGetProfileQueryKey,
@@ -21,7 +22,11 @@ import {
 import { IconAudio, IconDocument, IconLink, IconMic, IconText, IconUpload } from '../icons.js'
 import { useNavigation } from '../navigation.js'
 
-const MAX_UPLOAD_BYTES = 15 * 1024 * 1024
+const UPLOAD_LIMITS = {
+  free: 15 * 1024 * 1024,
+  pro: 30 * 1024 * 1024,
+  ultra: 50 * 1024 * 1024,
+} as const
 
 type Mode = 'upload' | 'link' | 'text' | 'voice'
 
@@ -90,8 +95,12 @@ function UploadMode({ onDone }: { onDone: () => Promise<void> }) {
   const [file, setFile] = useState<File | null>(null)
   const [label, setLabel] = useState('')
   const [dragging, setDragging] = useState(false)
+  const account = useGetAccount()
+  const plan = (account.data?.quota.plan ?? 'free') as keyof typeof UPLOAD_LIMITS
+  const maxBytes = UPLOAD_LIMITS[plan]
+  const maxMB = Math.round(maxBytes / 1024 / 1024)
 
-  const tooBig = file !== null && file.size > MAX_UPLOAD_BYTES
+  const tooBig = file !== null && file.size > maxBytes
 
   const save = useMutation({
     mutationFn: async () => {
@@ -137,7 +146,7 @@ function UploadMode({ onDone }: { onDone: () => Promise<void> }) {
             {file ? file.name : 'Drop a file here, or choose one'}
           </p>
           <p className="mt-1 text-[12px] text-ink-dim">
-            {file ? formatBytes(file.size) : 'PDF, Word, slides, images, audio — up to 15 MB'}
+            {file ? formatBytes(file.size) : `PDF, Word, slides, images, audio — up to ${maxMB} MB`}
           </p>
           <input
             type="file"
@@ -149,7 +158,7 @@ function UploadMode({ onDone }: { onDone: () => Promise<void> }) {
 
         <Field
           label="Name"
-          error={tooBig ? 'That file is over 15 MB. Try a smaller one.' : undefined}
+          error={tooBig ? `That file is over ${maxMB} MB. Try a smaller one.` : undefined}
         >
           {({ id, describedBy }) => (
             <Input

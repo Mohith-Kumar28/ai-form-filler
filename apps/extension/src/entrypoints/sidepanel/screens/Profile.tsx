@@ -3,8 +3,8 @@ import type { Account } from '../../../generated/model/index.js'
 import { openManageSubscription, openUpgrade } from '../../../lib/billing.js'
 import { formatResetDate, plural } from '../../../lib/format.js'
 import { sendMessage } from '../../../lib/messaging.js'
-import { Button, Card, Mascot, Screen, ScreenBody, ScreenHeader } from '../components.js'
-import { IconSignOut } from '../icons.js'
+import { Button, Card, Mascot, ProBadge, Screen, ScreenBody, ScreenHeader } from '../components.js'
+import { IconCrown, IconSignOut } from '../icons.js'
 
 const PLAN_LABEL: Record<string, string> = { free: 'Free', pro: 'Pro', ultra: 'Ultra' }
 
@@ -28,7 +28,11 @@ export function Profile({ account }: { account: Account }) {
 
   return (
     <Screen>
-      <ScreenHeader title="Account" />
+      <ScreenHeader
+        title="Account"
+        usage={{ used, limit, plan }}
+        right={plan !== 'free' ? <ProBadge plan={plan} /> : undefined}
+      />
 
       <ScreenBody>
         <div className="flex items-center gap-3 px-4 py-5">
@@ -37,13 +41,43 @@ export function Profile({ account }: { account: Account }) {
           ) : (
             <Mascot expression="happy" size={48} className="shrink-0" />
           )}
-          <div className="min-w-0">
+          <div className="min-w-0 flex-1">
             {account.name && (
               <p className="truncate font-display text-[16px] font-bold text-ink">{account.name}</p>
             )}
             <p className="truncate text-[12.5px] text-ink-muted">{account.email}</p>
           </div>
         </div>
+
+        {plan !== 'free' && (
+          <div
+            className="mx-4 mb-3 flex items-center gap-3 rounded-2xl px-4 py-3"
+            style={{
+              background:
+                'linear-gradient(135deg, color-mix(in oklch, var(--color-sparkle) 12%, transparent), color-mix(in oklch, var(--color-accent) 8%, transparent))',
+              border: '1px solid color-mix(in oklch, var(--color-accent) 20%, transparent)',
+            }}
+          >
+            <span
+              className="flex size-8 items-center justify-center rounded-full"
+              style={{
+                background: 'linear-gradient(135deg, var(--color-sparkle), var(--color-accent))',
+              }}
+            >
+              <IconCrown className="size-4 text-white" />
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="text-[13px] font-semibold text-ink">
+                {plan === 'ultra' ? 'Ultra' : 'Pro'} plan
+              </p>
+              <p className="text-[11.5px] text-ink-muted">
+                {plan === 'ultra'
+                  ? 'Unlimited fills, priority models, everything unlocked'
+                  : 'Unlimited fills and priority AI models'}
+              </p>
+            </div>
+          </div>
+        )}
 
         <Card className="mx-4 px-4 py-4">
           <p className="text-[15px] font-semibold text-ink">
@@ -74,7 +108,14 @@ export function Profile({ account }: { account: Account }) {
             className="mt-4"
             onClick={() => (plan === 'free' ? void openUpgrade() : void openManageSubscription())}
           >
-            {plan === 'free' ? 'Upgrade' : 'Manage subscription'}
+            {plan === 'free' ? (
+              <>
+                <IconCrown className="size-3.5" />
+                Upgrade to Pro
+              </>
+            ) : (
+              'Manage subscription'
+            )}
           </Button>
         </Card>
 

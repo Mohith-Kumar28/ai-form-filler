@@ -8,12 +8,15 @@ import {
   useRef,
   useState,
 } from 'react'
+import { openUpgrade } from '../../lib/billing.js'
 import {
   IconAlert,
   IconBack,
   IconChevronRight,
+  IconCrown,
   IconDocument,
   IconGear,
+  IconLock,
   IconMore,
   IconSparkle,
 } from './icons.js'
@@ -43,31 +46,79 @@ export function ScreenHeader({
   title,
   right,
   onBack,
+  usage,
 }: {
   title: ReactNode
   right?: ReactNode
   /** Overrides the default pop. Pass nothing on Home, where there is nowhere to go back to. */
   onBack?: () => void
+  /** Compact usage bar rendered below the title row. */
+  usage?: { used: number; limit: number; plan: string }
 }) {
   const nav = useNavigation()
   const canGoBack = onBack !== undefined || nav.depth > 0
+  const pct = usage && usage.limit > 0 ? Math.min(100, (usage.used / usage.limit) * 100) : 0
+  const exhausted = usage ? usage.used >= usage.limit : false
+  const warning = pct >= 80 && !exhausted
 
   return (
-    <header className="flex h-14 shrink-0 items-center gap-1.5 border-b border-border-muted px-2.5">
-      {canGoBack && (
-        <button
-          type="button"
-          onClick={onBack ?? nav.back}
-          aria-label="Back"
-          className="flex size-8 shrink-0 items-center justify-center rounded-full text-ink-muted transition-colors hover:bg-surface-muted hover:text-ink"
-        >
-          <IconBack className="size-4" />
-        </button>
+    <header className="shrink-0 border-b border-border-muted">
+      <div className="flex h-14 items-center gap-1.5 px-2.5">
+        {canGoBack && (
+          <button
+            type="button"
+            onClick={onBack ?? nav.back}
+            aria-label="Back"
+            className="flex size-8 shrink-0 items-center justify-center rounded-full text-ink-muted transition-colors hover:bg-surface-muted hover:text-ink"
+          >
+            <IconBack className="size-4" />
+          </button>
+        )}
+        <h1 className="min-w-0 flex-1 truncate font-display text-[16px] font-bold tracking-[-0.02em] text-ink">
+          {title}
+        </h1>
+        {right}
+      </div>
+      {usage && (
+        <div className="flex items-center gap-2 px-3 pb-2.5">
+          <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-surface-muted">
+            <div
+              className={`h-full rounded-full transition-[width] duration-500 ${
+                exhausted ? 'bg-danger' : warning ? 'bg-warning' : ''
+              }`}
+              style={{
+                width: `${pct}%`,
+                ...(exhausted || warning
+                  ? {}
+                  : {
+                      background:
+                        'linear-gradient(90deg, var(--color-sparkle), var(--color-accent))',
+                    }),
+              }}
+            />
+          </div>
+          <span
+            className={`shrink-0 text-[11px] font-semibold ${
+              exhausted ? 'text-danger' : warning ? 'text-warning' : 'text-ink-dim'
+            }`}
+          >
+            {usage.used}/{usage.limit}
+          </span>
+          {usage.plan === 'free' && (
+            <button
+              type="button"
+              onClick={() => void openUpgrade()}
+              className="inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[10.5px] font-bold text-white transition-[filter] hover:brightness-110 active:brightness-95"
+              style={{
+                background: 'linear-gradient(135deg, var(--color-sparkle), var(--color-accent))',
+              }}
+            >
+              <IconCrown className="size-2.5" />
+              Upgrade
+            </button>
+          )}
+        </div>
       )}
-      <h1 className="min-w-0 flex-1 truncate font-display text-[16px] font-bold tracking-[-0.02em] text-ink">
-        {title}
-      </h1>
-      {right}
     </header>
   )
 }
@@ -724,5 +775,229 @@ export function SegmentedControl<T extends string>({
         )
       })}
     </div>
+  )
+}
+
+/* ── Pro badge ────────────────────────────────────────────────────────────── */
+
+export function ProBadge({ plan }: { plan: string }) {
+  if (plan === 'free') return null
+  const label = plan === 'ultra' ? 'Ultra' : 'Pro'
+  return (
+    <span
+      className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-bold"
+      style={{
+        background: 'linear-gradient(135deg, var(--color-sparkle), var(--color-accent))',
+        color: 'white',
+      }}
+    >
+      <IconCrown className="size-3" />
+      {label}
+    </span>
+  )
+}
+
+/* ── Usage bar ────────────────────────────────────────────────────────────── */
+
+export function UsageBar({
+  used,
+  limit,
+  plan,
+  resetsAt,
+}: {
+  used: number
+  limit: number
+  plan: string
+  resetsAt: string
+}) {
+  const pct = limit > 0 ? Math.min(100, (used / limit) * 100) : 0
+  const left = Math.max(0, limit - used)
+  const exhausted = used >= limit
+  const warning = pct >= 80 && !exhausted
+
+  return (
+    <div className="mx-4 mb-3 mt-3 rounded-2xl border border-border-muted bg-surface-raised px-4 py-3">
+      <div className="flex items-center justify-between">
+        <span className="text-[12px] font-semibold text-ink-muted">
+          {exhausted ? 'Monthly limit reached' : `${left} of ${limit} left`}
+        </span>
+        {plan === 'free' && (
+          <button
+            type="button"
+            onClick={() => void openUpgrade()}
+            className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11.5px] font-bold text-white transition-[filter] hover:brightness-110 active:brightness-95"
+            style={{
+              background: 'linear-gradient(135deg, var(--color-sparkle), var(--color-accent))',
+            }}
+          >
+            <IconCrown className="size-3" />
+            Upgrade
+          </button>
+        )}
+      </div>
+      <div className="mt-2 h-2 overflow-hidden rounded-full bg-surface-muted">
+        <div
+          className={`h-full rounded-full transition-[width] duration-500 ${
+            exhausted ? 'bg-danger' : warning ? 'bg-warning' : ''
+          }`}
+          style={{
+            width: `${pct}%`,
+            ...(exhausted || warning
+              ? {}
+              : {
+                  background: 'linear-gradient(90deg, var(--color-sparkle), var(--color-accent))',
+                }),
+          }}
+        />
+      </div>
+      <p className="mt-1.5 text-[11px] text-ink-dim">
+        {exhausted
+          ? 'Upgrade to keep filling forms without waiting.'
+          : warning
+            ? `Almost there — ${left} left before it resets.`
+            : `Resets ${new Date(resetsAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`}
+      </p>
+    </div>
+  )
+}
+
+/* ── Upgrade sheet ────────────────────────────────────────────────────────── */
+
+export function UpgradeSheet({ onClose, reason }: { onClose: () => void; reason?: string }) {
+  const panel = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        event.stopPropagation()
+        onClose()
+      }
+    }
+    document.addEventListener('keydown', onKey, true)
+    return () => document.removeEventListener('keydown', onKey, true)
+  }, [onClose])
+
+  return (
+    <div className="absolute inset-0 z-20 flex flex-col justify-end">
+      <button
+        type="button"
+        aria-label="Close"
+        tabIndex={-1}
+        onClick={onClose}
+        className="absolute inset-0 cursor-default bg-ink/35"
+      />
+      <div
+        ref={panel}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Upgrade to Pro"
+        className="pop relative rounded-t-2xl border-t border-border bg-surface-raised px-5 pb-5 pt-5 shadow-[0_-8px_24px_-12px_var(--color-shadow-strong)]"
+      >
+        <div className="flex items-center gap-2">
+          <span
+            className="flex size-9 items-center justify-center rounded-full"
+            style={{
+              background: 'linear-gradient(135deg, var(--color-sparkle), var(--color-accent))',
+            }}
+          >
+            <IconCrown className="size-4 text-white" />
+          </span>
+          <div>
+            <h2 className="font-display text-[17px] font-bold text-ink">Unlock unlimited fills</h2>
+            <p className="text-[12px] text-ink-muted">Upgrade to Pro</p>
+          </div>
+        </div>
+
+        {reason && <p className="mt-3 text-[13px] leading-relaxed text-ink-muted">{reason}</p>}
+
+        <div className="mt-4 space-y-2.5">
+          {[
+            'Unlimited form fills every month',
+            'Priority AI models for better answers',
+            'Larger file uploads up to 30 MB',
+            'More sources in your profile',
+          ].map((perk) => (
+            <div key={perk} className="flex items-center gap-2.5">
+              <span
+                className="flex size-5 shrink-0 items-center justify-center rounded-full"
+                style={{
+                  background: 'linear-gradient(135deg, var(--color-sparkle), var(--color-accent))',
+                }}
+              >
+                <svg
+                  viewBox="0 0 16 16"
+                  fill="none"
+                  stroke="white"
+                  strokeWidth={2}
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="size-3"
+                  aria-hidden="true"
+                >
+                  <path d="M3.5 8.5 6.5 11.5 12.5 5" />
+                </svg>
+              </span>
+              <span className="text-[13px] text-ink">{perk}</span>
+            </div>
+          ))}
+        </div>
+
+        <div className="mt-5 flex gap-2">
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex-1 rounded-full border border-border px-4 py-2.5 text-[13.5px] font-semibold text-ink transition-colors hover:bg-surface-muted"
+          >
+            Maybe later
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              void openUpgrade()
+              onClose()
+            }}
+            className="flex-1 rounded-full px-4 py-2.5 text-[13.5px] font-bold text-white transition-[filter] hover:brightness-110 active:brightness-95"
+            style={{
+              background: 'linear-gradient(135deg, var(--color-sparkle), var(--color-accent))',
+            }}
+          >
+            Upgrade now
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+/* ── Locked feature row ───────────────────────────────────────────────────── */
+
+export function LockedFeature({
+  icon,
+  title,
+  detail,
+  onClick,
+}: {
+  icon?: ReactNode
+  title: string
+  detail?: string
+  onClick?: () => void
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="flex w-full items-center gap-2.5 px-4 py-3 text-left transition-colors hover:bg-surface-muted"
+    >
+      {icon && (
+        <span className="flex size-4 shrink-0 items-center justify-center text-ink-dim">
+          {icon}
+        </span>
+      )}
+      <span className="min-w-0 flex-1">
+        <span className="block truncate text-[14px] text-ink-dim">{title}</span>
+        {detail && <span className="mt-0.5 block truncate text-[12px] text-ink-dim">{detail}</span>}
+      </span>
+      <IconLock className="size-3.5 shrink-0 text-ink-dim" />
+    </button>
   )
 }

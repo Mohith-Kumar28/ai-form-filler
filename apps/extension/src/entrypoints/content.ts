@@ -221,6 +221,55 @@ export default defineContentScript({
     // beside it. One click opens the side panel and starts filling; while filling it expands
     // into a progress pill with a stop button.
 
+    function showUpgradePrompt() {
+      closeCard()
+      if (!detection) return
+      const firstField = detection.elements.values().next().value
+      const anchor = firstField?.element.getBoundingClientRect()
+      if (!anchor) return
+
+      card = mountMenuCard({
+        kind: 'menu',
+        anchor: {
+          top: anchor.top,
+          left: anchor.left,
+          width: anchor.width,
+          height: anchor.height,
+        },
+        actions: [
+          { id: 'upgrade', label: 'Upgrade to Pro', glyph: 'sparkle' },
+          { id: 'panel', label: 'Open panel', glyph: 'sparkle' },
+        ],
+        note: {
+          text: 'Monthly limit reached. Upgrade to keep filling forms.',
+          bad: true,
+        },
+        onSelect: (id) => {
+          closeCard()
+          if (id === 'upgrade') {
+            void chrome.runtime.sendMessage({ type: 'overlay/openPanel' }).catch(() => undefined)
+          } else if (id === 'panel') {
+            void chrome.runtime.sendMessage({ type: 'overlay/openPanel' }).catch(() => undefined)
+          }
+        },
+        onClose: closeCard,
+      })
+    }
+
+    async function checkQuotaAndFill(): Promise<boolean> {
+      const result = await sendMessage({ type: 'account/quota' })
+      if (!result.ok || !result.value) {
+        requestFill('form')
+        return true
+      }
+      if (result.value.exhausted) {
+        launcher?.reset()
+        showUpgradePrompt()
+        return false
+      }
+      return true
+    }
+
     function ensureLauncher() {
       const count = !muted && detection ? detection.form.fields.length : 0
       if (count === 0) {
@@ -236,7 +285,9 @@ export default defineContentScript({
         onOpen: () => {
           launcher?.setLoading(true)
           void chrome.runtime.sendMessage({ type: 'overlay/openPanel' }).catch(() => undefined)
-          requestFill('form')
+          void checkQuotaAndFill().then((ok) => {
+            if (ok) requestFill('form')
+          })
         },
         onStop: () => {
           filling = false
@@ -246,6 +297,12 @@ export default defineContentScript({
         },
       })
       launcher.setFieldCount(count)
+
+      void sendMessage({ type: 'account/quota' }).then((result) => {
+        if (result.ok && result.value?.exhausted) {
+          launcher?.setExhausted()
+        }
+      })
     }
 
     function resolveField(
