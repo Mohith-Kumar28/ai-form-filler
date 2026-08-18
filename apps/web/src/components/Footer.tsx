@@ -1,7 +1,7 @@
 import { Link } from '@tanstack/react-router'
 import { Logo } from '@/components/Logo'
-import { site } from '@/lib/site'
 import { IconSparkle } from '@/components/ui'
+import { site } from '@/lib/site'
 
 const footerNav = [
   { label: 'How it works', to: '/how-it-works' },
@@ -22,8 +22,8 @@ export function Footer() {
           <div className="flex flex-col gap-4">
             <Logo />
             <p className="max-w-[36ch] text-[13px] leading-relaxed text-ink-muted">
-              The hype friend who does the boring homework. Fill any form in your own voice —
-              and always know what it read vs. what it guessed.
+              The hype friend who does the boring homework. Fill any form in your own voice — and
+              always know what it read vs. what it guessed.
             </p>
             <a
               href={site.chromeWebStoreUrl}
@@ -38,7 +38,9 @@ export function Footer() {
           </div>
 
           <nav className="flex flex-col gap-2.5 md:pt-1">
-            <p className="text-[12px] font-semibold uppercase tracking-[0.1em] text-ink-dim">Pages</p>
+            <p className="text-[12px] font-semibold uppercase tracking-[0.1em] text-ink-dim">
+              Pages
+            </p>
             {footerNav.map((link) => (
               <Link
                 key={link.to}
@@ -51,11 +53,18 @@ export function Footer() {
           </nav>
 
           <div className="flex flex-col gap-3 md:pt-1">
-            <p className="text-[12px] font-semibold uppercase tracking-[0.1em] text-ink-dim">Stay in touch</p>
-            <a href={`mailto:${site.supportEmail}`} className="text-[13px] text-ink-muted no-underline hover:text-ink">
+            <p className="text-[12px] font-semibold uppercase tracking-[0.1em] text-ink-dim">
+              Stay in touch
+            </p>
+            <a
+              href={`mailto:${site.supportEmail}`}
+              className="text-[13px] text-ink-muted no-underline hover:text-ink"
+            >
               {site.supportEmail}
             </a>
-            <p className="text-[13px] text-ink-dim">Made with a sparkle and a lot of form-filling empathy.</p>
+            <p className="text-[13px] text-ink-dim">
+              Made with a sparkle and a lot of form-filling empathy.
+            </p>
           </div>
         </div>
 

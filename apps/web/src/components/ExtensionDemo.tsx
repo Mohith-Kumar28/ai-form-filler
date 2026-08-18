@@ -17,11 +17,43 @@ import { cn } from '@/lib/cn'
 const FORM_FIELDS = [
   { id: 'f_name', label: 'Full name', kind: 'text', concluded: false, confidence: 0.99 },
   { id: 'f_email', label: 'Email address', kind: 'email', concluded: false, confidence: 0.99 },
-  { id: 'f_auth', label: 'Do you require visa sponsorship?', kind: 'radio', concluded: false, confidence: 0.91, options: ['Yes', 'No'] },
-  { id: 'f_hear', label: 'How did you hear about this role?', kind: 'select', concluded: false, confidence: 0.63, options: ['LinkedIn', 'A friend', 'Our careers page', 'A recruiter', 'Other'] },
-  { id: 'f_notice', label: 'When could you start?', kind: 'text', concluded: false, confidence: 0.94 },
-  { id: 'f_why', label: 'Why do you want to work at Alderman & Roe?', kind: 'longtext', concluded: true, confidence: 0.58 },
-  { id: 'f_salary', label: 'What are your salary expectations?', kind: 'text', concluded: true, confidence: 0.41 },
+  {
+    id: 'f_auth',
+    label: 'Do you require visa sponsorship?',
+    kind: 'radio',
+    concluded: false,
+    confidence: 0.91,
+    options: ['Yes', 'No'],
+  },
+  {
+    id: 'f_hear',
+    label: 'How did you hear about this role?',
+    kind: 'select',
+    concluded: false,
+    confidence: 0.63,
+    options: ['LinkedIn', 'A friend', 'Our careers page', 'A recruiter', 'Other'],
+  },
+  {
+    id: 'f_notice',
+    label: 'When could you start?',
+    kind: 'text',
+    concluded: false,
+    confidence: 0.94,
+  },
+  {
+    id: 'f_why',
+    label: 'Why do you want to work at Alderman & Roe?',
+    kind: 'longtext',
+    concluded: true,
+    confidence: 0.58,
+  },
+  {
+    id: 'f_salary',
+    label: 'What are your salary expectations?',
+    kind: 'text',
+    concluded: true,
+    confidence: 0.41,
+  },
 ]
 
 const ANSWERS: Record<string, string> = {
@@ -30,7 +62,8 @@ const ANSWERS: Record<string, string> = {
   f_auth: 'No',
   f_hear: 'LinkedIn',
   f_notice: '3 November 2026',
-  f_why: 'I spent four years at Kestrel Health rebuilding a claims pipeline that nobody wanted to touch, and the part I liked was the archaeology — working out why a system had ended up the way it had before changing it. Your engineering posts read like people who do that on purpose rather than under duress.',
+  f_why:
+    'I spent four years at Kestrel Health rebuilding a claims pipeline that nobody wanted to touch, and the part I liked was the archaeology — working out why a system had ended up the way it had before changing it. Your engineering posts read like people who do that on purpose rather than under duress.',
   f_salary: '£72,000',
 }
 
@@ -114,7 +147,9 @@ export function ExtensionDemo() {
     const timeout = setTimeout(() => {
       setMarks((prev) => {
         const next = { ...prev }
-        filled.forEach(([id]) => delete next[id])
+        filled.forEach(([id]) => {
+          delete next[id]
+        })
         return next
       })
     }, 1500)
@@ -139,16 +174,17 @@ export function ExtensionDemo() {
           {FORM_FIELDS.map((field) => {
             const mark = marks[field.id]
             const isFilled = filledFields.has(field.id)
-            const value = isFilled || state === 'review' || state === 'done' ? ANSWERS[field.id] : ''
+            const value =
+              isFilled || state === 'review' || state === 'done' ? ANSWERS[field.id] : ''
 
             return (
               <div key={field.id} className="relative space-y-1.5">
-                <label className="text-[12px] font-semibold text-ink-muted">
+                <span className="text-[12px] font-semibold text-ink-muted">
                   {field.label}
                   {field.kind === 'longtext' && (
                     <span className="ml-1.5 text-[11px] font-normal text-ink-dim">required</span>
                   )}
-                </label>
+                </span>
 
                 {field.kind === 'longtext' ? (
                   <div
@@ -167,7 +203,10 @@ export function ExtensionDemo() {
                     {field.options?.map((opt) => {
                       const selected = value === opt
                       return (
-                        <label key={opt} className="flex items-center gap-2 text-[13px] text-ink-muted">
+                        <span
+                          key={opt}
+                          className="flex items-center gap-2 text-[13px] text-ink-muted"
+                        >
                           <span
                             className={cn(
                               'flex size-4 items-center justify-center rounded-full border-2 transition-all',
@@ -177,7 +216,7 @@ export function ExtensionDemo() {
                             {selected && <span className="size-2 rounded-full bg-white" />}
                           </span>
                           {opt}
-                        </label>
+                        </span>
                       )
                     })}
                   </div>
@@ -242,7 +281,15 @@ export function ExtensionDemo() {
       >
         <button
           type="button"
-          onClick={state === 'idle' ? startFill : state === 'review' ? () => setShowReview(true) : state === 'done' ? reset : undefined}
+          onClick={
+            state === 'idle'
+              ? startFill
+              : state === 'review'
+                ? () => setShowReview(true)
+                : state === 'done'
+                  ? reset
+                  : undefined
+          }
           disabled={state === 'filling'}
           className={cn(
             'flex items-center gap-2 rounded-full border border-border-muted bg-surface-raised px-4 py-2.5 text-[13px] font-semibold shadow-card transition-all duration-200',
@@ -312,7 +359,11 @@ function ReviewPanel({
   return (
     <div className="flex h-full flex-col">
       <div className="mb-3 flex items-center gap-2 border-b border-border-muted pb-3">
-        <button onClick={onToggleSettled} className="flex size-7 items-center justify-center rounded-full text-ink-muted hover:bg-surface-muted">
+        <button
+          type="button"
+          onClick={onToggleSettled}
+          className="flex size-7 items-center justify-center rounded-full text-ink-muted hover:bg-surface-muted"
+        >
           ←
         </button>
         <h3 className="flex-1 font-display text-[16px] font-bold tracking-[-0.02em] text-ink">
@@ -320,9 +371,7 @@ function ReviewPanel({
         </h3>
       </div>
 
-      <p className="mb-3 text-[12px] font-medium text-ink-muted">
-        {FORM_FIELDS.length} written
-      </p>
+      <p className="mb-3 text-[12px] font-medium text-ink-muted">{FORM_FIELDS.length} written</p>
 
       {checkable.length > 0 && (
         <div className="flex flex-col gap-px">
@@ -330,7 +379,10 @@ function ReviewPanel({
             check these — I guessed
           </p>
           {checkable.map((field) => (
-            <Card key={field.id} className="!rounded-none first:rounded-t-2xl last:rounded-b-2xl border-b-0">
+            <Card
+              key={field.id}
+              className="!rounded-none first:rounded-t-2xl last:rounded-b-2xl border-b-0"
+            >
               <div className="p-3">
                 <div className="flex items-start justify-between gap-2">
                   <p className="min-w-0 flex-1 text-[12px] font-semibold text-ink">{field.label}</p>
@@ -343,13 +395,26 @@ function ReviewPanel({
                 <div className="mt-2">
                   {field.kind === 'radio' || field.kind === 'select' ? (
                     <div className="flex flex-wrap gap-1">
-                      {(field.options ?? ['LinkedIn', 'A friend', 'Our careers page', 'A recruiter', 'Other']).map((opt) => {
+                      {(
+                        field.options ?? [
+                          'LinkedIn',
+                          'A friend',
+                          'Our careers page',
+                          'A recruiter',
+                          'Other',
+                        ]
+                      ).map((opt) => {
                         const selected = ANSWERS[field.id] === opt
                         return (
-                          <span key={opt} className={cn(
-                            'rounded-full border px-2 py-1 text-[11px] font-medium',
-                            selected ? 'border-accent bg-accent text-white' : 'border-border-muted text-ink-muted',
-                          )}>
+                          <span
+                            key={opt}
+                            className={cn(
+                              'rounded-full border px-2 py-1 text-[11px] font-medium',
+                              selected
+                                ? 'border-accent bg-accent text-white'
+                                : 'border-border-muted text-ink-muted',
+                            )}
+                          >
                             {opt}
                           </span>
                         )
@@ -364,14 +429,23 @@ function ReviewPanel({
 
                 {field.concluded && (
                   <p className="mt-1.5 flex items-center gap-1 text-[10px] text-ink-dim">
-                    <IconSparkle className="size-2.5 text-accent" />
-                    i{field.confidence < 0.5 ? "'m not sure" : field.confidence < 0.7 ? ' think so' : "'m pretty sure"}
+                    <IconSparkle className="size-2.5 text-accent" />i
+                    {field.confidence < 0.5
+                      ? "'m not sure"
+                      : field.confidence < 0.7
+                        ? ' think so'
+                        : "'m pretty sure"}
                   </p>
                 )}
 
                 <div className="mt-2 flex flex-wrap gap-1.5">
-                  <Button size="sm" variant="secondary"><IconCheck className="size-3" />Keep</Button>
-                  <Button size="sm" variant="ghost">Rewrite</Button>
+                  <Button size="sm" variant="secondary">
+                    <IconCheck className="size-3" />
+                    Keep
+                  </Button>
+                  <Button size="sm" variant="ghost">
+                    Rewrite
+                  </Button>
                 </div>
               </div>
             </Card>
@@ -381,7 +455,11 @@ function ReviewPanel({
 
       {settled.length > 0 && (
         <div className="mt-3">
-          <button type="button" onClick={onToggleSettled} className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left transition-colors hover:bg-surface-muted">
+          <button
+            type="button"
+            onClick={onToggleSettled}
+            className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left transition-colors hover:bg-surface-muted"
+          >
             <IconCheck className="size-3.5 shrink-0 text-positive" />
             <span className="flex-1 text-[12px] font-medium text-ink-muted">
               {settled.length} answers read straight off

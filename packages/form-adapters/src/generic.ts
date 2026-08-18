@@ -30,7 +30,8 @@ const SKIPPED_INPUT_TYPES = new Set([
 const SENSITIVE_NAME =
   /pass(word|code)|\bcvv\b|\bcvc\b|card.?number|security.?code|\bssn\b|social.?security|\bcaptcha\b|\brecaptcha\b|g-recaptcha|h-captcha/i
 
-const OTP_PATTERN = /\botp\b|pin-?code|pass-?code|\b2fa\b|\bone-?time\b|token[-_]?input|verification[-_]?code/i
+const OTP_PATTERN =
+  /\botp\b|pin-?code|pass-?code|\b2fa\b|\bone-?time\b|token[-_]?input|verification[-_]?code/i
 
 const TYPE_TO_KIND: Record<string, FieldKind> = {
   email: 'email',

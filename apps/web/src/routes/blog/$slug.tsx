@@ -44,10 +44,7 @@ function BlogPostPage() {
       <article className="mx-auto max-w-3xl px-6">
         <Reveal>
           <header>
-            <Link
-              to="/blog"
-              className="text-[13px] text-ink-dim no-underline hover:text-accent"
-            >
+            <Link to="/blog" className="text-[13px] text-ink-dim no-underline hover:text-accent">
               ← All posts
             </Link>
             <div className="mt-6 flex items-center gap-3">
@@ -70,14 +67,22 @@ function BlogPostPage() {
             {post.content.map((block, idx) => {
               if (block.type === 'h2') {
                 return (
-                  <h2 key={idx} className="pt-2 text-xl font-semibold text-ink">
+                  <h2
+                    // biome-ignore lint/suspicious/noArrayIndexKey: static content blocks never reorder
+                    key={`h2-${idx}`}
+                    className="pt-2 text-xl font-semibold text-ink"
+                  >
                     {block.text}
                   </h2>
                 )
               }
               if (block.type === 'ul') {
                 return (
-                  <ul key={idx} className="space-y-2.5 pl-1">
+                  <ul
+                    // biome-ignore lint/suspicious/noArrayIndexKey: static content blocks never reorder
+                    key={`ul-${idx}`}
+                    className="space-y-2.5 pl-1"
+                  >
                     {block.items.map((item) => (
                       <li
                         key={item}
@@ -90,6 +95,7 @@ function BlogPostPage() {
                           stroke="currentColor"
                           strokeWidth="1.5"
                           strokeLinejoin="miter"
+                          aria-hidden="true"
                         >
                           <path d="M4 8 L7 11 L12 5" />
                         </svg>
@@ -100,7 +106,11 @@ function BlogPostPage() {
                 )
               }
               return (
-                <p key={idx} className="text-[15px] leading-[1.75] text-ink-muted">
+                <p
+                  // biome-ignore lint/suspicious/noArrayIndexKey: static content blocks never reorder
+                  key={`p-${idx}`}
+                  className="text-[15px] leading-[1.75] text-ink-muted"
+                >
                   {block.text}
                 </p>
               )

@@ -21,7 +21,9 @@ function FeaturesPage() {
     <div className="pt-24 pb-20 md:pt-32 md:pb-28">
       <div className="mx-auto max-w-6xl px-6">
         <Reveal>
-          <p className="text-[13px] font-semibold uppercase tracking-[0.1em] text-center text-accent">Features</p>
+          <p className="text-[13px] font-semibold uppercase tracking-[0.1em] text-center text-accent">
+            Features
+          </p>
           <h1 className="mt-4 text-center text-4xl font-semibold tracking-tight text-ink md:text-5xl">
             {title}
           </h1>

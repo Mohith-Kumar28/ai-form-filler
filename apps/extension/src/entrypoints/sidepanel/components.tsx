@@ -23,7 +23,8 @@ import {
 import { type TabName, useNavigation } from './navigation.js'
 
 export const SUNSET_GRADIENT = 'linear-gradient(135deg, var(--color-sparkle), var(--color-accent))'
-export const SUNSET_GRADIENT_180 = 'linear-gradient(180deg, var(--color-sparkle), var(--color-accent))'
+export const SUNSET_GRADIENT_180 =
+  'linear-gradient(180deg, var(--color-sparkle), var(--color-accent))'
 
 /* ── The screen leaf ─────────────────────────────────────────────────────── */
 
@@ -233,11 +234,7 @@ export function Button({
       ]
         .filter(Boolean)
         .join(' ')}
-      style={
-        variant === 'primary'
-          ? { background: SUNSET_GRADIENT }
-          : undefined
-      }
+      style={variant === 'primary' ? { background: SUNSET_GRADIENT } : undefined}
       {...rest}
     >
       {loading ? <Spinner /> : children}
@@ -840,6 +837,7 @@ export function Toggle({
         role="switch"
         aria-checked={checked}
         aria-label={label}
+        tabIndex={0}
         className={`flex h-6 w-10 shrink-0 cursor-pointer items-center rounded-full px-0.5 transition-[background-color] duration-200 ${
           checked ? 'bg-accent' : 'bg-surface-muted border border-border'
         }`}

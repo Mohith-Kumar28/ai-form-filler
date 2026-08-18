@@ -43,7 +43,9 @@ function ComparePage() {
     <div className="pt-24 pb-20 md:pt-32 md:pb-28">
       <div className="mx-auto max-w-5xl px-6">
         <Reveal>
-          <p className="text-[13px] font-semibold uppercase tracking-[0.1em] text-center text-accent">Compare</p>
+          <p className="text-[13px] font-semibold uppercase tracking-[0.1em] text-center text-accent">
+            Compare
+          </p>
           <h1 className="mt-4 text-center text-4xl font-semibold tracking-tight text-ink md:text-5xl">
             {title}
           </h1>
@@ -57,9 +59,7 @@ function ComparePage() {
             <table className="w-full min-w-[640px] border-collapse text-left">
               <thead>
                 <tr className="border-b border-border bg-surface-raised">
-                  <th className="px-6 py-4 text-[13px] font-medium text-ink-dim">
-                    Capability
-                  </th>
+                  <th className="px-6 py-4 text-[13px] font-medium text-ink-dim">Capability</th>
                   <th className="px-6 py-4 text-[13px] font-semibold text-ink">Fillaform</th>
                   <th className="px-6 py-4 text-[13px] font-medium text-ink-dim">
                     Other extensions
@@ -82,6 +82,7 @@ function ComparePage() {
                           stroke="currentColor"
                           strokeWidth="1.5"
                           strokeLinejoin="miter"
+                          aria-hidden="true"
                         >
                           <path d="M3 8.5 L6.5 12 L13 4.5" />
                         </svg>

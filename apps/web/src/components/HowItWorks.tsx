@@ -27,7 +27,10 @@ const STEPS = [
 
 export function HowItWorks() {
   return (
-    <section id="how-it-works" className="border-t border-border-muted bg-surface-muted py-20 md:py-28">
+    <section
+      id="how-it-works"
+      className="border-t border-border-muted bg-surface-muted py-20 md:py-28"
+    >
       <div className="mx-auto max-w-6xl px-6">
         <Reveal>
           <p className="text-center text-[13px] font-semibold uppercase tracking-[0.1em] text-accent">
@@ -52,7 +55,9 @@ export function HowItWorks() {
                   <Mascot expression={s.mascot} size={40} />
                 </div>
                 <h3 className="display mt-5 text-[19px] text-ink">{s.title}</h3>
-                <p className="mt-2.5 text-[13.5px] leading-relaxed text-ink-muted">{s.description}</p>
+                <p className="mt-2.5 text-[13.5px] leading-relaxed text-ink-muted">
+                  {s.description}
+                </p>
               </div>
             </Reveal>
           ))}

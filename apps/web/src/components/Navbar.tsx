@@ -51,6 +51,7 @@ export function Navbar() {
               stroke="currentColor"
               strokeWidth="1.75"
               strokeLinecap="round"
+              aria-hidden="true"
             >
               {open ? (
                 <path d="M3 3 L13 13 M13 3 L3 13" />

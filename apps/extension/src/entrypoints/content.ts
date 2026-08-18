@@ -118,7 +118,11 @@ export default defineContentScript({
       if (tag !== 'INPUT' && tag !== 'TEXTAREA' && element.contentEditable !== 'true') return false
 
       if (element instanceof HTMLInputElement) {
-        if (['password', 'hidden', 'submit', 'button', 'reset', 'file', 'search'].includes(element.type))
+        if (
+          ['password', 'hidden', 'submit', 'button', 'reset', 'file', 'search'].includes(
+            element.type,
+          )
+        )
           return false
 
         const name = `${element.name} ${element.autocomplete} ${element.id}`.toLowerCase()

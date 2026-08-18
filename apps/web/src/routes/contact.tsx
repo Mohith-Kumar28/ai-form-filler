@@ -34,7 +34,9 @@ function ContactPage() {
               className="flex items-center justify-between rounded-xl border border-border bg-surface-raised px-6 py-5 no-underline transition-colors duration-150 hover:bg-surface-muted"
             >
               <div>
-                <p className="text-[13px] font-semibold uppercase tracking-[0.1em] text-ink-dim">Email</p>
+                <p className="text-[13px] font-semibold uppercase tracking-[0.1em] text-ink-dim">
+                  Email
+                </p>
                 <p className="mt-1 text-[14px] text-ink">{site.supportEmail}</p>
               </div>
               <span className="text-ink-dim">→</span>
@@ -47,10 +49,10 @@ function ContactPage() {
               className="flex items-center justify-between rounded-xl border border-border bg-surface-raised px-6 py-5 no-underline transition-colors duration-150 hover:bg-surface-muted"
             >
               <div>
-                <p className="text-[13px] font-semibold uppercase tracking-[0.1em] text-ink-dim">Chrome Web Store</p>
-                <p className="mt-1 text-[14px] text-ink">
-                  Fillaform on the Chrome Web Store
+                <p className="text-[13px] font-semibold uppercase tracking-[0.1em] text-ink-dim">
+                  Chrome Web Store
                 </p>
+                <p className="mt-1 text-[14px] text-ink">Fillaform on the Chrome Web Store</p>
               </div>
               <span className="text-ink-dim">→</span>
             </a>

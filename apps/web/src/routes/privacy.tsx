@@ -22,9 +22,7 @@ function PrivacyPage() {
     <div className="pt-24 pb-20 md:pt-32 md:pb-28">
       <div className="mx-auto max-w-3xl px-6">
         <Reveal>
-          <h1 className="text-4xl font-semibold tracking-tight text-ink md:text-5xl">
-            {title}
-          </h1>
+          <h1 className="text-4xl font-semibold tracking-tight text-ink md:text-5xl">{title}</h1>
           <p className="mt-4 text-[13px] text-ink-dim">
             Last updated: August 2026 · Effective immediately
           </p>
@@ -42,22 +40,21 @@ function PrivacyPage() {
 
             <Section title="What we collect">
               <p>
-                <strong className="text-ink">Your Google account</strong> — name and email,
-                used to identify you and manage your plan. We do not access your Google Drive,
-                contacts, or any other Google data.
+                <strong className="text-ink">Your Google account</strong> — name and email, used to
+                identify you and manage your plan. We do not access your Google Drive, contacts, or
+                any other Google data.
               </p>
               <p>
-                <strong className="text-ink">Your profile</strong> — identity fields you
-                enter (name, email, phone, links) and custom facts.
+                <strong className="text-ink">Your profile</strong> — identity fields you enter
+                (name, email, phone, links) and custom facts.
               </p>
               <p>
-                <strong className="text-ink">Your sources</strong> — the documents, links,
-                text, and images you upload. These are stored so Fillaform can search them at fill
-                time.
+                <strong className="text-ink">Your sources</strong> — the documents, links, text, and
+                images you upload. These are stored so Fillaform can search them at fill time.
               </p>
               <p>
-                <strong className="text-ink">Fill logs</strong> — which forms you filled and
-                basic usage counts, used for quota enforcement and cost accounting.
+                <strong className="text-ink">Fill logs</strong> — which forms you filled and basic
+                usage counts, used for quota enforcement and cost accounting.
               </p>
             </Section>
 

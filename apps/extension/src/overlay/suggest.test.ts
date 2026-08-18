@@ -115,10 +115,7 @@ describe('suggestForField', () => {
 
   it('returns null when autocomplete is off, even if the label matches', () => {
     expect(
-      suggestForField(
-        { label: 'Email address', autocomplete: 'off', kind: 'email' },
-        FACTS,
-      ),
+      suggestForField({ label: 'Email address', autocomplete: 'off', kind: 'email' }, FACTS),
     ).toBeNull()
   })
 

@@ -9,9 +9,18 @@ export function Hero() {
     <section className="relative overflow-visible pt-28 pb-12 md:pt-40 md:pb-16">
       {/* soft sunset blobs — clipped to their own container */}
       <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden>
-        <div className="absolute -top-24 -right-24 h-96 w-96 rounded-full opacity-25 blur-3xl" style={{ background: 'linear-gradient(135deg, var(--sparkle), var(--accent))' }} />
-        <div className="absolute top-40 -left-32 h-80 w-80 rounded-full opacity-20 blur-3xl" style={{ background: 'linear-gradient(135deg, var(--accent), var(--sun))' }} />
-        <div className="absolute right-1/4 -bottom-32 h-72 w-72 rounded-full opacity-15 blur-3xl" style={{ background: 'var(--sparkle)' }} />
+        <div
+          className="absolute -top-24 -right-24 h-96 w-96 rounded-full opacity-25 blur-3xl"
+          style={{ background: 'linear-gradient(135deg, var(--sparkle), var(--accent))' }}
+        />
+        <div
+          className="absolute top-40 -left-32 h-80 w-80 rounded-full opacity-20 blur-3xl"
+          style={{ background: 'linear-gradient(135deg, var(--accent), var(--sun))' }}
+        />
+        <div
+          className="absolute right-1/4 -bottom-32 h-72 w-72 rounded-full opacity-15 blur-3xl"
+          style={{ background: 'var(--sparkle)' }}
+        />
       </div>
 
       <div className="relative mx-auto max-w-4xl px-6 text-center">
@@ -45,7 +54,8 @@ export function Hero() {
           Fillaform reads your résumé, links and notes, then fills{' '}
           <strong className="font-semibold text-ink">any form</strong> — job applications, Google
           Forms, registrations, surveys — in your own voice. It flags what it{' '}
-          <span className="font-semibold text-accent">guessed</span> and cheers you on the whole way.
+          <span className="font-semibold text-accent">guessed</span> and cheers you on the whole
+          way.
         </motion.p>
 
         <motion.div
@@ -91,8 +101,19 @@ export function Hero() {
           transition={{ duration: 0.6, delay: 0.8 }}
           className="mt-10 flex flex-col items-center gap-1.5 text-ink-dim"
         >
-          <span className="text-[11px] font-medium uppercase tracking-[0.1em]">Scroll to try it</span>
-          <svg viewBox="0 0 16 16" className="size-4 animate-bounce" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+          <span className="text-[11px] font-medium uppercase tracking-[0.1em]">
+            Scroll to try it
+          </span>
+          <svg
+            viewBox="0 0 16 16"
+            className="size-4 animate-bounce"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.75"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+          >
             <path d="M4 6 L8 10 L12 6" />
           </svg>
         </motion.div>

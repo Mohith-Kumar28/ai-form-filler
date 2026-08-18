@@ -23,8 +23,8 @@ export function WhereItWorks() {
             Works wherever forms live
           </h2>
           <p className="mx-auto mt-3 max-w-[48ch] text-center text-[14px] leading-relaxed text-ink-muted">
-            Dedicated adapters for the big ATSes and Google Forms, a generic fallback for
-            everything else. If there&rsquo;s a field, it gets filled.
+            Dedicated adapters for the big ATSes and Google Forms, a generic fallback for everything
+            else. If there&rsquo;s a field, it gets filled.
           </p>
         </Reveal>
 

@@ -1,11 +1,21 @@
+import type { Settings } from '@aff/shared'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useState } from 'react'
-import type { Settings } from '@aff/shared'
 import type { Account } from '../../../generated/model/index.js'
 import { openManageSubscription, openUpgrade } from '../../../lib/billing.js'
 import { formatResetDate, plural } from '../../../lib/format.js'
 import { sendMessage } from '../../../lib/messaging.js'
-import { Button, Card, Mascot, ProBadge, Screen, ScreenBody, ScreenHeader, SUNSET_GRADIENT, Toggle } from '../components.js'
+import {
+  Button,
+  Card,
+  Mascot,
+  ProBadge,
+  Screen,
+  ScreenBody,
+  ScreenHeader,
+  SUNSET_GRADIENT,
+  Toggle,
+} from '../components.js'
 import { IconCheck, IconCrown, IconSignOut } from '../icons.js'
 
 const PLAN_LABEL: Record<string, string> = { free: 'Free', pro: 'Pro', ultra: 'Ultra' }

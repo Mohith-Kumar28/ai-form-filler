@@ -384,8 +384,7 @@ export function Sources({ profile }: { profile: Profile | undefined }) {
                     onClick={() => void openUpgrade()}
                     className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-bold text-white transition-[filter] hover:brightness-110"
                     style={{
-                      background:
-                        SUNSET_GRADIENT,
+                      background: SUNSET_GRADIENT,
                     }}
                   >
                     <IconCrown className="size-3" />
@@ -413,8 +412,7 @@ export function Sources({ profile }: { profile: Profile | undefined }) {
                     onClick={() => void openUpgrade()}
                     className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-bold text-white transition-[filter] hover:brightness-110"
                     style={{
-                      background:
-                        SUNSET_GRADIENT,
+                      background: SUNSET_GRADIENT,
                     }}
                   >
                     <IconCrown className="size-3" />
@@ -503,8 +501,7 @@ export function Sources({ profile }: { profile: Profile | undefined }) {
                   aria-label="Confirm"
                   className="flex size-8 shrink-0 items-center justify-center rounded-full text-white transition-[filter] hover:brightness-110 active:brightness-95 disabled:pointer-events-none disabled:opacity-45"
                   style={{
-                    background:
-                      SUNSET_GRADIENT,
+                    background: SUNSET_GRADIENT,
                   }}
                 >
                   <IconCheck className="size-4" />

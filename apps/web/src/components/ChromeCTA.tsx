@@ -1,11 +1,14 @@
 import { Reveal } from '@/components/Reveal'
-import { Mascot, IconSparkle } from '@/components/ui'
+import { IconSparkle, Mascot } from '@/components/ui'
 import { site } from '@/lib/site'
 
 export function ChromeCTA() {
   return (
     <section className="relative overflow-hidden py-24 md:py-32">
-      <div className="pointer-events-none absolute inset-0 flex items-center justify-center opacity-[0.04]" aria-hidden>
+      <div
+        className="pointer-events-none absolute inset-0 flex items-center justify-center opacity-[0.04]"
+        aria-hidden
+      >
         <Mascot expression="party" size={720} />
       </div>
 
@@ -18,8 +21,8 @@ export function ChromeCTA() {
             <span className="sunset-text">Start filling.</span>
           </h2>
           <p className="mx-auto mt-5 max-w-[46ch] text-[15px] leading-relaxed text-ink-muted">
-            Add Fillaform to Chrome, feed it once, and never fill the same information twice.
-            Five forms a month on us — no card required.
+            Add Fillaform to Chrome, feed it once, and never fill the same information twice. Five
+            forms a month on us — no card required.
           </p>
           <div className="mt-9 flex justify-center">
             <a

@@ -19,9 +19,7 @@ function TermsPage() {
     <div className="pt-24 pb-20 md:pt-32 md:pb-28">
       <div className="mx-auto max-w-3xl px-6">
         <Reveal>
-          <h1 className="text-4xl font-semibold tracking-tight text-ink md:text-5xl">
-            {title}
-          </h1>
+          <h1 className="text-4xl font-semibold tracking-tight text-ink md:text-5xl">{title}</h1>
           <p className="mt-4 text-[13px] text-ink-dim">Last updated: August 2026</p>
         </Reveal>
 

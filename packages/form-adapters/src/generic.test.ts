@@ -204,15 +204,17 @@ describe('fields we refuse to touch', () => {
   })
 
   it('skips OTP inputs with maxlength=1 and numeric inputmode', () => {
-    expect(detect('<input maxlength="1" inputmode="numeric" aria-label="Digit 1" />')).toHaveLength(0)
+    expect(detect('<input maxlength="1" inputmode="numeric" aria-label="Digit 1" />')).toHaveLength(
+      0,
+    )
     expect(detect('<input type="number" maxlength="1" aria-label="Pin" />')).toHaveLength(0)
     expect(detect('<input type="tel" maxlength="1" aria-label="Code" />')).toHaveLength(0)
   })
 
   it('skips inputs with autocomplete=one-time-code', () => {
-    expect(
-      detect('<input autocomplete="one-time-code" aria-label="Verification" />'),
-    ).toHaveLength(0)
+    expect(detect('<input autocomplete="one-time-code" aria-label="Verification" />')).toHaveLength(
+      0,
+    )
   })
 
   it('skips inputs with OTP-related class names', () => {

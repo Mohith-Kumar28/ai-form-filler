@@ -46,7 +46,9 @@ export function FAQ() {
               <details className="group rounded-2xl border border-border-muted bg-surface-raised px-5 py-4 transition-colors duration-150 open:border-accent/30">
                 <summary className="flex cursor-pointer list-none items-center justify-between gap-3 text-[15px] font-semibold text-ink [&::-webkit-details-marker]:hidden">
                   {faq.q}
-                  <span className="text-ink-dim transition-transform duration-200 group-open:rotate-45">＋</span>
+                  <span className="text-ink-dim transition-transform duration-200 group-open:rotate-45">
+                    ＋
+                  </span>
                 </summary>
                 <p className="mt-3 text-[14px] leading-relaxed text-ink-muted">{faq.a}</p>
               </details>

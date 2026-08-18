@@ -20,7 +20,9 @@ function HowItWorksPage() {
     <div className="pt-24 pb-20 md:pt-32 md:pb-28">
       <div className="mx-auto max-w-3xl px-6">
         <Reveal>
-          <p className="text-[13px] font-semibold uppercase tracking-[0.1em] text-accent">Three steps</p>
+          <p className="text-[13px] font-semibold uppercase tracking-[0.1em] text-accent">
+            Three steps
+          </p>
           <h1 className="mt-4 text-4xl font-semibold tracking-tight text-ink md:text-5xl">
             {title}
           </h1>
@@ -108,9 +110,7 @@ function Step({
         </span>
         <div>
           <h2 className="text-xl font-semibold text-ink">{stepTitle}</h2>
-          <div className="mt-3 space-y-3 text-[14px] leading-relaxed text-ink-muted">
-            {content}
-          </div>
+          <div className="mt-3 space-y-3 text-[14px] leading-relaxed text-ink-muted">{content}</div>
         </div>
       </div>
     </Reveal>
