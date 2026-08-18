@@ -24,10 +24,13 @@ const SKIPPED_INPUT_TYPES = new Set([
   'image',
   'range',
   'color',
+  'search',
 ])
 
 const SENSITIVE_NAME =
-  /pass(word|code)|\bcvv\b|\bcvc\b|card.?number|security.?code|\bssn\b|social.?security/i
+  /pass(word|code)|\bcvv\b|\bcvc\b|card.?number|security.?code|\bssn\b|social.?security|\bcaptcha\b|\brecaptcha\b|g-recaptcha|h-captcha/i
+
+const OTP_PATTERN = /\botp\b|pin-?code|pass-?code|\b2fa\b|\bone-?time\b|token[-_]?input|verification[-_]?code/i
 
 const TYPE_TO_KIND: Record<string, FieldKind> = {
   email: 'email',
@@ -104,6 +107,25 @@ function isFillable(el: HTMLElement, hasLayout: boolean): boolean {
 
   const name = `${el.getAttribute('name') ?? ''} ${el.getAttribute('id') ?? ''} ${el.getAttribute('autocomplete') ?? ''}`
   if (SENSITIVE_NAME.test(name)) return false
+
+  const autocomplete = el.getAttribute('autocomplete') ?? ''
+  if (autocomplete === 'one-time-code') return false
+
+  const className = el.className?.toString() ?? ''
+  const allAttrs = `${name} ${className}`.toLowerCase()
+  if (OTP_PATTERN.test(allAttrs)) return false
+
+  // Captcha widgets often wrap a bare input in a div with the captcha class.
+  if (/captcha|recaptcha/i.test(allAttrs)) return false
+  const captchaAncestor = el.closest('[class*="captcha"], [class*="recaptcha"]')
+  if (captchaAncestor) return false
+
+  // Single-digit inputs with numeric inputmode: OTP cells
+  if (el.getAttribute('maxlength') === '1') {
+    const inputmode = el.getAttribute('inputmode')
+    if (inputmode === 'numeric' || inputmode === 'decimal') return false
+    if (el instanceof HTMLInputElement && (el.type === 'number' || el.type === 'tel')) return false
+  }
 
   return true
 }

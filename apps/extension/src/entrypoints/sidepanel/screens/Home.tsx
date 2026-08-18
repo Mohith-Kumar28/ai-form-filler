@@ -10,6 +10,7 @@ import {
   ScreenBody,
   ScreenHeader,
   SkeletonText,
+  SUNSET_GRADIENT,
   UpgradeSheet,
 } from '../components.js'
 import { IconCrown, IconSparkle } from '../icons.js'
@@ -201,7 +202,7 @@ export function Home({
               onClick={() => setShowUpgrade(true)}
               className="mt-3 w-full rounded-full py-2 text-[13px] font-bold text-white transition-[filter] hover:brightness-110 active:brightness-95"
               style={{
-                background: 'linear-gradient(135deg, var(--color-sparkle), var(--color-accent))',
+                background: SUNSET_GRADIENT,
               }}
             >
               Upgrade to Pro

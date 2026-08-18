@@ -1,10 +1,12 @@
-import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useEffect, useState } from 'react'
+import type { Settings } from '@aff/shared'
 import type { Account } from '../../../generated/model/index.js'
 import { openManageSubscription, openUpgrade } from '../../../lib/billing.js'
 import { formatResetDate, plural } from '../../../lib/format.js'
 import { sendMessage } from '../../../lib/messaging.js'
-import { Button, Card, Mascot, ProBadge, Screen, ScreenBody, ScreenHeader } from '../components.js'
-import { IconCrown, IconSignOut } from '../icons.js'
+import { Button, Card, Mascot, ProBadge, Screen, ScreenBody, ScreenHeader, SUNSET_GRADIENT, Toggle } from '../components.js'
+import { IconCheck, IconCrown, IconSignOut } from '../icons.js'
 
 const PLAN_LABEL: Record<string, string> = { free: 'Free', pro: 'Pro', ultra: 'Ultra' }
 
@@ -25,6 +27,42 @@ export function Profile({ account }: { account: Account }) {
       queryClient.clear()
     },
   })
+
+  const settingsQuery = useQuery({
+    queryKey: ['settings'],
+    queryFn: async () => {
+      const result = await sendMessage({ type: 'settings/get' })
+      if (!result.ok) throw Object.assign(new Error(result.error.message), result.error)
+      return result.value
+    },
+  })
+
+  const settingsMutation = useMutation({
+    mutationFn: async (next: Settings) => {
+      const result = await sendMessage({ type: 'settings/set', settings: next })
+      if (!result.ok) throw Object.assign(new Error(result.error.message), result.error)
+      return next
+    },
+    onSuccess: (next) => {
+      queryClient.setQueryData(['settings'], next)
+    },
+  })
+
+  const currentSettings = settingsQuery.data ?? { inlineAutofill: true, showLauncher: true }
+
+  const [saved, setSaved] = useState(false)
+
+  useEffect(() => {
+    if (settingsMutation.isSuccess) {
+      setSaved(true)
+      const timer = setTimeout(() => setSaved(false), 1500)
+      return () => clearTimeout(timer)
+    }
+  }, [settingsMutation.isSuccess])
+
+  const toggleSetting = (key: keyof Settings) => {
+    settingsMutation.mutate({ ...currentSettings, [key]: !currentSettings[key] })
+  }
 
   return (
     <Screen>
@@ -61,7 +99,7 @@ export function Profile({ account }: { account: Account }) {
             <span
               className="flex size-8 items-center justify-center rounded-full"
               style={{
-                background: 'linear-gradient(135deg, var(--color-sparkle), var(--color-accent))',
+                background: SUNSET_GRADIENT,
               }}
             >
               <IconCrown className="size-4 text-white" />
@@ -118,6 +156,34 @@ export function Profile({ account }: { account: Account }) {
             )}
           </Button>
         </Card>
+
+        <div className="mx-4 mt-3">
+          <div className="flex items-center justify-between px-1">
+            <p className="text-[12px] font-semibold text-ink-muted">Appearance</p>
+            {saved && (
+              <span className="animate-fade-in flex items-center gap-1 text-[11px] font-medium text-positive">
+                <IconCheck className="size-3" />
+                Saved
+              </span>
+            )}
+          </div>
+          <Card className="mt-2 divide-y divide-border-muted">
+            <Toggle
+              checked={currentSettings.inlineAutofill}
+              onChange={() => toggleSetting('inlineAutofill')}
+              disabled={settingsMutation.isPending}
+              label="Inline autofill"
+              description="Show autofill suggestions when you focus a field"
+            />
+            <Toggle
+              checked={currentSettings.showLauncher}
+              onChange={() => toggleSetting('showLauncher')}
+              disabled={settingsMutation.isPending}
+              label="Floating button"
+              description="Show the action button on the right side of the page"
+            />
+          </Card>
+        </div>
 
         <div className="mx-4 mt-3">
           <button

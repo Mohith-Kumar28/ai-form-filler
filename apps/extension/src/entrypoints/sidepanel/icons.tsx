@@ -286,8 +286,3 @@ export function IconLock(props: IconProps) {
     </Svg>
   )
 }
-
-// Deprecated aliases, kept so nothing breaks while the screens are rebuilt. These go away at
-// the end of the redesign once every call site points at `IconSparkle`.
-export const IconSeal = IconSparkle
-export const IconStamp = IconSparkle

@@ -161,6 +161,10 @@ describe('fields we refuse to touch', () => {
     expect(detect('<input type="password" aria-label="Password" />')).toHaveLength(0)
   })
 
+  it('never detects a search input', () => {
+    expect(detect('<input type="search" aria-label="Search" />')).toHaveLength(0)
+  })
+
   it('never detects payment fields, however they are labelled', () => {
     expect(
       detect(`
@@ -168,6 +172,12 @@ describe('fields we refuse to touch', () => {
         <input name="cvv" aria-label="CVV" />
         <input id="security_code" aria-label="Security code" />`),
     ).toHaveLength(0)
+  })
+
+  it('never detects captcha fields', () => {
+    expect(detect('<input name="captcha" aria-label="Captcha" />')).toHaveLength(0)
+    expect(detect('<input name="g-recaptcha-response" />')).toHaveLength(0)
+    expect(detect('<div class="h-captcha"><input /></div>')).toHaveLength(0)
   })
 
   it('skips a field named like a social security number', () => {
@@ -191,6 +201,24 @@ describe('fields we refuse to touch', () => {
 
   it('skips aria-hidden fields', () => {
     expect(detect('<input aria-label="Ghost" aria-hidden="true" />')).toHaveLength(0)
+  })
+
+  it('skips OTP inputs with maxlength=1 and numeric inputmode', () => {
+    expect(detect('<input maxlength="1" inputmode="numeric" aria-label="Digit 1" />')).toHaveLength(0)
+    expect(detect('<input type="number" maxlength="1" aria-label="Pin" />')).toHaveLength(0)
+    expect(detect('<input type="tel" maxlength="1" aria-label="Code" />')).toHaveLength(0)
+  })
+
+  it('skips inputs with autocomplete=one-time-code', () => {
+    expect(
+      detect('<input autocomplete="one-time-code" aria-label="Verification" />'),
+    ).toHaveLength(0)
+  })
+
+  it('skips inputs with OTP-related class names', () => {
+    expect(detect('<input class="otp-input" aria-label="Digit" />')).toHaveLength(0)
+    expect(detect('<input class="pin-code-field" aria-label="PIN" />')).toHaveLength(0)
+    expect(detect('<input class="verification-code" aria-label="Code" />')).toHaveLength(0)
   })
 })
 

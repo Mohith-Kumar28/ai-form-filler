@@ -15,6 +15,7 @@ import { type KnownFacts, suggestForField } from '../overlay/suggest.js'
 const BUILD_STAMP = chrome.runtime.getManifest().version_name ?? 'dev'
 
 const MUTED_KEY = 'aff:mutedOrigins'
+const SETTINGS_KEY = 'aff:settings'
 
 export default defineContentScript({
   matches: ['<all_urls>'],
@@ -27,6 +28,7 @@ export default defineContentScript({
     let card: CardHandle | null = null
     let muted = false
     let filling = false
+    let settings = { inlineAutofill: true, showLauncher: true }
 
     const marks = new Map<string, FieldMark>()
     let lastPlan: FillPlan | null = null
@@ -59,7 +61,36 @@ export default defineContentScript({
       muted = (stored[MUTED_KEY] ?? []).includes(location.origin)
     }
 
+    async function loadSettings() {
+      const stored = (await chrome.storage.local.get(SETTINGS_KEY)) as Record<
+        string,
+        { inlineAutofill: boolean; showLauncher: boolean } | undefined
+      >
+      settings = stored[SETTINGS_KEY] ?? { inlineAutofill: true, showLauncher: true }
+    }
+
     void loadMuted()
+    void loadSettings()
+
+    chrome.storage.onChanged.addListener((changes) => {
+      if (changes[SETTINGS_KEY]) {
+        const next = (changes[SETTINGS_KEY].newValue as typeof settings) ?? {
+          inlineAutofill: true,
+          showLauncher: true,
+        }
+        settings = next
+        if (!next.showLauncher) {
+          launcher?.destroy()
+          launcher = null
+        } else {
+          ensureLauncher()
+        }
+        if (!next.inlineAutofill) {
+          destroyFieldTrigger()
+          closeCard()
+        }
+      }
+    })
 
     const feedback = createFeedbackCapture(location.origin, (payload) => {
       void chrome.runtime.sendMessage({ type: 'feedback/submit', payload })
@@ -87,11 +118,33 @@ export default defineContentScript({
       if (tag !== 'INPUT' && tag !== 'TEXTAREA' && element.contentEditable !== 'true') return false
 
       if (element instanceof HTMLInputElement) {
-        if (['password', 'hidden', 'submit', 'button', 'reset', 'file'].includes(element.type))
+        if (['password', 'hidden', 'submit', 'button', 'reset', 'file', 'search'].includes(element.type))
           return false
+
         const name = `${element.name} ${element.autocomplete} ${element.id}`.toLowerCase()
-        if (/pass|otp|cvv|cvc|card|credit|security-code/.test(name)) return false
+        if (/pass(word|code)|otp|cvv|cvc|card|credit|security-code|captcha|recaptcha/i.test(name))
+          return false
+
+        if (element.autocomplete === 'one-time-code') return false
+
+        // OTP digit cell: single-character with numeric inputmode
+        if (element.maxLength === 1) {
+          const mode = element.getAttribute('inputmode')
+          if (mode === 'numeric' || mode === 'decimal') return false
+          if (element.type === 'number' || element.type === 'tel') return false
+        }
+
+        const className = element.className?.toString()?.toLowerCase() ?? ''
+        if (/\botp\b|pin-?code|pass-?code|\b2fa\b|one-?time|token[-_]?input/i.test(className))
+          return false
+
+        // Tiny inputs (likely OTP cells, date parts, etc.) — too narrow for the trigger
+        const rect = element.getBoundingClientRect()
+        if (rect.width < 40 && element.type !== 'checkbox' && element.type !== 'radio') return false
       }
+
+      if (element.getAttribute('role') === 'searchbox') return false
+      if (element.closest('[role="search"]')) return false
 
       if (!detection) detect()
       return fieldIdFor(element) !== null
@@ -100,8 +153,10 @@ export default defineContentScript({
     // ── cards & the launcher ────────────────────────────────────────────────
 
     function closeCard(): void {
+      if (card) suggestionDismissed = true
       card?.close()
       card = null
+      dismissInputListeners()
     }
 
     // ── field assist ────────────────────────────────────────────────────────
@@ -125,10 +180,30 @@ export default defineContentScript({
       trigger.setAttribute('title', 'Auto-fill this field')
       trigger.innerHTML = GLYPH.sparkle
 
+      const TRIGGER_SIZE = 22
+      const GAP = 6
+      // Thresholds where the icon stops fitting inside and moves outside.
+      const NARROW_THRESHOLD = 56
+      const TINY_THRESHOLD = 36
+
       const place = () => {
         const rect = element.getBoundingClientRect()
-        const size = 22
-        trigger.style.translate = `${Math.round(rect.right - size - 6)}px ${Math.round(rect.top + (rect.height - size) / 2)}px`
+        const narrow = rect.width < NARROW_THRESHOLD
+        const tiny = rect.width < TINY_THRESHOLD
+
+        if (tiny) {
+          // Too small to sit beside — place above the left edge.
+          const top = Math.max(GAP, rect.top - TRIGGER_SIZE - GAP)
+          trigger.style.translate = `${Math.round(rect.left)}px ${Math.round(top)}px`
+        } else if (narrow) {
+          // Outside the right edge. Clamped so it never leaves the viewport.
+          const rawLeft = rect.right + GAP
+          const left = Math.min(rawLeft, window.innerWidth - TRIGGER_SIZE - GAP)
+          trigger.style.translate = `${Math.round(left)}px ${Math.round(rect.top + (rect.height - TRIGGER_SIZE) / 2)}px`
+        } else {
+          // Inside the right edge, next to any existing decoration.
+          trigger.style.translate = `${Math.round(rect.right - TRIGGER_SIZE - GAP)}px ${Math.round(rect.top + (rect.height - TRIGGER_SIZE) / 2)}px`
+        }
       }
       place()
 
@@ -152,6 +227,8 @@ export default defineContentScript({
 
     let suggestionDismissed = false
 
+    let suggestionInputCleanup: (() => void) | null = null
+
     function mountAutofillSuggestion(
       element: HTMLElement,
       _field: { label: string },
@@ -162,6 +239,8 @@ export default defineContentScript({
       if (!detectedField || !detection) return
 
       closeCard()
+      dismissInputListeners()
+
       const rect = element.getBoundingClientRect()
       const anchor = { top: rect.top, left: rect.left, width: rect.width, height: rect.height }
 
@@ -169,24 +248,52 @@ export default defineContentScript({
         kind: 'menu',
         anchor,
         actions: [{ id: 'fill', label: value, glyph: 'check' }],
-        note: { text: '↵ Enter to fill' },
-        autofocus: true,
+        note: { text: 'Click to fill' },
+        autofocus: false,
         closeable: true,
         onSelect: (id) => {
           closeCard()
+          dismissInputListeners()
           if (id === 'fill') void detection?.adapter.applyValue(detectedField, value)
         },
         onClose: () => {
           suggestionDismissed = true
           closeCard()
+          dismissInputListeners()
           element.focus()
         },
       })
+
+      const onInput = () => {
+        closeCard()
+        dismissInputListeners()
+      }
+      const onKeydown = (event: KeyboardEvent) => {
+        if (event.key === 'Escape') {
+          closeCard()
+          dismissInputListeners()
+          suggestionDismissed = true
+        }
+      }
+
+      element.addEventListener('input', onInput)
+      element.addEventListener('keydown', onKeydown)
+
+      suggestionInputCleanup = () => {
+        element.removeEventListener('input', onInput)
+        element.removeEventListener('keydown', onKeydown)
+      }
+    }
+
+    function dismissInputListeners() {
+      suggestionInputCleanup?.()
+      suggestionInputCleanup = null
     }
 
     function showFieldAssist(element: HTMLElement) {
       if (filling || card) return
       if (!detection) return
+      if (!settings.inlineAutofill) return
       const fieldId = fieldIdFor(element)
       if (!fieldId) return
       const field = detection.form.fields.find((f) => f.id === fieldId)
@@ -271,6 +378,7 @@ export default defineContentScript({
     }
 
     function ensureLauncher() {
+      if (!settings.showLauncher) return
       const count = !muted && detection ? detection.form.fields.length : 0
       if (count === 0) {
         launcher?.destroy()

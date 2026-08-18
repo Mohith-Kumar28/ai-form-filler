@@ -69,7 +69,8 @@ function escapeHtml(value: string): string {
   )
 }
 
-/** Below the anchor by default, above when there is no room. */
+/** Below the anchor by default, above when there is no room. Right-aligned normally;
+ *  centered when the anchor is too narrow for a right-flush card to read as connected. */
 function place(
   anchor: Rect,
   size: { width: number; height: number },
@@ -79,12 +80,25 @@ function place(
   const fitsBelow = below + size.height + MARGIN <= window.innerHeight
 
   const top = fitsBelow ? below : Math.max(MARGIN, above)
-  const left = Math.min(
-    Math.max(MARGIN, anchor.left + anchor.width - size.width),
-    window.innerWidth - size.width - MARGIN,
-  )
 
-  return { top, left: Math.max(MARGIN, left), originX: '100%', originY: fitsBelow ? '0%' : '100%' }
+  const narrow = anchor.width < 100
+
+  const left = narrow
+    ? Math.min(
+        Math.max(MARGIN, anchor.left + anchor.width / 2 - size.width / 2),
+        window.innerWidth - size.width - MARGIN,
+      )
+    : Math.min(
+        Math.max(MARGIN, anchor.left + anchor.width - size.width),
+        window.innerWidth - size.width - MARGIN,
+      )
+
+  return {
+    top,
+    left: Math.max(MARGIN, left),
+    originX: narrow ? '50%' : '100%',
+    originY: fitsBelow ? '0%' : '100%',
+  }
 }
 
 function mountCard(spec: CardSpec, content: HTMLElement): CardHandle {

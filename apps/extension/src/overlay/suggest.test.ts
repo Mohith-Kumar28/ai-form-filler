@@ -112,4 +112,22 @@ describe('suggestForField', () => {
       suggestForField({ label: 'What is your favourite colour?', kind: 'text' }, FACTS),
     ).toBeNull()
   })
+
+  it('returns null when autocomplete is off, even if the label matches', () => {
+    expect(
+      suggestForField(
+        { label: 'Email address', autocomplete: 'off', kind: 'email' },
+        FACTS,
+      ),
+    ).toBeNull()
+  })
+
+  it('returns null when autocomplete is one-time-code', () => {
+    expect(
+      suggestForField(
+        { label: 'Verification code', autocomplete: 'one-time-code', kind: 'text' },
+        FACTS,
+      ),
+    ).toBeNull()
+  })
 })

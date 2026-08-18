@@ -115,6 +115,7 @@ export function suggestForField(
   if (!SUGGESTABLE_KINDS.has(field.kind)) return null
 
   const ac = (field.autocomplete ?? '').toLowerCase()
+  if (ac === 'off' || ac === 'one-time-code') return null
   const label = field.label.toLowerCase().trim()
 
   // A native autocomplete token is the strongest signal — trust it before label guessing.

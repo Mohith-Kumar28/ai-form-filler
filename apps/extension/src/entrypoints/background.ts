@@ -6,6 +6,9 @@ import { hasSession, signIn, signOut } from '../lib/auth.js'
 import { registerFillPort, runFillFlow } from '../lib/fill-port.js'
 import { toResult } from '../lib/messaging.js'
 
+const SETTINGS_KEY = 'aff:settings'
+const DEFAULT_SETTINGS = { inlineAutofill: true, showLauncher: true }
+
 /** Where the most recent finished fill is parked for the side panel to pick up. */
 export const LAST_FILL_KEY = 'aff:lastFill'
 
@@ -239,6 +242,23 @@ export default defineBackground(() => {
           } catch {
             return null
           }
+        }).then(sendResponse)
+        return true
+
+      case 'settings/get':
+        void toResult(async () => {
+          const stored = (await chrome.storage.local.get(SETTINGS_KEY)) as Record<
+            string,
+            { inlineAutofill: boolean; showLauncher: boolean } | undefined
+          >
+          return stored[SETTINGS_KEY] ?? DEFAULT_SETTINGS
+        }).then(sendResponse)
+        return true
+
+      case 'settings/set':
+        void toResult(async () => {
+          await chrome.storage.local.set({ [SETTINGS_KEY]: request.settings })
+          return null
         }).then(sendResponse)
         return true
 

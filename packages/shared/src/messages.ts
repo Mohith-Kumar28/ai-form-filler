@@ -4,6 +4,11 @@ import type { FeedbackRequest, FillPlan } from './fill.js'
 import type { FormSchema } from './form.js'
 import type { Identity } from './profile.js'
 
+export interface Settings {
+  inlineAutofill: boolean
+  showLauncher: boolean
+}
+
 /**
  * One-shot messages over `chrome.runtime.sendMessage`. Anything that can take longer than
  * a second or two belongs on the port protocol below instead — an MV3 service worker can
@@ -70,6 +75,8 @@ export type Request =
   | { type: 'fill/improve'; label: string; value: string; instruction: string }
   | { type: 'sidepanel/open'; tabId: number }
   | { type: 'account/quota' }
+  | { type: 'settings/get' }
+  | { type: 'settings/set'; settings: Settings }
 
 /**
  * `null` rather than `void` for the no-payload cases: these cross a `postMessage` boundary
@@ -84,7 +91,9 @@ export type ResponseFor<R extends Request> = R extends { type: 'auth/signIn' }
       ? { identity: Identity; custom: Record<string, string> } | null
       : R extends { type: 'account/quota' }
         ? { used: number; limit: number; plan: string; exhausted: boolean }
-        : null
+        : R extends { type: 'settings/get' }
+          ? Settings
+          : null
 
 /** Discriminated result so callers never have to guess whether a throw or a value came back. */
 export type Result<T> = { ok: true; value: T } | { ok: false; error: ApiError }

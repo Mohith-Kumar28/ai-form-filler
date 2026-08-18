@@ -1,0 +1,12 @@
+[     160ms] TypeError: Cannot read properties of undefined (reading 'onChanged')
+    at ol (http://localhost:8765/chunks/sidepanel-B2MvS6LI.js:72:28332)
+    at http://localhost:8765/chunks/sidepanel-B2MvS6LI.js:72:100150
+    at Uc (http://localhost:8765/chunks/sidepanel-B2MvS6LI.js:8:91772)
+    at Ol (http://localhost:8765/chunks/sidepanel-B2MvS6LI.js:8:106901)
+    at Dl (http://localhost:8765/chunks/sidepanel-B2MvS6LI.js:8:106785)
+    at Ol (http://localhost:8765/chunks/sidepanel-B2MvS6LI.js:8:107664)
+    at Dl (http://localhost:8765/chunks/sidepanel-B2MvS6LI.js:8:106785)
+    at Ol (http://localhost:8765/chunks/sidepanel-B2MvS6LI.js:8:107664)
+    at Dl (http://localhost:8765/chunks/sidepanel-B2MvS6LI.js:8:106785)
+    at Ol (http://localhost:8765/chunks/sidepanel-B2MvS6LI.js:8:106881)
+[     152ms] [ERROR] Failed to load resource: the server responded with a status of 404 (File not found) @ http://localhost:8765/favicon.ico:0

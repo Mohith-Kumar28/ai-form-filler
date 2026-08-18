@@ -32,6 +32,7 @@ import {
   ScreenHeader,
   SegmentedControl,
   SkeletonRow,
+  SUNSET_GRADIENT,
 } from '../components.js'
 import {
   IconAlert,
@@ -167,7 +168,6 @@ function SourceRow({
   onRename,
 }: {
   source: ProfileSourcesItem
-  index: number
   onRemove: () => void
   onRename: (label: string) => void
 }) {
@@ -385,7 +385,7 @@ export function Sources({ profile }: { profile: Profile | undefined }) {
                     className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-bold text-white transition-[filter] hover:brightness-110"
                     style={{
                       background:
-                        'linear-gradient(135deg, var(--color-sparkle), var(--color-accent))',
+                        SUNSET_GRADIENT,
                     }}
                   >
                     <IconCrown className="size-3" />
@@ -414,7 +414,7 @@ export function Sources({ profile }: { profile: Profile | undefined }) {
                     className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-bold text-white transition-[filter] hover:brightness-110"
                     style={{
                       background:
-                        'linear-gradient(135deg, var(--color-sparkle), var(--color-accent))',
+                        SUNSET_GRADIENT,
                     }}
                   >
                     <IconCrown className="size-3" />
@@ -504,7 +504,7 @@ export function Sources({ profile }: { profile: Profile | undefined }) {
                   className="flex size-8 shrink-0 items-center justify-center rounded-full text-white transition-[filter] hover:brightness-110 active:brightness-95 disabled:pointer-events-none disabled:opacity-45"
                   style={{
                     background:
-                      'linear-gradient(135deg, var(--color-sparkle), var(--color-accent))',
+                      SUNSET_GRADIENT,
                   }}
                 >
                   <IconCheck className="size-4" />
@@ -568,11 +568,10 @@ export function Sources({ profile }: { profile: Profile | undefined }) {
               )}
             </div>
             <div>
-              {sources.map((source, i) => (
+              {sources.map((source) => (
                 <SourceRow
                   key={source.id}
                   source={source}
-                  index={Math.min(i, 8)}
                   onRename={(label) => rename.mutate({ id: source.id, data: { label } })}
                   onRemove={() => {
                     setRemoveError(null)

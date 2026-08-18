@@ -22,6 +22,9 @@ import {
 } from './icons.js'
 import { type TabName, useNavigation } from './navigation.js'
 
+export const SUNSET_GRADIENT = 'linear-gradient(135deg, var(--color-sparkle), var(--color-accent))'
+export const SUNSET_GRADIENT_180 = 'linear-gradient(180deg, var(--color-sparkle), var(--color-accent))'
+
 /* ── The screen leaf ─────────────────────────────────────────────────────── */
 
 /**
@@ -110,7 +113,7 @@ export function ScreenHeader({
               onClick={() => void openUpgrade()}
               className="inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[10.5px] font-bold text-white transition-[filter] hover:brightness-110 active:brightness-95"
               style={{
-                background: 'linear-gradient(135deg, var(--color-sparkle), var(--color-accent))',
+                background: SUNSET_GRADIENT,
               }}
             >
               <IconCrown className="size-2.5" />
@@ -232,7 +235,7 @@ export function Button({
         .join(' ')}
       style={
         variant === 'primary'
-          ? { background: 'linear-gradient(135deg, var(--color-sparkle), var(--color-accent))' }
+          ? { background: SUNSET_GRADIENT }
           : undefined
       }
       {...rest}
@@ -581,15 +584,22 @@ export interface MenuItem {
 export function OverflowMenu({ items, label }: { items: MenuItem[]; label: string }) {
   const [open, setOpen] = useState(false)
   const container = useRef<HTMLDivElement>(null)
+  const triggerRef = useRef<HTMLButtonElement>(null)
 
   useEffect(() => {
     if (!open) return
 
     const onPointer = (event: PointerEvent) => {
-      if (!container.current?.contains(event.target as Node)) setOpen(false)
+      if (!container.current?.contains(event.target as Node)) {
+        setOpen(false)
+        triggerRef.current?.focus()
+      }
     }
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setOpen(false)
+      if (event.key === 'Escape') {
+        setOpen(false)
+        triggerRef.current?.focus()
+      }
     }
 
     document.addEventListener('pointerdown', onPointer)
@@ -603,6 +613,7 @@ export function OverflowMenu({ items, label }: { items: MenuItem[]; label: strin
   return (
     <div ref={container} className="relative shrink-0">
       <button
+        ref={triggerRef}
         type="button"
         aria-label={label}
         aria-expanded={open}
@@ -797,6 +808,52 @@ export function ProBadge({ plan }: { plan: string }) {
   )
 }
 
+/* ── Toggle switch ─────────────────────────────────────────────────────────── */
+
+export function Toggle({
+  checked,
+  onChange,
+  disabled,
+  label,
+  description,
+}: {
+  checked: boolean
+  onChange: (value: boolean) => void
+  disabled?: boolean
+  label: string
+  description?: string
+}) {
+  return (
+    <button
+      type="button"
+      onClick={() => onChange(!checked)}
+      disabled={disabled}
+      className="flex w-full items-center gap-2.5 px-4 py-3 text-left transition-colors hover:bg-surface-muted disabled:opacity-50"
+    >
+      <span className="min-w-0 flex-1">
+        <span className="block text-[14px] text-ink">{label}</span>
+        {description && (
+          <span className="mt-0.5 block text-[12px] text-ink-dim">{description}</span>
+        )}
+      </span>
+      <span
+        role="switch"
+        aria-checked={checked}
+        aria-label={label}
+        className={`flex h-6 w-10 shrink-0 cursor-pointer items-center rounded-full px-0.5 transition-[background-color] duration-200 ${
+          checked ? 'bg-accent' : 'bg-surface-muted border border-border'
+        }`}
+      >
+        <span
+          className={`size-[18px] rounded-full bg-white shadow-[0_1px_3px_rgba(0,0,0,0.2)] transition-transform duration-200 ease-[cubic-bezier(0.34,1.56,0.64,1)] ${
+            checked ? 'translate-x-[18px]' : 'translate-x-0'
+          }`}
+        />
+      </span>
+    </button>
+  )
+}
+
 /* ── Usage bar ────────────────────────────────────────────────────────────── */
 
 export function UsageBar({
@@ -921,7 +978,7 @@ export function UpgradeSheet({ onClose, reason }: { onClose: () => void; reason?
               <span
                 className="flex size-5 shrink-0 items-center justify-center rounded-full"
                 style={{
-                  background: 'linear-gradient(135deg, var(--color-sparkle), var(--color-accent))',
+                  background: SUNSET_GRADIENT,
                 }}
               >
                 <svg
