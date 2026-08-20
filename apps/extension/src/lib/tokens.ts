@@ -13,7 +13,7 @@
  * for what came from you, and warm neutrals that are never pure gray or pure black.
  *
  *   filled    came from your own info — the friendly green, nothing to check
- *   aiWrote   the AI wrote it on your behalf — hot pink + a sparkle, needs a look
+ *   judged    the tool concluded it rather than reading it — accent + a sparkle, on a tab
  *   broken    a fault — coral, and never pink, so an AI answer never reads as an error
  */
 

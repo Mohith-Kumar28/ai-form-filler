@@ -82,6 +82,23 @@ const LABEL_SLOTS: { slot: IdentitySlot; pattern: RegExp }[] = [
 const NOT_ABOUT_APPLICANT =
   /\b(company|employer|organi[sz]ation|school|university|college|institution|reference|referee|emergency|manager|supervisor|recruiter|contact person|previous|current employer)\b/i
 
+/**
+ * Whether a field is asking about this person rather than an employer, referee, or contact.
+ *
+ * Exported because the *learning* side needs the same judgement and had no access to it.
+ * `identitySlotFor` used this to refuse writing an emergency contact's number into the user's
+ * profile — correctly — but the answer then fell through to the memory write instead, so a
+ * stranger's phone number became a retrievable passage in the index that answers every later
+ * question. That is a worse outcome than the bug the check was added to prevent, and it
+ * happened precisely *because* the check worked.
+ *
+ * Takes the assembled haystack rather than a field, because the two callers have different
+ * shapes in hand: a `FieldSchema` at fill time, a feedback entry at learning time.
+ */
+export function isAboutApplicant(haystack: string): boolean {
+  return !NOT_ABOUT_APPLICANT.test(haystack)
+}
+
 /** Long-form question markers — these want prose, not a fact. */
 const ESSAY_PATTERN =
   /\b(why|describe|tell us|explain|how would|what makes|cover letter|motivation|elaborate|in your own words|share|walk us through|passionate|interest(ed)? in)\b/i
@@ -100,7 +117,7 @@ export function identitySlotFor(field: FieldSchema): IdentitySlot | undefined {
   // A field asking about an employer or reference is never about the applicant, whatever
   // its label pattern-matches. Checked before anything else so it can't be overridden.
   const haystack = `${field.label} ${field.section ?? ''} ${field.hint ?? ''}`
-  if (NOT_ABOUT_APPLICANT.test(haystack)) return undefined
+  if (!isAboutApplicant(haystack)) return undefined
 
   if (field.autocomplete) {
     const token = field.autocomplete.split(/\s+/).pop() ?? ''

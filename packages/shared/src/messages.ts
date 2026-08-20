@@ -18,23 +18,20 @@ export type Request =
   | { type: 'auth/signIn' }
   | { type: 'auth/signOut' }
   /**
-   * Sent by the page's field chip.
+   * A fill asked for by the page used to live here, as `overlay/requestFill`, with
+   * `overlay/cancelFill` beside it to stop one. Both are gone: the page opens the same fill
+   * port the side panel uses.
    *
-   * `scope: 'field'` fills only the field the chip is attached to. It is a separate scope
-   * rather than a one-element form because the quota is denominated in *forms*: spending one
-   * of fifty monthly fills on a single input would make the chip's cheapest action feel like
-   * its most expensive one. See `enforceQuota` in the Worker.
-   */
-  | { type: 'overlay/requestFill'; scope: 'form' | 'field'; fieldId?: string }
-  /**
-   * Stop a fill started from the page.
+   * They were the documented-fragile path (see the note above, and HANDOFF 7.3) and they failed
+   * in the documented way. A fill is one `sendMessage` whose reply comes ten seconds later, so
+   * when the service worker was torn down mid-fill the page was told nothing at all — and the
+   * content script, which sets `filling = true` before sending, then refused every later click
+   * as "a fill is already running". One dead worker and the launcher was inert for the life of
+   * the tab, while the panel's port-based fill went on working. Which is exactly how it was
+   * reported: the sidebar fills, the button does nothing.
    *
-   * The panel's fill runs over a port whose disconnect is the cancel signal; a page-initiated
-   * one is a one-shot message with no channel to close, so it needs its own. Without this the
-   * Stop button only hid the progress popover while the fill carried on and wrote its answers
-   * in anyway — a control that says stop and does not stop.
+   * A port cannot fail that way. Its disconnect *is* the signal, and cancelling is closing it.
    */
-  | { type: 'overlay/cancelFill' }
   /** The chip's Review action, opening the panel on the judgement calls. */
   | { type: 'overlay/openPanel' }
   /** Request known facts (identity + custom) for instant inline suggestions. */
@@ -49,16 +46,31 @@ export type Request =
    */
   | { type: 'content/highlight'; fieldId: string }
   /**
-   * Write one reviewed answer back into the page.
+   * Open the answer card on the page for one field.
    *
-   * The panel cannot reach the tab itself, so this goes through the worker. An empty
-   * `value` clears the field, which is what rejecting an answer does.
+   * Sent from the panel's stepper. The panel no longer edits answers itself — there is one
+   * editor and it is on the page, beside the question it belongs to — so the panel's job here
+   * is to point at a field and get out of the way. Replaces `review/write`, which existed
+   * because the panel used to own the editing and had to reach through the worker to apply it.
    */
-  | { type: 'review/write'; fieldId: string; value: string }
+  | { type: 'review/open'; fieldId: string }
+  /**
+   * A verdict was reached on the page.
+   *
+   * Broadcast so an open panel's receipt stays true while the user works in the form. The page
+   * is the authority now, and this is the only thing that keeps the two from disagreeing. It is
+   * fire-and-forget: nothing breaks when the panel is closed, which is the ordinary case.
+   */
+  | {
+      type: 'review/verdict'
+      fieldId: string
+      verdict: 'accepted' | 'edited' | 'cleared'
+      value: string
+    }
   /**
    * A field has been dealt with, so the page can take its mark off.
    *
-   * Separate from `review/write` because accepting an answer writes nothing — the page already
+   * Separate from a verdict because accepting an answer writes nothing — the page already
    * holds the value. Without this message, agreeing with a concluded answer in the panel left
    * its endorsement stamp on the field forever, and the only thing that could clear a stamp was
    * changing the answer you had just said was right.
@@ -85,15 +97,27 @@ export type Request =
  */
 export type ResponseFor<R extends Request> = R extends { type: 'auth/signIn' }
   ? Account
-  : R extends { type: 'fill/improve' }
-    ? { value: string }
-    : R extends { type: 'profile/knownFacts' }
-      ? { identity: Identity; custom: Record<string, string> } | null
-      : R extends { type: 'account/quota' }
-        ? { used: number; limit: number; plan: string; exhausted: boolean }
-        : R extends { type: 'settings/get' }
-          ? Settings
-          : null
+  : R extends { type: 'feedback/submit' }
+    ? /**
+       * How much of what was reported actually landed — identity fields written, answers
+       * stored, rejections recorded.
+       *
+       * This used to be discarded. Learning was then unfalsifiable from the outside: the user
+       * corrected an answer, nothing acknowledged it, and the only way to find out whether it
+       * had been remembered was to fill another form days later and see. When it silently
+       * failed — a dead session, a validation error on one entry taking the batch with it — the
+       * product looked like it had simply chosen not to learn.
+       */
+      { recorded: number }
+    : R extends { type: 'fill/improve' }
+      ? { value: string }
+      : R extends { type: 'profile/knownFacts' }
+        ? { identity: Identity; custom: Record<string, string> } | null
+        : R extends { type: 'account/quota' }
+          ? { used: number; limit: number; plan: string; exhausted: boolean }
+          : R extends { type: 'settings/get' }
+            ? Settings
+            : null
 
 /** Discriminated result so callers never have to guess whether a throw or a value came back. */
 export type Result<T> = { ok: true; value: T } | { ok: false; error: ApiError }
@@ -106,8 +130,14 @@ export type Result<T> = { ok: true; value: T } | { ok: false; error: ApiError }
 export type ContentRequest =
   | { type: 'content/detect' }
   | { type: 'content/apply'; plan: FillPlan }
-  /** A single field, corrected or cleared from the review. No animation, no plan. */
-  | { type: 'content/write'; fieldId: string; value: string }
+  /**
+   * Scroll to a field, flash it, and open its answer card.
+   *
+   * The panel's stepper drives this. It replaces `content/write`: the panel used to send a
+   * finished value for the page to apply, which meant two surfaces could hold different text
+   * for the same field and only one of them could fail to write it.
+   */
+  | { type: 'content/openCard'; fieldId: string }
   /** Scroll to a field and flash it, from a hovered review row. */
   | { type: 'content/highlight'; fieldId: string }
   /** Take the mark off a field the user has finished with. */
@@ -122,11 +152,9 @@ export interface ApplyReport {
 
 export type ContentResponseFor<R extends ContentRequest> = R extends { type: 'content/detect' }
   ? FormSchema | null
-  : R extends { type: 'content/write' }
-    ? boolean
-    : R extends { type: 'content/highlight' | 'content/resolved' }
-      ? null
-      : ApplyReport
+  : R extends { type: 'content/highlight' | 'content/resolved' | 'content/openCard' }
+    ? null
+    : ApplyReport
 
 export { FILL_PORT } from './constants.js'
 
@@ -140,7 +168,14 @@ export { FILL_PORT } from './constants.js'
 export type FillPortRequest =
   | {
       type: 'start'
-      tabId: number
+      /**
+       * Which tab to fill. Optional, and only the side panel ever sets it.
+       *
+       * A port opened by a content script already identifies its own tab — the service worker
+       * reads it off `port.sender` — and a page able to *name* the tab to fill would be a page
+       * able to ask us to fill somebody else's.
+       */
+      tabId?: number
       overwriteExisting: boolean
       /** Absent means the whole form. A single field is filled without spending quota. */
       onlyFieldId?: string

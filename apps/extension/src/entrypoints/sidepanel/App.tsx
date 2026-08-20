@@ -13,7 +13,7 @@ import { AddSource } from './screens/AddSource.js'
 import { Filling } from './screens/Filling.js'
 import { Home } from './screens/Home.js'
 import { Profile } from './screens/Profile.js'
-import { Review } from './screens/Review.js'
+import { Receipt } from './screens/Receipt.js'
 import { SourceDetail } from './screens/SourceDetail.js'
 import { Sources } from './screens/Sources.js'
 import { Welcome } from './screens/Welcome.js'
@@ -49,7 +49,7 @@ function useFillNavigation(status: string) {
     }
 
     if (status === 'done' && (nav.screen.name === 'filling' || nav.screen.name === 'home')) {
-      nav.replace({ name: 'review' })
+      nav.replace({ name: 'receipt' })
     }
   }, [status, nav])
 }
@@ -122,9 +122,9 @@ function Stack() {
           />
         )
 
-      case 'review':
+      case 'receipt':
         return fill.state.plan ? (
-          <Review
+          <Receipt
             plan={fill.state.plan}
             report={fill.state.report}
             tabId={fill.state.tabId ?? page.tabId}

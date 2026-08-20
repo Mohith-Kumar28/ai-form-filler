@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { LEARN_MAX_OPTIONS } from './constants.js'
 import { FieldKind, FormSchema } from './form.js'
 
 /**
@@ -148,9 +149,30 @@ export const FeedbackRequest = z.object({
          */
         section: z.string().max(200).optional(),
         hint: z.string().max(400).optional(),
+        /**
+         * The choices this answer was picked out of.
+         *
+         * A choice recorded without its option set is close to unusable later: "10" means
+         * nothing on its own, while "10, chosen from 1-10" is a fact about the person. The
+         * question alone does not recover it either — plenty of forms ask "How would you rate
+         * it?" without saying out of what.
+         *
+         * **Labels, not values.** An option's `value` is a page-local token (`opt_3`,
+         * Google's generated data-values) and carries no meaning on the next site; the label
+         * is the words the user actually saw and chose.
+         *
+         * Omitted entirely above `LEARN_MAX_OPTIONS`. A 200-country dropdown's option set is
+         * payload rather than information, and it would reach a prompt.
+         */
+        options: z.array(z.string().max(120)).max(LEARN_MAX_OPTIONS).optional(),
         /** What we proposed. Absent if the user typed into a field we skipped. */
         proposed: z.string().max(4000).optional(),
-        /** What the user actually kept. Capped: this can reach the cached prompt prefix. */
+        /**
+         * What the user actually kept. Capped: this can reach the cached prompt prefix.
+         *
+         * Empty **only** when `rejected` is true. The server used to drop every blank
+         * `accepted` on arrival, which is what made a cleared answer teach nothing.
+         */
         accepted: z.string().max(4000),
         edited: z.boolean(),
         /**
@@ -160,11 +182,34 @@ export const FeedbackRequest = z.object({
          * otherwise thrown away entirely — the next form re-derives it from scratch and may
          * land somewhere else — so confirming is what turns a judgement call into a fact.
          *
-         * There is deliberately no "incorrect" counterpart. A rejection says an answer was
-         * wrong without saying what is right, and storing that in the index the next answer
-         * is retrieved from would degrade later answers rather than improve them.
+         * Distinct from `rejected`, which is the other half of the same idea.
          */
         confirmed: z.boolean().optional(),
+        /**
+         * The user rejected what we proposed and put nothing in its place.
+         *
+         * There was deliberately no counterpart to `confirmed` for a long time, and the
+         * reasoning was sound as far as it went: a rejection says an answer was wrong without
+         * saying what is right, and storing that in the index the next answer is *retrieved*
+         * from degrades later answers rather than improving them.
+         *
+         * The mistake was concluding that the signal itself was worthless. Clearing an answer
+         * is the second-strongest thing the user ever tells us, and throwing it away means the
+         * next form confidently offers the same wrong answer again. So it is carried — and it
+         * is stored somewhere retrieval cannot reach, as a short per-question "not this" list
+         * rather than as a passage. No document is ever written for it.
+         *
+         * When true, `accepted` is empty and `proposed` is what was rejected.
+         */
+        rejected: z.boolean().optional(),
+        /**
+         * Which capture produced this.
+         *
+         * Recorded so the volume of per-edit learning can be told apart from submit-time
+         * learning in the logs. It never affects where or whether an answer is stored — if it
+         * ever starts to, the two paths have diverged and that is the bug.
+         */
+        trigger: z.enum(['settle', 'submit', 'review']).optional(),
       }),
     )
     // One form cannot teach more than this. Without a cap a single submit can write an

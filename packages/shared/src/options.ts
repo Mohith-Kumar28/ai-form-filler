@@ -135,3 +135,28 @@ export function matchOptions<T>(
       .trim(),
   }
 }
+
+/** Strings a model — or a page — plausibly uses for a yes/no checkbox. */
+const AFFIRMATIVE = /^(yes|true|on|1|checked|agree(d)?|i agree|accept(ed)?|confirm(ed)?)$/i
+const NEGATIVE = /^(no|false|off|0|unchecked|decline(d)?|n\/?a|none|not applicable)$/i
+
+/**
+ * What a yes/no answer means, or `null` when it means nothing we recognise.
+ *
+ * A lone checkbox used to be written as `AFFIRMATIVE.test(value)`, so "N/A", "United
+ * States", or any hallucinated answer became a silent "leave unchecked" **reported as a
+ * success**. That makes a wrong answer indistinguishable from a deliberate one, both in the
+ * UI and in the fill log. Returning `null` lets the caller report the failure honestly.
+ *
+ * Lives here, beside `matchOptions`, for the same reason that does: both ends of the learning
+ * loop need the identical rule. The adapter reads this to decide whether to tick a box, and
+ * the server reads it to decide whether the stored answer reads "Yes" or "No". Two
+ * definitions of what "N/A" means would drift, and a box ticked one way and remembered the
+ * other is a wrong answer the user never sees.
+ */
+export function readIntent(value: string): boolean | null {
+  const trimmed = value.trim()
+  if (AFFIRMATIVE.test(trimmed)) return true
+  if (NEGATIVE.test(trimmed)) return false
+  return null
+}

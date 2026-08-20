@@ -4,7 +4,7 @@
  *
  * The `learned` store is gone (see `answer-bank.ts` for why). Answers written before the
  * Supermemory mirror existed live *only* in D1, so deleting the field without this would lose
- * them. Written in the same `Question: … / Their answer: …` shape `rememberUserWriting` uses, so
+ * them. Written in the same `Question: … / Their answer: …` shape `learnedDocument` emits for prose, so
  * a migrated answer is indistinguishable from one learned today.
  *
  * Idempotent: it strips `learned` from the stored profile as it goes, so a second run finds

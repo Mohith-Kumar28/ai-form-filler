@@ -9,7 +9,7 @@ import {
 import { useQueryClient } from '@tanstack/react-query'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { getGetAccountQueryKey } from '../generated/endpoints/account/account.js'
-import { clearDraft } from './review-store.js'
+import { applyVerdict, clearDraft, hydrate, type Verdict } from './review-store.js'
 
 /**
  * Extracted with `Extract` rather than a bare conditional: `FillPortEvent extends {...}` tests
@@ -59,7 +59,34 @@ export function useFill() {
    * they now live in `review-store`, keyed by tab, and survive the screen going away.
    */
   useEffect(() => {
-    const onRuntimeMessage = (message: { type?: string; event?: FillPortEvent }) => {
+    const onRuntimeMessage = (message: {
+      type?: string
+      event?: FillPortEvent
+      fieldId?: string
+      verdict?: string
+      value?: string
+    }) => {
+      /**
+       * A verdict reached on the page, while the panel happens to be open.
+       *
+       * The page is the authority for answers now, and this is the only thing keeping the
+       * receipt honest while the user works in the form beside it.
+       */
+      if (message?.type === 'review/verdict' && message.fieldId && message.verdict) {
+        void (async () => {
+          const [tab] = await chrome.tabs.query({ active: true, currentWindow: true })
+          if (tab?.id !== undefined) {
+            applyVerdict(
+              tab.id,
+              message.fieldId as string,
+              message.verdict as Verdict,
+              message.value ?? '',
+            )
+          }
+        })()
+        return
+      }
+
       if (message?.type !== 'fill/event' || !message.event) return
       const event = message.event
 
@@ -104,10 +131,24 @@ export function useFill() {
       const [tab] = await chrome.tabs.query({ active: true, currentWindow: true })
       const stored = await chrome.storage.session.get('aff:lastFill')
       const last = stored['aff:lastFill'] as
-        | { tabId: number; plan: FillPlan; report: ApplyReport }
+        | {
+            tabId: number
+            plan: FillPlan
+            report: ApplyReport
+            verdicts?: Record<string, { verdict: string; value: string }>
+          }
         | undefined
 
       if (cancelled || !last || tab?.id !== last.tabId) return
+
+      /**
+       * Verdicts first, so the receipt never counts a settled answer as outstanding.
+       *
+       * The panel's own store dies with the panel, and the page is where answers are actually
+       * dealt with — so without this, closing and reopening the panel showed every judgement
+       * call as still needing attention, including the ones just handled on the form.
+       */
+      if (last.verdicts) hydrate(last.tabId, last.verdicts)
 
       setState((prev) =>
         prev.status === 'idle'

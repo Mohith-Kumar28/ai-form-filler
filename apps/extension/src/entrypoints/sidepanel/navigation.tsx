@@ -13,7 +13,7 @@ import {
  *
  * The panel is a docked control surface, not a website, so there are no URLs to parse. The
  * three tabs are the whole app — Fill, My info, Account — and everything else (filling in
- * progress, a review, adding a source, a source's detail) pushes on top of whichever tab is
+ * progress, a receipt, adding a source, a source's detail) pushes on top of whichever tab is
  * current and pops back to it.
  */
 
@@ -27,7 +27,7 @@ export type Screen =
   | { name: 'yourInfo' }
   | { name: 'account' }
   | { name: 'filling' }
-  | { name: 'review' }
+  | { name: 'receipt' }
   | { name: 'addInfo'; initial?: AddKind }
   | { name: 'sourceDetail'; sourceId: string }
 

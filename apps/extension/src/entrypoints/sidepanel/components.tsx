@@ -285,7 +285,7 @@ export function Chip({ children, className = '' }: { children: ReactNode; classN
 /**
  * Marks an answer the AI wrote rather than read off the user's own info.
  *
- * Pink + sparkle — a clear signal this needs a look.
+ * Pink + sparkle — the mark of an answer the tool concluded rather than read.
  */
 export function AiBadge({ label = 'AI wrote it' }: { label?: string }) {
   return (
@@ -379,6 +379,7 @@ export function Row({
   detail,
   value,
   onClick,
+  onHover,
   trailing,
   tone = 'default',
 }: {
@@ -387,6 +388,14 @@ export function Row({
   detail?: ReactNode
   value?: ReactNode
   onClick?: () => void
+  /**
+   * Pointing at this row, by mouse or by keyboard.
+   *
+   * On the row's own interactive element rather than a wrapper, so it is reachable by tab as
+   * well as by pointer — and so it does not need a `<div>` carrying handlers no keyboard user
+   * can ever reach.
+   */
+  onHover?: () => void
   trailing?: ReactNode
   tone?: 'default' | 'danger'
 }) {
@@ -422,6 +431,7 @@ export function Row({
     <button
       type="button"
       onClick={onClick}
+      {...(onHover ? { onMouseEnter: onHover, onFocus: onHover } : {})}
       className={`${shared} transition-colors hover:bg-surface-muted`}
     >
       {body}

@@ -7,7 +7,7 @@ import { AddSource } from '../src/entrypoints/sidepanel/screens/AddSource.js'
 import { Filling } from '../src/entrypoints/sidepanel/screens/Filling.js'
 import { Home } from '../src/entrypoints/sidepanel/screens/Home.js'
 import { Profile } from '../src/entrypoints/sidepanel/screens/Profile.js'
-import { Review } from '../src/entrypoints/sidepanel/screens/Review.js'
+import { Receipt } from '../src/entrypoints/sidepanel/screens/Receipt.js'
 import { SourceDetail } from '../src/entrypoints/sidepanel/screens/SourceDetail.js'
 import { Sources } from '../src/entrypoints/sidepanel/screens/Sources.js'
 import { Welcome } from '../src/entrypoints/sidepanel/screens/Welcome.js'
@@ -118,8 +118,8 @@ function Gallery() {
             />
           </Frame>
 
-          <Frame label="Review" note="two concluded, one unsure">
-            <Review plan={PLAN} report={REPORT} tabId={1} onDone={() => undefined} />
+          <Frame label="Receipt" note="a ledger, and a stepper for the judgement calls">
+            <Receipt plan={PLAN} report={REPORT} tabId={1} onDone={() => undefined} />
           </Frame>
 
           <Frame label="Your info" note="about you, facts, documents">

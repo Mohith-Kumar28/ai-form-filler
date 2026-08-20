@@ -17,16 +17,19 @@ import { resolveModel } from './provider.js'
  * Memory is retrieved again for the same reason it is retrieved during a fill: "add more
  * detail" is impossible to honour without the facts to add, and inventing them is the one
  * failure this feature could introduce that the user cannot easily catch.
+ *
+ * ### There is deliberately no preset vocabulary here
+ *
+ * There was one — `IMPROVE_STYLES`, four carefully written sentences — and **nothing ever
+ * imported it**. The panel sent `instruction: style.key`, so this function received the word
+ * "professional" and passed the line `Instruction: professional` to a frontier model. The
+ * sentences never reached a model once.
+ *
+ * The presets now live in `@aff/shared/rewrite`, on the side that shows them to the user, and
+ * arrive here as the full sentence — identical in kind to something they typed themselves.
+ * That is what makes the failure impossible rather than merely fixed: what the chip says and
+ * what the model is told are one object, so they cannot drift apart again.
  */
-
-export const IMPROVE_STYLES = {
-  professional: 'Rewrite it more formally and precisely, as if for a hiring manager.',
-  simpler: 'Rewrite it in plainer language. Shorter words, shorter sentences, no jargon.',
-  shorter: 'Cut it to the essentials. Keep every fact, remove everything else.',
-  detailed: 'Expand it with specifics drawn from the passages — concrete facts, not adjectives.',
-} as const
-
-export type ImproveStyle = keyof typeof IMPROVE_STYLES
 
 const SYSTEM = `You rewrite a single answer a person is about to submit on a form.
 

@@ -1,4 +1,10 @@
-import { type FieldKind, type FieldOption, type FieldSchema, matchOptions } from '@aff/shared'
+import {
+  type FieldKind,
+  type FieldOption,
+  type FieldSchema,
+  matchOptions,
+  readIntent,
+} from '@aff/shared'
 import { resolveHint, resolveLabel, resolveSection } from './label.js'
 import type { DetectedField, DetectedForm, FormAdapter } from './types.js'
 import {
@@ -140,25 +146,6 @@ function optionsOf(select: HTMLSelectElement): FieldOption[] {
       .filter((o) => o.value !== '')
       .map((o) => ({ value: o.value, label: o.text.trim() }))
   )
-}
-
-/** Strings a model plausibly returns for a yes/no checkbox. */
-const AFFIRMATIVE = /^(yes|true|on|1|checked|agree(d)?|i agree|accept(ed)?|confirm(ed)?)$/i
-const NEGATIVE = /^(no|false|off|0|unchecked|decline(d)?|n\/?a|none|not applicable)$/i
-
-/**
- * What a yes/no answer means, or `null` when it means nothing we recognise.
- *
- * A lone checkbox used to be written as `AFFIRMATIVE.test(value)`, so "N/A", "United
- * States", or any hallucinated answer became a silent "leave unchecked" **reported as a
- * success**. That makes a wrong answer indistinguishable from a deliberate one, both in the
- * UI and in the fill log. Returning `null` lets the caller report the failure honestly.
- */
-function readIntent(value: string): boolean | null {
-  const trimmed = value.trim()
-  if (AFFIRMATIVE.test(trimmed)) return true
-  if (NEGATIVE.test(trimmed)) return false
-  return null
 }
 
 export function baseSchema(el: HTMLElement, kind: FieldKind, id: string): FieldSchema {

@@ -10,13 +10,29 @@ import {
 import { fillForm } from '../generated/endpoints/fill/fill.js'
 
 /**
- * Orchestrates a fill across three contexts: the side panel asks, the content script reads
- * and writes the page, and the Worker does the thinking.
+ * Orchestrates a fill across three contexts: something asks, the content script reads and
+ * writes the page, and the Worker does the thinking.
  *
  * A port rather than one-shot `sendMessage` for two reasons: a fill can take ten seconds or
  * more at tier 3, and an MV3 service worker can be killed mid-flight. The port's disconnect
  * event is the only reliable signal that happened.
+ *
+ * **Both** callers use it now. The page's launcher used to send a one-shot
+ * `overlay/requestFill` instead, and it failed in precisely the way this comment warned about:
+ * the worker died mid-fill, nothing reached the page, and the content script — which sets
+ * `filling = true` before sending — then treated every later click as "a fill is already
+ * running". The launcher went permanently inert while the panel's port fill kept working, which
+ * is indistinguishable from the page being unable to fill without the panel open.
  */
+
+/**
+ * Where a finished fill is parked, so a panel opened *after* it has something to show.
+ *
+ * Lives here rather than in `background.ts` because this is the only place that knows a fill
+ * has completed. It used to be written from the page path only, so a fill started in the panel,
+ * then closed and reopened, came back empty.
+ */
+export const LAST_FILL_KEY = 'aff:lastFill'
 
 async function askContentScript<R extends ContentRequest>(
   tabId: number,
@@ -115,6 +131,16 @@ export function registerFillPort(): void {
   chrome.runtime.onConnect.addListener((port) => {
     if (port.name !== 'aff:fill') return
 
+    /**
+     * A port opened by a content script names its own tab, and is trusted to name only that.
+     *
+     * `port.sender.tab` is set by the browser, not by the page, so this cannot be spoofed into
+     * filling a different tab. The panel has no `sender.tab` and says which tab it is looking
+     * at instead.
+     */
+    const senderTabId = port.sender?.tab?.id
+    const fromPage = senderTabId !== undefined
+
     let cancelled = false
     port.onDisconnect.addListener(() => {
       cancelled = true
@@ -127,16 +153,48 @@ export function registerFillPort(): void {
       }
       if (request.type !== 'start') return
 
-      const tabId = request.tabId
+      const tabId = senderTabId ?? request.tabId
+      if (tabId === undefined) {
+        try {
+          port.postMessage({
+            type: 'error',
+            error: { code: 'INVALID_REQUEST', message: 'No tab to fill.' },
+          } satisfies FillPortEvent)
+        } catch {
+          // The asker has already gone. Nothing to report to.
+        }
+        return
+      }
+
+      /**
+       * The port's owner hears everything; the *other* surface is told too, if it is listening.
+       *
+       * Which surface that is depends on who asked. A panel-initiated fill has to reach the page
+       * so the launcher can show progress; a page-initiated one has to reach the panel for the
+       * same reason. Sending to the port's own owner twice is what would go wrong here: the
+       * content script would receive each event once over the port and once as a broadcast, and
+       * `tabs.sendMessage` is asynchronous, so the duplicate `complete` could arrive after the
+       * port had already disconnected — reported to the user as an interrupted fill.
+       */
       const emit = (event: FillPortEvent) => {
-        // The panel is the primary receiver; the page is told too so the launcher can show
-        // progress. Neither having a listener is a normal state.
         try {
           if (!cancelled) port.postMessage(event)
         } catch {
           cancelled = true
         }
-        void chrome.tabs.sendMessage(tabId, { type: 'fill/event', event }).catch(() => undefined)
+
+        if (fromPage) {
+          // Reaches an open side panel. Nobody listening is the ordinary case.
+          void chrome.runtime.sendMessage({ type: 'fill/event', event }).catch(() => undefined)
+        } else {
+          void chrome.tabs.sendMessage(tabId, { type: 'fill/event', event }).catch(() => undefined)
+        }
+
+        if (event.type === 'complete') {
+          void chrome.storage.session
+            .set({ [LAST_FILL_KEY]: { tabId, plan: event.plan, report: event.report } })
+            .catch(() => undefined)
+        }
       }
 
       void (async () => {

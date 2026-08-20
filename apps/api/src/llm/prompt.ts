@@ -11,7 +11,9 @@ import type { Classification } from '../router/classify.js'
  * `tools` or `system` invalidates the cached profile on every single request.
  *
  * There is no error when that happens. The only symptom is `cacheReadTokens: 0` and a bill
- * roughly ten times the modelled one — which is why `fill.integration.test.ts` asserts on it.
+ * roughly ten times the modelled one. `prompt.test.ts` pins the prefix by hash for that reason:
+ * an edit up here should fail a test rather than arrive as a bill. (It used to claim a
+ * `fill.integration.test.ts` asserted this. There was no such file, and so no such guard.)
  *
  * The specific trap: `generateObject` synthesises a *new tool per schema*. Using it with a
  * per-form schema would silently disable caching forever. Hence the fixed tool below and
@@ -119,7 +121,29 @@ export interface UserMessageInput {
    * association means the model is told *which* question each passage was found for, instead
    * of being handed one undifferentiated pile for twenty fields.
    */
-  retrieved?: Map<string, { text: string; source: string; score: number }[]>
+  retrieved?: Map<
+    string,
+    {
+      text: string
+      source: string
+      score: number
+      /** Set when the passage is an answer this person gave to a form question before. */
+      past?: { question: string; answer: string }
+    }[]
+  >
+  /**
+   * Values this person has already rejected for a question, keyed by field id.
+   *
+   * The counterpart to a confirmation, and it deliberately does **not** live in the retrieval
+   * index. A passage reading "this answer was wrong" is retrieved by the same question next
+   * time and drags the new answer toward the very thing it was warning about; stated here as an
+   * instruction instead, it does the opposite.
+   *
+   * Bounded by the form rather than by history — at most three values per question, only for
+   * questions this page asks — so it cannot grow with use, which is what makes it safe to put
+   * in a prompt at all.
+   */
+  avoid?: Map<string, string[]>
 }
 
 /**
@@ -137,12 +161,41 @@ export function buildUserMessage(input: UserMessageInput): string {
    */
   const blocks: string[] = []
   /**
+   * Answers this person has given to a form question before, stated separately.
+   *
+   * The change that made corrections stick. These arrived mixed in with everything else —
+   * résumé paragraphs, scraped pages, notes — under a heading that called the whole pile
+   * "documents and past answers" and told the model not to copy verbatim. So the single
+   * strongest thing the product knows was presented as background reading, and asked the same
+   * question a second time the model would duly compose something new and generic out of it.
+   * From the user's side that is indistinguishable from the answer never having been learned:
+   * they type a sentence they care about, and the next fill writes over it with prose.
+   *
+   * Kept apart rather than merely reordered, because the instruction that has to accompany them
+   * is the opposite one — *reuse this* rather than *do not copy this* — and one heading cannot
+   * carry both.
+   */
+  const past: string[] = []
+  /**
    * A passage is printed once, under the first question that retrieved it.
    *
    * Neighbouring questions on a form retrieve overlapping passages, and repeating a résumé
    * paragraph under each of five questions would spend five times the tokens to say one thing.
    */
   const alreadyShown = new Set<string>()
+
+  /** Same-question comparison, ignoring what carries no meaning in a form label. */
+  const sameQuestion = (a: string, b: string) =>
+    a
+      .trim()
+      .toLowerCase()
+      .replace(/\s+/g, ' ')
+      .replace(/[?:.]+$/, '') ===
+    b
+      .trim()
+      .toLowerCase()
+      .replace(/\s+/g, ' ')
+      .replace(/[?:.]+$/, '')
 
   for (const field of input.fields) {
     const chunks = input.retrieved?.get(field.id)
@@ -152,14 +205,62 @@ export function buildUserMessage(input: UserMessageInput): string {
     for (const chunk of fresh) alreadyShown.add(chunk.text)
     if (fresh.length === 0) continue
 
+    for (const chunk of fresh) {
+      if (!chunk.past) continue
+      /**
+       * Whether it was *this* question is stated, not assumed.
+       *
+       * A near-miss retrieved for a differently-worded question is still their writing and
+       * still worth reusing, but it is not the answer to what is being asked — and telling the
+       * model it was is how "Why us?" at one company gets answered with the reasons they gave
+       * another. The distinction is drawn here so the model does not have to guess at it.
+       */
+      past.push(
+        sameQuestion(chunk.past.question, field.label)
+          ? `For "${field.label}" — the same question — they answered:\n${chunk.past.answer}`
+          : `For "${field.label}", they answered "${chunk.past.question}" with:\n${chunk.past.answer}`,
+      )
+    }
+
+    const passages = fresh.filter((chunk) => !chunk.past)
+    if (passages.length === 0) continue
+
     blocks.push(
-      `For "${field.label}":\n${fresh.map((c) => `[${c.source}]\n${c.text}`).join('\n\n')}`,
+      `For "${field.label}":\n${passages.map((c) => `[${c.source}]\n${c.text}`).join('\n\n')}`,
+    )
+  }
+
+  if (past.length > 0) {
+    parts.push(
+      `Answers this person has already given, in their own words. These outrank everything else here. Where the question is the same, reuse their answer: keep its substance, its specifics, and its phrasing, and change it only to fit what this form actually asks — a length limit, a different tense, a detail this question wants and that one did not. Do not replace it with a fresh general answer, and do not drop the specific things they chose to say. Where the question is merely similar, treat it as their voice and their material rather than as the answer:\n\n${past.join('\n\n')}`,
     )
   }
 
   if (blocks.length > 0) {
     parts.push(
-      `Relevant passages from this person's own documents and past answers, retrieved for each question. Where a passage is their own writing, reuse its substance and voice; do not copy verbatim if the question differs. A passage found for one question may still inform another:\n\n${blocks.join('\n\n')}`,
+      `Relevant passages from this person's own documents, retrieved for each question. Where a passage is their own writing, reuse its substance and voice; do not copy verbatim if the question differs. A passage found for one question may still inform another:\n\n${blocks.join('\n\n')}`,
+    )
+  }
+
+  /**
+   * Rejections, beside the passages and outside the fence.
+   *
+   * This is the user's own signal about their own answers, not text a site handed us, so it
+   * belongs on the trusted side of the boundary with their documents. It sits below the cache
+   * breakpoint like everything else in this message, and is emitted only when there is
+   * something to say — so a user who has never cleared an answer gets a byte-identical message
+   * to the one they got before this existed.
+   */
+  const avoided: string[] = []
+  for (const field of input.fields) {
+    const values = input.avoid?.get(field.id)
+    if (!values || values.length === 0) continue
+    avoided.push(`For "${field.label}": ${values.map((value) => `"${value}"`).join(', ')}`)
+  }
+
+  if (avoided.length > 0) {
+    parts.push(
+      `Answers this person has already rejected. Do not offer them again — answer differently, or leave the field for them:\n\n${avoided.join('\n')}`,
     )
   }
 

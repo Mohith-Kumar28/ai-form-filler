@@ -1,6 +1,6 @@
 import { createFileRoute, Link, notFound } from '@tanstack/react-router'
 import { Reveal } from '@/components/Reveal'
-import { formatDate, getPost, getPosts } from '@/lib/blog'
+import { formatDate, getPost } from '@/lib/blog'
 import { buildMeta, canonicalLink, jsonLd } from '@/lib/seo'
 import { site } from '@/lib/site'
 
@@ -11,7 +11,8 @@ export const Route = createFileRoute('/blog/$slug')({
     return { post }
   },
   head: ({ loaderData }) => {
-    const { post } = loaderData!
+    const post = loaderData?.post
+    if (!post) return {}
     return {
       meta: buildMeta({
         title: `${post.title} — ${site.name}`,

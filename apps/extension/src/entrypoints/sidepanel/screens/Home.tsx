@@ -147,7 +147,7 @@ export function Home({
         {hasLastFill && (
           <button
             type="button"
-            onClick={() => nav.push({ name: 'review' })}
+            onClick={() => nav.push({ name: 'receipt' })}
             className="mx-4 flex items-center gap-2.5 rounded-2xl border border-border-muted bg-surface-raised px-4 py-3 text-left transition-colors hover:bg-surface-muted"
           >
             <IconSparkle className="size-4 shrink-0 text-accent" />
@@ -156,7 +156,7 @@ export function Home({
                 Last fill on this page
               </span>
               <span className="block text-[12px] text-ink-dim">
-                What it wrote, and what needs a look
+                What it wrote, and what it judged
               </span>
             </span>
           </button>

@@ -2,7 +2,7 @@ import { createRootRoute, HeadContent, Outlet, Scripts } from '@tanstack/react-r
 import type { ReactNode } from 'react'
 import { Footer } from '@/components/Footer'
 import { Navbar } from '@/components/Navbar'
-import { buildMeta, canonicalLink, softwareAppSchema } from '@/lib/seo'
+import { buildMeta, softwareAppSchema } from '@/lib/seo'
 import { site } from '@/lib/site'
 import appCss from '@/styles/globals.css?url'
 

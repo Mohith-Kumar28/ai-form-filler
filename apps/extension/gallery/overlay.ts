@@ -1,4 +1,4 @@
-import { mountMenuCard, mountReviewCard } from '../src/overlay/card.js'
+import { mountAnswerCard, mountMenuCard } from '../src/overlay/card.js'
 import { mountLauncher } from '../src/overlay/launcher.js'
 import { mountFieldMark } from '../src/overlay/markers.js'
 import { positionScheduler } from '../src/overlay/scheduler.js'
@@ -8,9 +8,20 @@ import './stub-chrome.js'
  * The on-page layer, on a page that is not ours.
  *
  * Every state at once — because the alternative is reviewing an injected overlay through
- * multiple screenshots and comparing them from memory. The states themselves are exactly
- * what the content script mounts.
+ * multiple screenshots and comparing them from memory. The states themselves are exactly what
+ * the content script mounts.
+ *
+ * ### Query parameters
+ *
+ *   `?dark`     repaints the fake site dark — handled by the inline script in overlay.html,
+ *               which has to run before this module so the scheme is settled when the host
+ *               mounts. `detectPageScheme()` reads the *page's* background luminance, because
+ *               that is the only signal available on a site we do not control.
+ *   `?state=…`  which answer-card state to mount: idle, dirty, rewriting, error, choose, many.
+ *               Defaults to idle.
  */
+
+const params = new URLSearchParams(location.search)
 
 const field = (id: string) => document.getElementById(id) as HTMLElement
 const rectOf = (element: HTMLElement) => {
@@ -18,14 +29,13 @@ const rectOf = (element: HTMLElement) => {
   return { top: box.top, left: box.left, width: box.width, height: box.height }
 }
 
-// The launcher pill on a form.
-mountLauncher({
-  fieldCount: 12,
+const launcher = mountLauncher({
   onOpen: () => undefined,
-  onReview: () => undefined,
+  onStop: () => undefined,
 })
+launcher.setFieldCount(12)
 
-// Menu card anchored near the last field.
+// The launcher's menu, anchored near a field.
 mountMenuCard({
   kind: 'menu',
   anchor: rectOf(field('auth')),
@@ -40,28 +50,100 @@ mountMenuCard({
   onClose: () => undefined,
 })
 
-// Review card on a concluded answer.
-mountReviewCard({
-  kind: 'review',
-  anchor: rectOf(field('why')),
-  question: 'Why do you want to work at Alderman & Roe?',
-  value:
-    'I spent four years at Kestrel Health rebuilding a claims pipeline that nobody wanted to touch, and the part I liked was the archaeology.',
-  concluded: true,
-  confidence: 0.58,
-  onValueChange: () => undefined,
-  onImprove: () => Promise.resolve('Rewritten answer.'),
-  onSelect: () => undefined,
-  onClose: () => undefined,
-})
+/**
+ * Field marks, one per state.
+ *
+ * `stated` is here to be looked at and found *absent* after a second and a half — the Unmarked
+ * Fact Rule is a claim about what is not drawn, so it needs a case in the harness as much as
+ * anything visible does.
+ */
+const MARKS = [
+  ['start', 'stated', undefined],
+  ['salary', 'judged', 'inferred'],
+  ['hear', 'judged', 'unsure'],
+] as const
 
-// Field marks with the new states.
-for (const [id, state] of [
-  ['start', 'filled'],
-  ['salary', 'guessed'],
-  ['hear', 'guessed'],
-] as const) {
-  mountFieldMark(field(id), () => undefined).setState(state)
+for (const [id, state, reason] of MARKS) {
+  const mark = mountFieldMark(field(id), {
+    ...(reason ? { reason } : {}),
+    onOpen: () => undefined,
+  })
+  mark.setState(state)
+}
+
+/**
+ * The answer card, in whichever state was asked for.
+ *
+ * `rewriting` resolves after four seconds rather than instantly, because the real call takes
+ * seconds and a pending state that flickers past is not a pending state anybody has reviewed.
+ */
+const state = params.get('state') ?? 'idle'
+
+const LONG_ANSWER =
+  'I spent four years at Kestrel Health rebuilding a claims pipeline that nobody wanted to touch, and the part I liked was the archaeology.'
+
+const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
+
+if (state === 'choose' || state === 'many') {
+  const options =
+    state === 'many'
+      ? Array.from({ length: 40 }, (_, index) => `Option ${index + 1}`)
+      : ['iOS', 'Android', 'Web']
+
+  mountAnswerCard({
+    kind: 'answer',
+    anchor: rectOf(field('hear')),
+    anchorElement: field('hear'),
+    question: 'Which platform do you primarily build for?',
+    value: state === 'many' ? 'Option 7' : 'iOS',
+    reason: 'inferred',
+    mode: 'choose',
+    options,
+    multiple: false,
+    onWrite: () => Promise.resolve(true),
+    onRewrite: () => Promise.resolve(''),
+    onKeep: () => undefined,
+    onClear: () => undefined,
+    onClose: () => undefined,
+  })
+} else {
+  const card = mountAnswerCard({
+    kind: 'answer',
+    anchor: rectOf(field('why')),
+    anchorElement: field('why'),
+    question: 'Why do you want to work at Alderman & Roe?',
+    value: LONG_ANSWER,
+    reason: 'inferred',
+    mode: 'prose',
+    ...(state === 'rewriting' ? { lastInstruction: 'Make it warmer and more human.' } : {}),
+    onWrite: () => Promise.resolve(state !== 'error'),
+    onRewrite: async () => {
+      await wait(4000)
+      if (state === 'error') throw new Error('failed')
+      return 'A rewritten answer, in the same voice but half the length.'
+    },
+    onKeep: () => undefined,
+    onClear: () => undefined,
+    onClose: () => undefined,
+  })
+
+  // Drive the card into the requested state, the same way a person would.
+  const press = (selector: string) =>
+    card.element
+      .querySelector<HTMLElement>(selector)
+      ?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+
+  if (state === 'dirty' || state === 'rewriting' || state === 'error') {
+    const textarea = card.element.querySelector<HTMLTextAreaElement>('.answer-text')
+    if (textarea) {
+      textarea.value = `${LONG_ANSWER} And I have been reading the changelog since 2019.`
+      textarea.dispatchEvent(new Event('input', { bubbles: true }))
+    }
+  }
+
+  if (state === 'rewriting' || state === 'error') {
+    setTimeout(() => press('.answer-chip'), 60)
+  }
 }
 
 // Pump frames so the position scheduler has time to place everything before a screenshot.

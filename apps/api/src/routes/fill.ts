@@ -3,7 +3,7 @@ import { drizzle } from 'drizzle-orm/d1'
 import type { AppEnv } from '../env.js'
 import { improveAnswer } from '../llm/improve.js'
 import { requireAuth } from '../middleware/auth.js'
-import { consumeQuota, enforceQuota, rateLimit } from '../middleware/quota.js'
+import { consumeQuota, enforceQuota, feedbackRateLimit, rateLimit } from '../middleware/quota.js'
 import {
   bearerAuth,
   errorResponses,
@@ -97,6 +97,15 @@ const feedbackRoute = createRoute({
     'Accepted answers enter the answer bank and become retrieval context for future fills. Edited answers are the highest-signal rows we get.',
   operationId: 'submitFeedback',
   security: bearerAuth,
+  /**
+   * Rate limited, in its own bucket, and deliberately **not** quota-counted.
+   *
+   * Quota is denominated in forms. Somebody who has used their last fill of the month still
+   * deserves their corrections recorded — the entire point of learning is that next month
+   * starts smarter, and charging a form for teaching us something would make the product worse
+   * at the one thing it is for.
+   */
+  middleware: [feedbackRateLimit] as const,
   request: {
     body: { content: { 'application/json': { schema: FeedbackRequest } }, required: true },
   },

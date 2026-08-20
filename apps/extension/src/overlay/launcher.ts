@@ -139,6 +139,18 @@ export function mountLauncher(options: { onOpen: () => void; onStop: () => void 
     wrap.style.translate = `${Math.round(rightX())}px ${Math.round(y)}px`
   }
 
+  /**
+   * Re-pin to the right edge after the launcher changes shape.
+   *
+   * `rightX` measures the wrap and subtracts, so the x it produces is only correct for the
+   * width the launcher had at the time. The idle circle is ~56px and the filling pill is much
+   * wider — and the pill grows again as the progress text goes from "0/7" to "10/70" — so every
+   * one of those transitions left the element pinned at the *circle's* left edge with the pill
+   * hanging off the right of the viewport, clipped mid-digit. Nothing recomputed it, because
+   * the only thing that ever did was a drag or a window resize.
+   */
+  const reposition = () => applyPosition(clampY(pos.y))
+
   applyPosition(pos.y)
 
   // ── Drag (grabber) + click (icon) ────────────────────────────────────────
@@ -190,6 +202,9 @@ export function mountLauncher(options: { onOpen: () => void; onStop: () => void 
       settleLoading()
       wrap.setAttribute('data-filling', 'true')
       progressText.textContent = `${done}/${total}`
+      // The pill is wider than the circle, and wider again with every digit. Re-pin, or it
+      // hangs off the right edge of the window and the count is cut in half.
+      reposition()
     },
     setExhausted: () => {
       settleLoading()
@@ -215,6 +230,9 @@ export function mountLauncher(options: { onOpen: () => void; onStop: () => void 
       settleLoading()
       wrap.removeAttribute('data-filling')
       showFieldCount()
+      // Back to the circle: the same re-pin in the other direction, or it sits inset from the
+      // edge by the width the pill used to be.
+      reposition()
     },
     destroy: () => {
       settleLoading()

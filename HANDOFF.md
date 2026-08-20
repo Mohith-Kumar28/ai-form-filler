@@ -457,6 +457,25 @@ An MV3 service worker can be killed mid-request. A one-shot `sendMessage` gives 
 notice; a `chrome.runtime.connect` port's disconnect event is the retry signal. Progress
 events also need a port.
 
+**This was documented and then violated, and the violation shipped.** The side panel used a
+port; the page's launcher used a one-shot `overlay/requestFill` whose reply came ten seconds
+later. The content script sets `filling = true` before asking and clears it only on a terminal
+event, so one torn-down worker left the flag stuck and the "already filling" guard then
+swallowed every later click in silence. Filling from the sidebar worked and pressing the button
+on the page did nothing, for the rest of that tab's life — which read as though the page could
+not touch the form unless the panel was open. It never needed the panel for that.
+
+Both callers now open the same port (`registerFillPort`), which settles two things that follow
+from it:
+
+- **The tab comes from `port.sender.tab.id` when there is one.** A page able to *name* the tab
+  to fill is a page able to ask us to fill somebody else's; the panel, which has no sender tab,
+  still names one.
+- **Each surface is told once.** Events go to the port's owner, plus the *other* surface — the
+  panel for a page-initiated fill, the page for a panel-initiated one. Sending to the owner
+  twice is not harmless: `tabs.sendMessage` is asynchronous, so a duplicate `complete` can
+  arrive after the port has disconnected, which the page reports as an interrupted fill.
+
 ### 7.4 Overlay positioning is a genuine performance hazard
 
 Grammarly's engineering write-up documents this: recomputing position at 60fps consumes
@@ -469,6 +488,23 @@ Grammarly's engineering write-up documents this: recomputing position at 60fps c
   event reports.
 - Cull fields outside the viewport.
 - Render into a **closed Shadow DOM** so page CSS can't reach us and ours can't reach the page.
+
+Three rules the culling makes necessary, each of which was a reported bug:
+
+- **Report hidden, then cull.** Anything the overlay draws is placed at viewport coordinates
+  and moves only when `onMove` says so, so a culled target freezes wherever it last was rather
+  than disappearing. Skipping a target before telling it that it is hidden leaves a ring and a
+  provenance tab painted over whatever the page now shows there.
+- **A viewport change is not a scroll.** The side panel opening or closing relays out the page:
+  centred content shifts sideways and every cached rect is wrong at once. `requestMeasure`
+  honours the cull and trusts the observer, so it cannot repair this — `invalidate()` drops
+  every cached rect and re-seeds visibility from geometry. Wired to `resize` and
+  `visualViewport.resize`, and called once per field written during a fill, because writing an
+  answer moves every field below it while changing no field's own size.
+- **A detached anchor kills the whole mark.** Removing the label and keeping the ring is the
+  same defect one element down. The handle must also go dead, or the fill animation's closing
+  `setState('judged')` mounts a fresh tab against the stale rect — a label appearing *after*
+  the question it describes has gone.
 
 ### 7.5 `PROFILE_DOC` must stay byte-stable
 

@@ -8,6 +8,7 @@ import { compileProfileDoc } from '../profile/compile.js'
 import { classifyForm } from '../router/classify.js'
 import { resolveTier0 } from '../router/tier0.js'
 import type { Db } from './account.js'
+import { readNegatives } from './learned-store.js'
 import { emptyProfile, recompileProfile } from './profile.js'
 import { gatherFillContext } from './retrieval.js'
 
@@ -173,17 +174,42 @@ export async function runFill(
    * Gathered here rather than inside each batch so a question searched once is not searched
    * again by the tier that happens to own it.
    */
-  const context =
+  const unresolvedQuestions = tier0.unresolved.map((c) => ({
+    fieldId: c.fieldId,
+    question: labels.get(c.fieldId) ?? '',
+  }))
+
+  /**
+   * Passages and rejections together, in one round of concurrency.
+   *
+   * Both are keyed by the same questions and neither depends on the other, so waiting for one
+   * before starting the other would add a round trip to every fill for no reason.
+   *
+   * Only `tier0.unresolved` is asked about, which is the point rather than an optimisation: a
+   * value the user typed into their own profile is answered by tier 0 with no model call, and
+   * something they once cleared on somebody else's form must never override it. Their own
+   * stated fact wins.
+   */
+  const [context, avoid] = await Promise.all([
     batches.length > 0
-      ? await gatherFillContext({
+      ? gatherFillContext({
           env: ctx.env,
           userId: ctx.userId,
-          questions: tier0.unresolved.map((c) => ({
-            fieldId: c.fieldId,
-            question: labels.get(c.fieldId) ?? '',
-          })),
+          questions: unresolvedQuestions,
         })
-      : { byField: new Map() }
+      : Promise.resolve({ byField: new Map() }),
+    batches.length > 0
+      ? readNegatives(
+          ctx.db,
+          ctx.userId,
+          unresolvedQuestions.map((entry) => ({
+            ...entry,
+            section: byId.get(entry.fieldId)?.section,
+            origin: request.form.origin,
+          })),
+        )
+      : Promise.resolve(new Map<string, string[]>()),
+  ])
 
   const results = await Promise.all(
     batches.map(async (batch) => {
@@ -201,6 +227,7 @@ export async function runFill(
         origin: request.form.origin,
         pageContext: request.form.pageContext,
         retrieved: context.byField,
+        avoid,
       })
     }),
   )

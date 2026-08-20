@@ -74,14 +74,58 @@ describe('anchored elements', () => {
   /**
    * Anything positioned by the scheduler is placed with `translate`. `transform` is reserved
    * for nothing here, precisely so a future animation cannot quietly reclaim it.
+   *
+   * Matched as an **assignment**, not a substring. The substring form passed vacuously the
+   * moment a docstring quoted the old buggy placement line — a test that goes green off a
+   * comment is worse than no test, because it reports that it checked something.
    */
   it.each([
-    ['launcher.ts', 'wrap.style.translate'],
-    ['markers.ts', 'mark.style.translate'],
-    ['markers.ts', 'pill.style.translate'],
-  ])('%s places with %s', (file, expression) => {
+    ['launcher.ts', 'wrap'],
+    ['markers.ts', 'mark'],
+    ['markers.ts', 'tab'],
+  ])('%s places %s with the standalone translate property', (file, variable) => {
     const contents = readFileSync(resolve(process.cwd(), 'src/overlay', file), 'utf8')
-    expect(contents).toContain(expression)
+    expect(contents).toMatch(new RegExp(`\\b${variable}\\.style\\.translate\\s*=`))
     expect(contents).not.toMatch(/\.style\.transform\s*=/)
+  })
+})
+
+/**
+ * The other half of the same trap, one property over.
+ *
+ * `translate` is now *placement* for everything the scheduler anchors, so a keyframe animating
+ * it with `fill-mode: both` would hold its final value forever and outrank the inline position
+ * — reproducing the exact top-left-corner failure the transform rule was written for.
+ *
+ * Scoped to the animations those elements actually use, rather than every keyframe in the file.
+ * Confetti is the reason: it is positioned once and thrown away, animates `translate` on
+ * purpose, and is anchored to nothing. A flat rule would have to either fail on it or be
+ * deleted, and both lose the guard.
+ */
+describe('keyframes never fight placement', () => {
+  /** Everything placed by `positionScheduler`, i.e. everything whose `translate` is a position. */
+  const ANCHORED = ['.mark', '.answer-tab', '.card', '.launcher-wrap', '.field-trigger']
+
+  /** Animation names referenced by any rule whose selector list mentions an anchored class. */
+  const animations = new Set<string>()
+  // Destructured past index 0: that is the whole match, and reading it as the selector made
+  // `body` the selector text — which contains no declarations, so the set came out empty.
+  for (const [, selector, body] of source.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+    if (!selector || !body) continue
+    if (!ANCHORED.some((cls) => selector.includes(cls))) continue
+    const declared = body.match(/animation\s*:\s*([^;]+)/)
+    if (!declared) continue
+    const name = declared[1]?.trim().split(/\s+/)[0]
+    if (name && name !== 'none') animations.add(name)
+  }
+
+  it('found the animations the anchored elements use, so this cannot pass vacuously', () => {
+    expect(animations.size).toBeGreaterThanOrEqual(3)
+  })
+
+  it.each([...animations])('%s does not animate translate', (name) => {
+    const block = source.match(new RegExp(`@keyframes\\s+${name}\\s*\\{[\\s\\S]*?\\n\\}`))
+    expect(block).not.toBeNull()
+    expect(block?.[0]).not.toMatch(/\btranslate\s*:/)
   })
 })

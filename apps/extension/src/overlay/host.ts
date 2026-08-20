@@ -207,6 +207,20 @@ ${overlayVariables(':host')}
 .field-trigger svg { width: 12px; height: 12px; }
 .field-trigger:focus-visible { outline: 2px solid var(--aff-accent); outline-offset: 2px; }
 
+/* Rewrite, not fill. The gradient means "the AI will write something here", and a field that
+   already has an answer is not that — so this one recedes to a bordered surface and carries a
+   pen. Same size and position, so it never reads as a different control appearing. */
+.field-trigger[data-mode="review"] {
+  background: var(--aff-surface);
+  border: 1px solid var(--aff-border);
+  color: var(--aff-ink-dim);
+  box-shadow: 0 1px 4px -1px var(--aff-shadow);
+}
+.field-trigger[data-mode="review"]:hover {
+  border-color: var(--aff-accent);
+  color: var(--aff-accent);
+}
+
 /* Clicked: the icon pulses and glows while the AI thinks in the background, and stays put until
    the field is written — a clear "working on it" instead of an instant vanish. */
 .field-trigger[data-loading="true"] {
@@ -332,10 +346,54 @@ ${overlayVariables(':host')}
 
 .card-body { padding: 10px 13px; }
 
-.card-value {
+/* ── The answer card ──────────────────────────────────────────────────────
+   One card under the field: what was asked, what we wrote, and everything the
+   person might want to do about it. There is no "save to the page" button —
+   edits write through on a debounce, so the card and the field can never hold
+   different text. Opens only when the tab is pressed.                       */
+.card-answer { min-width: 280px; max-width: min(380px, calc(100vw - 24px)); }
+
+.answer-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 10px 12px 8px;
+  border-bottom: 1px solid var(--aff-border-muted);
+}
+
+.answer-why {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex: none;
+  padding: 2px 7px;
+  border-radius: var(--aff-radius-full);
+  background: var(--aff-accent-muted);
+  color: var(--aff-accent);
+  font-size: 10px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.answer-why svg { width: 10px; height: 10px; }
+
+.answer-question {
+  flex: 1;
+  min-width: 0;
+  font-size: 12px;
+  line-height: 1.35;
+  color: var(--aff-ink-muted);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.answer-body { padding: 10px 12px 0; }
+
+.answer-text {
   width: 100%;
-  min-height: 58px;
-  max-height: 180px;
+  min-height: 62px;
+  max-height: 200px;
   padding: 7px 9px;
   border: 1px solid var(--aff-border);
   border-radius: var(--aff-radius-sm);
@@ -346,14 +404,60 @@ ${overlayVariables(':host')}
   line-height: 1.5;
   resize: vertical;
 }
+.answer-text:focus-visible { outline: 2px solid var(--aff-accent); outline-offset: -1px; }
 
-.card-value:focus-visible { outline: 2px solid var(--aff-accent); outline-offset: -1px; }
+/* Rewriting: the text stays readable. A spinner over the answer hides the one thing the person
+   is trying to judge, and this call takes seconds. */
+.answer-text[aria-busy="true"] {
+  border-left: 1.5px solid var(--aff-accent);
+  color: var(--aff-ink-muted);
+}
 
-.card-actions { display: flex; gap: 6px; padding: 10px 13px 12px; }
-.card-chips { display: flex; flex-wrap: wrap; gap: 5px; padding: 10px 13px 12px; }
+.answer-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  max-height: 168px;
+  overflow-y: auto;
+}
 
-.card-chip {
+.answer-option {
   padding: 4px 9px;
+  border: 1px solid var(--aff-border-muted);
+  border-radius: var(--aff-radius-full);
+  background: transparent;
+  color: var(--aff-ink-muted);
+  font: inherit;
+  font-size: 12.5px;
+  cursor: pointer;
+  transition: border-color 120ms var(--aff-ease), color 120ms var(--aff-ease);
+}
+.answer-option:hover { border-color: var(--aff-border); color: var(--aff-ink); }
+.answer-option[aria-checked="true"] {
+  border-color: transparent;
+  background: var(--aff-accent);
+  color: #fff;
+}
+.answer-option:focus-visible { outline: 2px solid var(--aff-accent); outline-offset: 2px; }
+
+.answer-filter {
+  width: 100%;
+  margin-bottom: 6px;
+  padding: 5px 9px;
+  border: 1px solid var(--aff-border);
+  border-radius: var(--aff-radius-full);
+  background: var(--aff-surface);
+  color: var(--aff-ink);
+  font: inherit;
+  font-size: 12.5px;
+}
+
+.answer-nudge { padding: 8px 12px 0; }
+
+.answer-chips { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 6px; }
+
+.answer-chip {
+  padding: 3px 9px;
   border: 1px solid var(--aff-border);
   border-radius: var(--aff-radius-full);
   background: transparent;
@@ -363,13 +467,64 @@ ${overlayVariables(':host')}
   cursor: pointer;
   transition: border-color 120ms var(--aff-ease), color 120ms var(--aff-ease);
 }
+.answer-chip:hover:not(:disabled) { border-color: var(--aff-accent); color: var(--aff-ink); }
+.answer-chip:disabled { opacity: 0.5; cursor: default; }
+/* The last instruction used on this field, so a second nudge is one keystroke. */
+.answer-chip[data-last="true"] { border-color: var(--aff-accent); color: var(--aff-ink); }
+.answer-chip:focus-visible { outline: 2px solid var(--aff-accent); outline-offset: 2px; }
 
-.card-chip:hover:not(:disabled) { border-color: var(--aff-accent); color: var(--aff-ink); }
-.card-chip:disabled { opacity: 0.5; cursor: default; }
+.answer-ask { display: flex; align-items: center; gap: 6px; }
 
-.card-btn {
+.answer-ask-input {
   flex: 1;
-  padding: 6px 10px;
+  min-width: 0;
+  padding: 5px 10px;
+  border: 1px solid var(--aff-border);
+  border-radius: var(--aff-radius-full);
+  background: var(--aff-surface);
+  color: var(--aff-ink);
+  font: inherit;
+  font-size: 12.5px;
+}
+.answer-ask-input::placeholder { color: var(--aff-ink-dim); }
+.answer-ask-input:focus-visible { outline: 2px solid var(--aff-accent); outline-offset: -1px; }
+
+/* Same treatment as .field-trigger, so "make the AI do something" has one look on the page. */
+.answer-ask-go {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 22px;
+  height: 22px;
+  border: 0;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--aff-sparkle), var(--aff-accent));
+  color: #fff;
+  cursor: pointer;
+}
+.answer-ask-go svg { width: 12px; height: 12px; }
+.answer-ask-go:disabled { opacity: 0.5; cursor: default; }
+.answer-ask-go[data-stop="true"] { background: var(--aff-danger); }
+.answer-ask-go:focus-visible { outline: 2px solid var(--aff-accent); outline-offset: 2px; }
+
+.answer-note {
+  padding: 8px 12px 0;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--aff-ink-dim);
+  min-height: 0;
+}
+.answer-note:empty { display: none; }
+.answer-note[data-bad="true"] { color: var(--aff-danger); }
+.answer-note[data-good="true"] { color: var(--aff-positive); }
+
+.answer-actions { display: flex; align-items: center; gap: 6px; padding: 10px 12px 12px; }
+
+.answer-keep,
+.answer-undo,
+.answer-clear {
+  padding: 6px 12px;
   border: 1px solid var(--aff-border);
   border-radius: var(--aff-radius-full);
   background: transparent;
@@ -378,38 +533,30 @@ ${overlayVariables(':host')}
   font-size: 12.5px;
   font-weight: 600;
   cursor: pointer;
-  transition: background-color 120ms var(--aff-ease), border-color 120ms var(--aff-ease);
+  transition: border-color 120ms var(--aff-ease), opacity 120ms var(--aff-ease);
 }
-
-.card-btn:hover { border-color: var(--aff-accent); }
-.card-btn-primary {
+.answer-keep {
   background: linear-gradient(135deg, var(--aff-sparkle), var(--aff-accent));
   border-color: transparent;
   color: #fff;
 }
-.card-btn-primary:hover { opacity: 0.9; }
-.card-btn-bad { color: var(--aff-danger); border-color: var(--aff-danger); }
+.answer-keep:hover { opacity: 0.9; }
+.answer-undo { color: var(--aff-ink-muted); border-color: transparent; }
+.answer-undo:disabled { opacity: 0.4; cursor: default; }
+.answer-clear { margin-left: auto; color: var(--aff-danger); border-color: transparent; }
+.answer-clear:hover { border-color: var(--aff-danger); }
+.answer-keep:focus-visible,
+.answer-undo:focus-visible,
+.answer-clear:focus-visible { outline: 2px solid var(--aff-accent); outline-offset: 2px; }
 
-/* The guessed badge on a review card header. */
-.card-stamp {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 1px 7px;
-  border-radius: var(--aff-radius-full);
-  background: var(--aff-accent-muted);
-  color: var(--aff-accent);
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-}
-.card-stamp svg { width: 10px; height: 10px; }
+/* Scrolled away from its anchor but still usable — closing a card somebody is mid-sentence in
+   is worse than letting it detach visibly. */
+.card[data-adrift="true"] { border-top: 1px solid var(--aff-accent); }
 
 /* ── Field marks ──────────────────────────────────────────────────────────
-   What happened to a field, drawn over it rather than on it. A guessed
-   answer keeps its ring and gains a clickable "check" pill; a fact settles
-   and leaves the page alone.                                                 */
+   What happened to a field, drawn over it rather than on it. A judged answer
+   keeps a hairline ring and gains a provenance tab above its top border; a
+   stated fact settles and leaves the page alone, marked by nothing at all.  */
 .mark {
   position: fixed;
   border-radius: var(--aff-radius-sm);
@@ -421,14 +568,20 @@ ${overlayVariables(':host')}
 
 .mark[data-state="active"] { --mark-color: var(--aff-accent); opacity: 1; }
 
-.mark[data-state="filled"],
+.mark[data-state="stated"],
 .mark[data-state="failed"] {
   animation: mark-settle 1500ms var(--aff-ease) forwards;
 }
 
-.mark[data-state="filled"] { --mark-color: var(--aff-positive); }
+.mark[data-state="stated"] { --mark-color: var(--aff-positive); }
 .mark[data-state="failed"] { --mark-color: var(--aff-danger); }
-.mark[data-state="aiWrote"] { --mark-color: var(--aff-accent); opacity: 1; }
+/* A judged answer keeps a hairline rather than the full ring: the tab is the notation, and a
+   2.5px ring plus a solid pill was two loud things saying one thing. */
+.mark[data-state="judged"] {
+  --mark-color: var(--aff-accent);
+  box-shadow: 0 0 0 1.5px var(--mark-color);
+  opacity: 1;
+}
 
 @keyframes mark-settle {
   0% { opacity: 1; }
@@ -436,62 +589,112 @@ ${overlayVariables(':host')}
   100% { opacity: 0; }
 }
 
-/* The "needs a look" pill — a container with accept (✓) and reject (✕) buttons beside
-   the label, so no popup is needed. */
-.check-pill {
+/* ── The provenance tab ───────────────────────────────────────────────────
+   Sits fully ABOVE the field's top border, never over its text. The flat edge
+   always faces the field, which is what makes 18px of accent read as a tab on
+   something rather than a badge floating near it. Placement is placeTab in
+   markers.ts; nothing here may set top/left.                                 */
+.answer-tab {
   position: fixed;
-  display: flex;
+  display: inline-flex;
   align-items: center;
   gap: 4px;
-  height: 24px;
-  padding: 0 5px 0 8px;
-  border-radius: var(--aff-radius-full);
+  height: 18px;
+  padding: 0 7px;
+  border: 0;
   background: var(--aff-accent);
   color: #fff;
-  font-size: 10px;
+  font-family: inherit;
+  font-size: 10.5px;
   font-weight: 700;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  pointer-events: auto;
-  animation: pill-in 220ms var(--aff-spring) both;
-}
-
-.check-pill-label {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.check-pill-label svg { width: 10px; height: 10px; flex: none; }
-
-.check-pill-accept,
-.check-pill-reject {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 18px;
-  height: 18px;
-  border: 0;
-  border-radius: 50%;
+  line-height: 1;
+  white-space: nowrap;
   cursor: pointer;
-  flex: none;
-  transition: scale 100ms var(--aff-spring);
+  pointer-events: auto;
+  box-shadow: 0 1px 4px -1px var(--aff-shadow);
+  animation: tab-in 200ms var(--aff-spring) both;
 }
-.check-pill-accept:active,
-.check-pill-reject:active { scale: 0.9; }
 
-.check-pill-accept { background: var(--aff-positive); color: #fff; }
-.check-pill-reject { background: var(--aff-danger); color: #fff; }
+/* The flat edge always faces the field, which is what makes 18px of accent read as a tab on
+   something rather than a badge floating near it. */
+.answer-tab[data-place="above"] { border-radius: 6px 6px 2px 2px; }
+.answer-tab[data-place="below"],
+.answer-tab[data-place="pinned"] { border-radius: 2px 2px 6px 6px; }
+.answer-tab[data-place="beside"] { border-radius: 2px 6px 6px 2px; }
 
-.check-pill-accept svg,
-.check-pill-reject svg { width: 10px; height: 10px; }
+.answer-tab svg { width: 10px; height: 10px; flex: none; }
+.answer-tab:hover { background: color-mix(in oklab, var(--aff-accent) 88%, black); }
+.answer-tab:focus-visible { outline: 2px solid var(--aff-accent); outline-offset: 2px; }
 
-.check-pill-accept:focus-visible,
-.check-pill-reject:focus-visible { outline: 2px solid #fff; outline-offset: 1px; }
-
-@keyframes pill-in {
-  from { opacity: 0; scale: 0.8; }
+/* scale only — never translate, which is this element's placement, and never the
+   transform shorthand. See the note in host.test.ts. */
+@keyframes tab-in {
+  from { opacity: 0; scale: 0.9; }
   to { opacity: 1; scale: 1; }
+}
+
+/* ── The learning chip ────────────────────────────────────────────────────
+   "I'm keeping that", under the field, at the moment it happens. The receipt
+   for the one interaction the product is built around — see learning.ts. It
+   is transient and non-interactive: no buttons, no focus, leaves on its own. */
+.learn-chip {
+  position: fixed;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  max-width: 320px;
+  padding: 3px 9px;
+  border-radius: var(--aff-radius-full);
+  background: var(--aff-surface);
+  color: var(--aff-ink-dim);
+  font-size: 11.5px;
+  font-weight: 600;
+  line-height: 1.5;
+  white-space: nowrap;
+  pointer-events: none;
+  box-shadow: 0 2px 10px -3px var(--aff-shadow-strong);
+  opacity: 1;
+  animation: chip-in 220ms var(--aff-spring) both;
+  /* Never the translate property, and never the transform shorthand: translate is this
+     element's placement, written inline on every scroll frame. Transitioning it would make the
+     chip lag a scrolling field, and animating it in a keyframe would overwrite the placement
+     outright. See the note in host.test.ts. */
+  transition: opacity 260ms var(--aff-ease), scale 260ms var(--aff-ease);
+}
+
+.learn-chip svg { width: 11px; height: 11px; flex: none; }
+.learn-chip span { overflow: hidden; text-overflow: ellipsis; }
+
+/* Thinking. The sparkle breathes rather than spins: nothing is being waited *for* here — the
+   answer is already on the page — so a spinner would overstate it. */
+.learn-chip[data-state="learning"] {
+  color: var(--aff-accent);
+  animation: chip-in 220ms var(--aff-spring) both, chip-breathe 1.6s ease-in-out 220ms infinite;
+}
+
+/* Landed. The one state that earns the accent gradient, because something is now known that
+   was not known a second ago. */
+.learn-chip[data-state="learned"] {
+  background: linear-gradient(135deg, var(--aff-sparkle), var(--aff-accent));
+  color: #fff;
+}
+
+.learn-chip[data-state="known"] { color: var(--aff-positive); }
+.learn-chip[data-state="failed"] { color: var(--aff-danger); }
+
+/* Leaving. Shrinks slightly as it fades, which reads as "done" rather than "dismissed".
+   A scale, not a nudge upwards: the upward nudge would have to be the translate property,
+   which is the inline placement this element cannot touch. */
+.learn-chip[data-leaving="true"] { opacity: 0; scale: 0.96; }
+
+@keyframes chip-in {
+  from { opacity: 0; scale: 0.94; }
+  to { opacity: 1; scale: 1; }
+}
+
+@keyframes chip-breathe {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.62; }
 }
 
 /* A field a review row is pointing at. */
@@ -510,8 +713,11 @@ ${overlayVariables(':host')}
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .launcher, .card, .mark, .check-pill, .field-trigger { animation: none !important; }
-  .mark[data-state="filled"],
+  .launcher, .card, .mark, .answer-tab, .field-trigger, .learn-chip {
+    animation: none !important;
+  }
+  .learn-chip { transition: none !important; }
+  .mark[data-state="stated"],
   .mark[data-state="failed"] { opacity: 0; }
 }
 `

@@ -3,23 +3,55 @@ import { getAccount } from '../generated/endpoints/account/account.js'
 import { improveAnswer, submitFeedback } from '../generated/endpoints/fill/fill.js'
 import { getProfile } from '../generated/endpoints/profile/profile.js'
 import { hasSession, signIn, signOut } from '../lib/auth.js'
-import { registerFillPort, runFillFlow } from '../lib/fill-port.js'
+import { LAST_FILL_KEY, registerFillPort } from '../lib/fill-port.js'
 import { toResult } from '../lib/messaging.js'
 
 const SETTINGS_KEY = 'aff:settings'
 const DEFAULT_SETTINGS = { inlineAutofill: true, showLauncher: true }
 
-/** Where the most recent finished fill is parked for the side panel to pick up. */
-export const LAST_FILL_KEY = 'aff:lastFill'
+/**
+ * Which content-script message each panel message becomes.
+ *
+ * A lookup rather than a nested ternary, because it grew to three entries and the ternary form
+ * made a fall-through group of three cases read as if it handled two.
+ */
+const FORWARDED_TO_CONTENT = {
+  'content/highlight': 'content/highlight',
+  'review/resolved': 'content/resolved',
+  'review/open': 'content/openCard',
+} as const
 
 /**
- * Tabs whose page-initiated fill has been stopped.
+ * Records a verdict beside the plan it belongs to.
  *
- * The panel's fill is cancelled by disconnecting its port; a page fill is a one-shot message,
- * so the worker has to hold the flag itself. Keyed by tab because two tabs can be filling at
- * once and one stopping must not stop the other.
+ * The panel's own store is a module-level Map that dies when the panel closes, and the page is
+ * the authority now — so without this, closing and reopening the panel showed every judged
+ * answer as still outstanding, including the ones just dealt with on the page.
  */
-const cancelledFills = new Set<number>()
+async function recordVerdict(
+  tabId: number,
+  verdict: { fieldId: string; verdict: string; value: string },
+): Promise<void> {
+  const stored = (await chrome.storage.session.get(LAST_FILL_KEY).catch(() => ({}))) as Record<
+    string,
+    { tabId?: number; verdicts?: Record<string, { verdict: string; value: string }> } | undefined
+  >
+  const last = stored[LAST_FILL_KEY]
+  // A verdict for a different tab's form is not this record's business.
+  if (!last || last.tabId !== tabId) return
+
+  await chrome.storage.session
+    .set({
+      [LAST_FILL_KEY]: {
+        ...last,
+        verdicts: {
+          ...(last.verdicts ?? {}),
+          [verdict.fieldId]: { verdict: verdict.verdict, value: verdict.value },
+        },
+      },
+    })
+    .catch(() => undefined)
+}
 
 export default defineBackground(() => {
   registerFillPort()
@@ -72,101 +104,23 @@ export default defineBackground(() => {
       // token, so the extra message hop bought nothing.
 
       /**
-       * A fill asked for from the page — either the focused field, or the whole form.
-       *
-       * The side panel is deliberately **not** opened. The page shows its own progress on the
-       * seal and marks each field as it lands, so forcing the panel open would cover the form
-       * with a surface showing nothing that was asked for. The panel opens only on request.
-       */
-      case 'overlay/requestFill':
-        void toResult(async () => {
-          const tabId = _sender.tab?.id
-          if (!tabId) throw new Error('No tab to fill')
-
-          const options = {
-            overwriteExisting: false,
-            ...(request.scope === 'field' && request.fieldId
-              ? { onlyFieldId: request.fieldId }
-              : {}),
-          }
-
-          cancelledFills.delete(tabId)
-
-          await runFillFlow(
-            tabId,
-            options,
-            (event) => {
-              // Two receivers, two channels. `runtime.sendMessage` reaches an open side panel;
-              // `tabs.sendMessage` reaches the content script. Neither having a listener is a
-              // normal state.
-              void chrome.runtime.sendMessage({ type: 'fill/event', event }).catch(() => undefined)
-              void chrome.tabs
-                .sendMessage(tabId, { type: 'fill/event', event })
-                .catch(() => undefined)
-
-              /**
-               * Keep the finished plan so Review has something to open.
-               *
-               * A fill started from the page dock usually runs with the panel **closed**, so
-               * the broadcast above reaches nobody — and pressing Review then opened a panel
-               * with no result in it, landing the user back on the sources list. Session
-               * storage rather than local: this holds the user's actual answers, and they
-               * should not outlive the browser session that produced them.
-               */
-              if (event.type === 'complete') {
-                void chrome.storage.session
-                  .set({ [LAST_FILL_KEY]: { tabId, plan: event.plan, report: event.report } })
-                  .catch(() => undefined)
-              }
-            },
-            () => cancelledFills.has(tabId),
-          )
-
-          cancelledFills.delete(tabId)
-          return null
-        }).then(sendResponse)
-        return true
-
-      /** Stop a page-initiated fill. See `overlay/cancelFill`. */
-      case 'overlay/cancelFill':
-        void toResult(async () => {
-          const tabId = _sender.tab?.id
-          if (tabId !== undefined) cancelledFills.add(tabId)
-          return null
-        }).then(sendResponse)
-        return true
-
-      /**
        * Final values from a submitted form.
        *
-       * Fire-and-forget by design: the user has already submitted and moved on, and a
-       * failure to record feedback must never surface as an error on their form.
+       * The outcome is **reported**, where it used to be swallowed by a bare `.catch`. Nothing
+       * about that was safe: a failure to record feedback still must never break somebody's
+       * form, and it does not — the page decides what to do with the answer and its only
+       * response is a small chip that fades. But swallowing it here made the entire learning
+       * loop unobservable from the outside. A dead session, or one over-length entry taking its
+       * whole batch down with it, was indistinguishable from a product that had decided the
+       * correction was not worth keeping.
+       *
+       * `recorded` is what actually landed, so the page can say "remembered" only when
+       * something was.
        */
       case 'feedback/submit':
         void toResult(async () => {
-          await submitFeedback(request.payload).catch(() => undefined)
-          return null
-        }).then(sendResponse)
-        return true
-
-      /**
-       * A corrected or rejected answer, forwarded from the panel to the page.
-       *
-       * The panel has no access to the tab, and the content script owns the only
-       * `fieldId -> Element` map, so this hop is what connects them. Targets the active tab
-       * because that is the form the review is about.
-       */
-      case 'review/write':
-        void toResult(async () => {
-          const [tab] = await chrome.tabs.query({ active: true, currentWindow: true })
-          if (tab?.id !== undefined) {
-            await chrome.tabs.sendMessage(tab.id, {
-              type: 'content/write',
-              fieldId: request.fieldId,
-              value: request.value,
-            })
-          }
-          return null
+          const result = await submitFeedback(request.payload)
+          return { recorded: result.recorded }
         }).then(sendResponse)
         return true
 
@@ -187,16 +141,41 @@ export default defineBackground(() => {
        * user who has just agreed with an answer.
        */
       case 'review/resolved':
+      /**
+       * Open the answer card on the page, from the panel's stepper.
+       *
+       * Same hop again. This replaced `review/write`, which carried a finished value for the
+       * page to apply — two surfaces holding their own copy of the same answer, and only one of
+       * them able to fail to write it. The panel now points at a field and the page edits it.
+       */
+      case 'review/open':
         void toResult(async () => {
           const [tab] = await chrome.tabs.query({ active: true, currentWindow: true })
           if (tab?.id !== undefined) {
             await chrome.tabs
               .sendMessage(tab.id, {
-                type: request.type === 'review/resolved' ? 'content/resolved' : 'content/highlight',
+                type: FORWARDED_TO_CONTENT[request.type],
                 fieldId: request.fieldId,
               })
               .catch(() => undefined)
           }
+          return null
+        }).then(sendResponse)
+        return true
+
+      /**
+       * A verdict reached on the page, re-broadcast so an open panel stays in step.
+       *
+       * Parked beside the plan it belongs to, in session storage, because the panel's own copy
+       * dies with the panel and the answers themselves must not outlive the session. Nothing
+       * listens when the panel is closed, which is the ordinary case rather than a failure.
+       */
+      case 'review/verdict':
+        void toResult(async () => {
+          const [tab] = await chrome.tabs.query({ active: true, currentWindow: true })
+          if (tab?.id !== undefined) await recordVerdict(tab.id, request)
+          // Re-broadcast for a panel that is open right now.
+          void chrome.runtime.sendMessage(request).catch(() => undefined)
           return null
         }).then(sendResponse)
         return true

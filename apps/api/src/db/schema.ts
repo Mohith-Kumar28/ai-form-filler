@@ -142,3 +142,51 @@ export const subscriptions = sqliteTable(
   },
   (t) => [uniqueIndex('subscriptions_dodo_customer_idx').on(t.dodoCustomerId)],
 )
+
+/**
+ * Write-side bookkeeping for learned answers. **Not an answering path.**
+ *
+ * A `learned` table of question→answer pairs existed here once and was deliberately removed;
+ * the post-mortem is in `services/answer-bank.ts` and it is worth reading before touching
+ * this. The short version: it was a second store to keep in sync, a prompt block that grew
+ * with every submission, and a lookup that only fired when a later form asked a question in
+ * byte-identical words.
+ *
+ * This is not that table, and the *schema* is what makes the difference rather than anyone's
+ * discipline:
+ *
+ *   - **There is no answer column.** The answer lives in Supermemory and only there.
+ *     `answerHash` is a one-way digest — enough to notice "the same answer again" and skip the
+ *     write, and structurally incapable of being read back or injected into a prompt. Adding a
+ *     lookup is therefore not a small edit; it is a schema change, under this comment.
+ *   - **`memoryId` is a pointer**, so a superseded answer can be *replaced* rather than
+ *     appended beside the answer it contradicts. Exact precedent: `profile_sources.memoryId`.
+ *   - **`rejectedValues` is the only free text here**, and it is only ever rendered as "do not
+ *     answer with this". It cannot become an answer because it is the negative set.
+ *
+ * Read once per fill, as one indexed lookup over the questions the form actually asks. The
+ * composite primary key *is* that index.
+ */
+export const learnedPointers = sqliteTable(
+  'learned_pointers',
+  {
+    userId: text('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    /**
+     * Digest of the question, plus the origin for prose only. See `questionHashFor` for why
+     * that asymmetry is the whole point of the key.
+     */
+    questionHash: text('question_hash').notNull(),
+    /** The question as last seen. For debugging, and for wording the avoid hint. */
+    question: text('question').notNull(),
+    /** Supermemory document holding the current answer. Null if that write failed. */
+    memoryId: text('memory_id'),
+    /** One-way fingerprint of the stored answer, so an identical re-teach costs nothing. */
+    answerHash: text('answer_hash'),
+    /** Values the user rejected, newest first, ' | '-joined. Never retrieved, only avoided. */
+    rejectedValues: text('rejected_values'),
+    updatedAt: integer('updated_at').notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.userId, t.questionHash] })],
+)

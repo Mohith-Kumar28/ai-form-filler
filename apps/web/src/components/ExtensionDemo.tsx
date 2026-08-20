@@ -7,7 +7,6 @@ import {
   GuessedBadge,
   IconCheck,
   IconSparkle,
-  Mascot,
   ReadBadge,
 } from '@/components/ui'
 import { cn } from '@/lib/cn'
@@ -78,7 +77,6 @@ type MarkState = 'idle' | 'active' | 'filled' | 'aiWrote'
 
 export function ExtensionDemo() {
   const [state, setState] = useState<DemoState>('idle')
-  const [stage, setStage] = useState(0)
   const [marks, setMarks] = useState<Record<string, MarkState>>({})
   const [filledFields, setFilledFields] = useState<Set<string>>(new Set())
   const [showReview, setShowReview] = useState(false)
@@ -89,28 +87,24 @@ export function ExtensionDemo() {
   const startFill = useCallback(() => {
     setState('filling')
     setLauncherMode('busy')
-    setStage(0)
 
     let step = 0
     const advance = () => {
       if (step < STAGES.length) {
-        setStage(step)
         setLauncherText(`${step}/${STAGES.length}`)
         step++
         setTimeout(advance, step === 2 ? 1400 : 1200)
       } else {
-        const fieldIds = FORM_FIELDS.map((f) => f.id)
         let fi = 0
         const fillNext = () => {
-          if (fi < fieldIds.length) {
-            const fieldId = fieldIds[fi]!
-            setMarks((prev) => ({ ...prev, [fieldId]: 'active' }))
+          const field = FORM_FIELDS[fi]
+          if (field) {
+            setMarks((prev) => ({ ...prev, [field.id]: 'active' }))
             setTimeout(() => {
-              setFilledFields((prev) => new Set([...prev, fieldId]))
-              const field = FORM_FIELDS.find((f) => f.id === fieldId)
+              setFilledFields((prev) => new Set([...prev, field.id]))
               setMarks((prev) => ({
                 ...prev,
-                [fieldId]: field?.concluded ? 'aiWrote' : 'filled',
+                [field.id]: field.concluded ? 'aiWrote' : 'filled',
               }))
               fi++
               setTimeout(fillNext, 200)
@@ -132,7 +126,6 @@ export function ExtensionDemo() {
 
   const reset = useCallback(() => {
     setState('idle')
-    setStage(0)
     setFilledFields(new Set())
     setMarks({})
     setShowReview(false)

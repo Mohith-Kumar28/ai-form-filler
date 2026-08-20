@@ -28,11 +28,27 @@ export interface PositionTarget {
   element: HTMLElement
   /** Called with viewport-relative coordinates whenever the position meaningfully changes. */
   onMove: (rect: Rect, visible: boolean) => void
+  /**
+   * The anchor left the document. Fired once, from the same check that stops tracking it.
+   *
+   * Without it a target is dropped silently, and anything mounted against it is left frozen at
+   * its last position — a provenance tab still hovering over a question Workday replaced two
+   * steps ago, pointing at nothing and impossible to dismiss.
+   */
+  onDetach?: () => void
 }
 
 interface TrackedTarget extends PositionTarget {
   lastRect: Rect | null
   visible: boolean
+  /**
+   * The visibility the target was last *told* about, which is not the same as `visible`.
+   *
+   * `visible` is what the observer and the geometry say; this is what the thing mounted on the
+   * element currently believes. They diverge for exactly one frame — and the bug was that the
+   * cull rule ran in between, so the divergence became permanent. See `measureAll`.
+   */
+  reported: boolean
   /** Size is what invalidates a cached rect; scroll offset alone does not. */
   lastWidth: number
   lastHeight: number
@@ -55,6 +71,7 @@ class PositionScheduler {
       ...target,
       lastRect: null,
       visible: false,
+      reported: false,
       lastWidth: -1,
       lastHeight: -1,
     })
@@ -78,6 +95,25 @@ class PositionScheduler {
     for (const element of [...this.targets.keys()]) this.untrack(element)
   }
 
+  /**
+   * Throw away every cached rect and measure the whole set again.
+   *
+   * For a change that moves everything at once and reports nothing: the side panel opening or
+   * closing, a zoom, a sticky header collapsing, a webfont landing. `requestMeasure` is not
+   * enough on its own, and deliberately so — it honours the cull, so a target that is off
+   * screen keeps its stale rect, and a target the observer has not spoken about since the
+   * reflow keeps its stale visibility. Invalidation is the way to say "believe nothing".
+   *
+   * Costly by design, so it is called on events that are rare rather than on frames.
+   */
+  invalidate(): void {
+    for (const tracked of this.targets.values()) {
+      tracked.lastRect = null
+      tracked.visible = true
+    }
+    this.requestMeasure()
+  }
+
   /** Coalesces every caller in a frame into a single measure pass. */
   requestMeasure(): void {
     if (this.frame !== null) return
@@ -95,11 +131,31 @@ class PositionScheduler {
     for (const tracked of this.targets.values()) {
       if (!tracked.element.isConnected) {
         this.untrack(tracked.element)
+        // After untracking, so a handler that mounts something new cannot be handed a target
+        // that is about to be swept.
+        tracked.onDetach?.()
         continue
       }
 
-      // A culled target is not measured at all — that is the point of culling.
-      if (!tracked.visible && tracked.lastRect !== null) continue
+      /**
+       * A culled target is not measured at all — that is the point of culling. But it is told
+       * it is hidden *first*, and that ordering is the whole fix.
+       *
+       * The cull used to run before anything was reported, so a target whose anchor left the
+       * viewport was dropped while whatever was mounted on it still believed it was visible.
+       * A mark is drawn at viewport coordinates and only ever moves when `onMove` says so, so
+       * it froze exactly where it last was: a ring and a provenance tab still painted at the
+       * position the field used to occupy, hovering over unrelated questions and pointing at
+       * nothing. Opening or closing the side panel reflows the page and produced this every
+       * time.
+       */
+      if (!tracked.visible && tracked.lastRect !== null) {
+        if (tracked.reported) {
+          tracked.reported = false
+          tracked.onMove(tracked.lastRect, false)
+        }
+        continue
+      }
 
       const box = tracked.element.getBoundingClientRect()
       const rect: Rect = {
@@ -140,18 +196,38 @@ class PositionScheduler {
         Math.abs(tracked.lastRect.width - rect.width) > MOVE_EPSILON ||
         Math.abs(tracked.lastRect.height - rect.height) > MOVE_EPSILON
 
-      const visibilityChanged = tracked.lastRect !== null && visible !== tracked.visible
+      /**
+       * Against `reported`, not against `visible`.
+       *
+       * `visible` is one of the inputs to the value being tested, so comparing them asked
+       * whether the observer agreed with the geometry — which is a different question, and on
+       * a target the observer called visible while its rect sat off-screen it was true on
+       * every single frame, reporting the same hidden state forever.
+       */
+      const visibilityChanged = tracked.lastRect !== null && visible !== tracked.reported
 
       if (moved || visibilityChanged) {
         tracked.lastRect = rect
         tracked.lastWidth = rect.width
         tracked.lastHeight = rect.height
+        tracked.reported = visible
         tracked.onMove(rect, visible)
       }
     }
   }
 
   private handleScroll = (): void => this.requestMeasure()
+
+  /**
+   * A viewport change, which is not a scroll however similar it looks from here.
+   *
+   * The page relays out: centred content shifts sideways, wrapped text changes height, and
+   * every tracked rect is wrong at once. Chrome's side panel opening or closing is exactly
+   * this, and it was the reported symptom — marks left behind a few hundred pixels from the
+   * fields they belonged to, because a plain re-measure skips the targets that were culled and
+   * trusts the observer for the rest.
+   */
+  private handleViewportChange = (): void => this.invalidate()
 
   private ensureListening(): void {
     if (this.listening) return
@@ -160,7 +236,17 @@ class PositionScheduler {
     // `capture: true` catches scrolls on any ancestor container, not just the window —
     // a field inside a scrollable modal moves without the window scrolling at all.
     window.addEventListener('scroll', this.handleScroll, { passive: true, capture: true })
-    window.addEventListener('resize', this.handleScroll, { passive: true })
+    window.addEventListener('resize', this.handleViewportChange, { passive: true })
+
+    /**
+     * `visualViewport` as well as `window`, because they report different things.
+     *
+     * A pinch-zoom or a mobile keyboard changes the visual viewport without firing a window
+     * resize at all, and on desktop the two fire at slightly different moments during a panel
+     * animation — so listening to both is what makes the final position correct rather than
+     * merely eventually correct.
+     */
+    window.visualViewport?.addEventListener('resize', this.handleViewportChange)
 
     this.observer = new IntersectionObserver(
       (entries) => {
@@ -195,7 +281,8 @@ class PositionScheduler {
     this.listening = false
 
     window.removeEventListener('scroll', this.handleScroll, { capture: true })
-    window.removeEventListener('resize', this.handleScroll)
+    window.removeEventListener('resize', this.handleViewportChange)
+    window.visualViewport?.removeEventListener('resize', this.handleViewportChange)
 
     this.observer?.disconnect()
     this.observer = null
@@ -242,4 +329,36 @@ export function clampToViewport(
   const top = above >= margin ? above : Math.min(below, viewport.height - size.height - margin)
 
   return { top: Math.max(margin, top), left: Math.max(margin, left) }
+}
+
+/**
+ * The nearest ancestor that clips its content, as a viewport rect.
+ *
+ * Anything anchored *above* a field has to know about this. A question inside a scrolling
+ * modal or an accordion pane can have its top edge scrolled out of the container while the
+ * field itself is still perfectly visible — and a label drawn 22px above it then floats over
+ * whatever the container happens to be showing there, attached to nothing.
+ *
+ * Returns null when nothing clips, which is the common case and means "no constraint".
+ */
+export function nearestClipRect(element: HTMLElement): Rect | null {
+  let parent = element.parentElement
+
+  while (parent && parent !== document.body && parent !== document.documentElement) {
+    const style = getComputedStyle(parent)
+    if (
+      style.overflow !== 'visible' ||
+      style.overflowY !== 'visible' ||
+      style.overflowX !== 'visible'
+    ) {
+      const box = parent.getBoundingClientRect()
+      // A zero-sized container clips nothing meaningful and is usually a layout wrapper.
+      if (box.height > 0 && box.width > 0) {
+        return { top: box.top, left: box.left, width: box.width, height: box.height }
+      }
+    }
+    parent = parent.parentElement
+  }
+
+  return null
 }
