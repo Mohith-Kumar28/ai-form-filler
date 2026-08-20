@@ -11,19 +11,21 @@ import {
 import { IconAlert, IconCheck } from '../icons.js'
 
 /**
- * The three things that actually happen, in order — now with a friend reacting to each one.
+ * The three things that actually happen, in order.
  *
- * A list that resolves as each stage completes says the same thing once and then proves it,
- * and the mascot's face changes with the beat so the wait feels like someone's on it.
+ * A list that resolves as each stage completes says the same thing once and then proves it, and
+ * the mascot's face changes with the beat so the wait reads as progress. The face carries the
+ * warmth; the labels name the step. "Reading the room…" and "Slapping them in…" were a voice
+ * doing the work the progress list was already doing, and neither told you what was happening.
  *
  * `routing` is deliberately absent: classification and generation are one HTTP call, so the
  * client cannot honestly tell them apart, and a stage that never resolves is worse than one
  * that was never claimed.
  */
 const STAGES = [
-  { key: 'detecting', label: 'Reading the room…', mascot: 'think' as Expression },
+  { key: 'detecting', label: 'Reading the form…', mascot: 'think' as Expression },
   { key: 'generating', label: 'Writing your answers…', mascot: 'think' as Expression },
-  { key: 'applying', label: 'Slapping them in…', mascot: 'party' as Expression },
+  { key: 'applying', label: 'Filling the fields…', mascot: 'party' as Expression },
 ] as const
 
 const ORDER: Record<string, number> = { detecting: 0, generating: 1, applying: 2 }
@@ -43,17 +45,17 @@ export function Filling({
 
   return (
     <Screen>
-      <ScreenHeader title="On it" onBack={onCancel} />
+      <ScreenHeader title="Filling" onBack={onCancel} />
 
       <ScreenBody className="flex flex-col items-center px-6 py-8 text-center">
         <Mascot expression={failed ? 'happy' : active.mascot} size={72} className="bounce" />
 
-        <p className="mt-5 font-display text-[18px] font-bold tracking-[-0.02em] text-ink">
-          {failed ? "oof. that one didn't land." : active.label}
+        <p className="mt-5 font-display text-lg font-bold tracking-[-0.02em] text-ink">
+          {failed ? 'That did not go through.' : active.label}
         </p>
 
         {!failed && (
-          <p className="mt-1 text-[13px] text-ink-muted">
+          <p className="mt-1 text-sm text-ink-muted">
             {fieldCount > 0 ? `${fieldCount} fields on this page` : 'Working through the form'}
           </p>
         )}
@@ -78,14 +80,14 @@ export function Filling({
                   )}
                 </span>
                 <span
-                  className={`flex-1 text-left text-[13.5px] ${
+                  className={`flex-1 text-left text-sm ${
                     done ? 'text-ink-dim' : isActive ? 'font-semibold text-ink' : 'text-ink-dim'
                   }`}
                 >
                   {label}
                 </span>
                 {isActive && key === 'applying' && state.stageTotal ? (
-                  <span className="text-[12px] font-semibold text-ink-muted">
+                  <span className="text-xs font-semibold text-ink-muted">
                     {state.stageDone ?? 0}/{state.stageTotal}
                   </span>
                 ) : null}
@@ -97,13 +99,13 @@ export function Filling({
         {failed ? (
           <p
             role="alert"
-            className="mt-5 flex items-start gap-1.5 text-left text-[13px] leading-snug text-danger"
+            className="mt-5 flex items-start gap-1.5 text-left text-sm leading-snug text-danger"
           >
             <IconAlert className="mt-px size-3.5 shrink-0" />
             <span>{state.error?.message ?? 'Something went wrong.'}</span>
           </p>
         ) : (
-          <p className="mt-5 text-[12.5px] leading-relaxed text-ink-dim">
+          <p className="mt-5 text-xs leading-relaxed text-ink-dim">
             Answers land on the page as they arrive. Nothing gets submitted; that stays yours.
           </p>
         )}

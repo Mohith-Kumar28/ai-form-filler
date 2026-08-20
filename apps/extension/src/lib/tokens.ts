@@ -1,5 +1,5 @@
 /**
- * "The Hype Friend" — one bright, playful palette, two consumers.
+ * One bright palette, two consumers.
  *
  * The side panel gets these as Tailwind v4 `@theme` variables (src/assets/tailwind.css); the
  * page overlay gets them as an inlined CSS string, because a `chrome-extension://` stylesheet
@@ -7,10 +7,17 @@
  * copies that had already drifted apart; this module is the authority for both and
  * `tokens.test.ts` fails the build if tailwind.css stops agreeing with it.
  *
- * The world: your hype friend who does the boring homework (forms) for you and cheers you on.
- * The palette is bright and saturated — a signature violet→pink→orange "sunset" gradient for
- * the hero moments, hot pink for the one thing you must look at (an answer the AI wrote), lime
- * for what came from you, and warm neutrals that are never pure gray or pure black.
+ * The palette is bright and saturated on purpose — a signature violet→pink→orange "sunset"
+ * gradient for the hero moments, hot pink for the one thing you must look at (an answer the
+ * tool guessed), lime for what came straight from you, and warm neutrals that are never pure
+ * gray or pure black.
+ *
+ * The colour is where the personality lives. **The words are not** — copy says what the thing
+ * does, in plain language. An earlier generation of this file described the product as "your
+ * hype friend who does the boring homework for you", and screens written to that brief opened
+ * with "forms suck. let's make 'em not." and reported a failed fill as "oof. that one didn't
+ * land." Someone reading this panel is mid-application and mildly dreading it; they need to
+ * know what happened, not to be cheered at.
  *
  *   filled    came from your own info — the friendly green, nothing to check
  *   judged    the tool concluded it rather than reading it — accent + a sparkle, on a tab

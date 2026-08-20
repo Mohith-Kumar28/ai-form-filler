@@ -734,7 +734,21 @@ export function mountAnswerCard(spec: AnswerCardSpec): CardHandle {
   return {
     ...handle,
     close: () => {
-      if (writeTimer !== null) clearTimeout(writeTimer)
+      /*
+        Flush, never drop.
+
+        `Keep` already wrote through a pending edit before settling; `close` cleared the same
+        timer and threw the value away. That was survivable while the only ways out were Keep,
+        Clear and the close button — all of which either write or deliberately discard — but
+        Escape and a click on the page are neither, and losing the last half-second of what
+        somebody typed because they clicked back onto the form is not a dismissal, it is data
+        loss.
+      */
+      if (writeTimer !== null) {
+        clearTimeout(writeTimer)
+        writeTimer = null
+        void spec.onWrite(current)
+      }
       if (slowTimer !== null) clearTimeout(slowTimer)
       handle.close()
     },

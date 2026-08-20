@@ -24,7 +24,13 @@ export type AddKind = 'upload' | 'link' | 'text' | 'voice'
 
 export type Screen =
   | { name: 'home' }
-  | { name: 'yourInfo' }
+  /**
+   * Which half of "Your info" is showing.
+   *
+   * On the screen rather than in the screen's own state so that pushing "Add a source" and
+   * coming back lands on Sources, not on Facts.
+   */
+  | { name: 'yourInfo'; view?: 'facts' | 'sources' }
   | { name: 'account' }
   | { name: 'filling' }
   | { name: 'receipt' }

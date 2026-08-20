@@ -10,6 +10,7 @@ import { useFill } from '../../lib/use-fill.js'
 import { Screen, ScreenBody, ScreenHeader, SkeletonRow, TabBar } from './components.js'
 import { NavigationProvider, useNavigation } from './navigation.js'
 import { AddSource } from './screens/AddSource.js'
+import { Facts } from './screens/Facts.js'
 import { Filling } from './screens/Filling.js'
 import { Home } from './screens/Home.js'
 import { Profile } from './screens/Profile.js'
@@ -84,7 +85,7 @@ function Stack() {
       <Screen>
         <ScreenHeader title="Fillaform" />
         <ScreenBody className="flex items-center justify-center px-6">
-          <p className="text-center text-[12.5px] leading-relaxed text-danger" role="alert">
+          <p className="text-center text-xs leading-relaxed text-danger" role="alert">
             {account.error?.message ?? 'Could not load your account.'}
           </p>
         </ScreenBody>
@@ -102,7 +103,12 @@ function Stack() {
         return <Profile account={accountData} />
 
       case 'yourInfo':
-        return <Sources profile={profile.data} />
+        // Facts is the default half: what it knows is what people come here to check.
+        return screen.view === 'sources' ? (
+          <Sources profile={profile.data} />
+        ) : (
+          <Facts profile={profile.data} />
+        )
 
       case 'addInfo':
         return <AddSource initial={screen.initial} />

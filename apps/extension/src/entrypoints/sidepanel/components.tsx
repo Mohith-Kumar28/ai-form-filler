@@ -12,13 +12,19 @@ import { openUpgrade } from '../../lib/billing.js'
 import {
   IconAlert,
   IconBack,
+  IconCheck,
+  IconChevronDown,
   IconChevronRight,
+  IconClose,
   IconCrown,
   IconDocument,
+  IconEye,
+  IconEyeOff,
   IconGear,
   IconLock,
   IconMascot,
   IconMore,
+  IconSearch,
   IconSparkle,
 } from './icons.js'
 import { type TabName, useNavigation } from './navigation.js'
@@ -49,81 +55,50 @@ export function Screen({ children }: { children: ReactNode }) {
 
 export function ScreenHeader({
   title,
+  subtitle,
   right,
   onBack,
-  usage,
+  search,
 }: {
   title: ReactNode
+  /** One line under the title. A measure, never a sales pitch. */
+  subtitle?: ReactNode
   right?: ReactNode
   /** Overrides the default pop. Pass nothing on Home, where there is nowhere to go back to. */
   onBack?: () => void
-  /** Compact usage bar rendered below the title row. */
-  usage?: { used: number; limit: number; plan: string }
+  /**
+   * A filter for the screen's own content, rendered on its own row.
+   *
+   * Its own row rather than beside the title because at 400px a header holding a title, an
+   * action and a text field holds none of the three properly.
+   */
+  search?: ReactNode
 }) {
   const nav = useNavigation()
   const canGoBack = onBack !== undefined || nav.depth > 0
-  const pct = usage && usage.limit > 0 ? Math.min(100, (usage.used / usage.limit) * 100) : 0
-  const exhausted = usage ? usage.used >= usage.limit : false
-  const warning = pct >= 80 && !exhausted
 
   return (
     <header className="shrink-0 border-b border-border-muted">
-      <div className="flex h-14 items-center gap-1.5 px-2.5">
+      <div className="flex items-center gap-2 px-gutter py-3">
         {canGoBack && (
           <button
             type="button"
             onClick={onBack ?? nav.back}
             aria-label="Back"
-            className="flex size-8 shrink-0 items-center justify-center rounded-full text-ink-muted transition-colors hover:bg-surface-muted hover:text-ink"
+            className="-ml-2.5 flex size-9 shrink-0 items-center justify-center rounded-full text-ink-muted transition-colors hover:bg-surface-muted hover:text-ink"
           >
             <IconBack className="size-4" />
           </button>
         )}
-        <h1 className="min-w-0 flex-1 truncate font-display text-[16px] font-bold tracking-[-0.02em] text-ink">
-          {title}
-        </h1>
+        <div className="min-w-0 flex-1">
+          <h1 className="truncate font-display text-lg font-bold tracking-[-0.02em] text-ink">
+            {title}
+          </h1>
+          {subtitle && <p className="mt-0.5 truncate text-xs text-ink-dim">{subtitle}</p>}
+        </div>
         {right}
       </div>
-      {usage && (
-        <div className="flex items-center gap-2 px-3 pb-2.5">
-          <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-surface-muted">
-            <div
-              className={`h-full rounded-full transition-[width] duration-500 ${
-                exhausted ? 'bg-danger' : warning ? 'bg-warning' : ''
-              }`}
-              style={{
-                width: `${pct}%`,
-                ...(exhausted || warning
-                  ? {}
-                  : {
-                      background:
-                        'linear-gradient(90deg, var(--color-sparkle), var(--color-accent))',
-                    }),
-              }}
-            />
-          </div>
-          <span
-            className={`shrink-0 text-[11px] font-semibold ${
-              exhausted ? 'text-danger' : warning ? 'text-warning' : 'text-ink-dim'
-            }`}
-          >
-            {usage.used}/{usage.limit}
-          </span>
-          {usage.plan === 'free' && (
-            <button
-              type="button"
-              onClick={() => void openUpgrade()}
-              className="inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[10.5px] font-bold text-white transition-[filter] hover:brightness-110 active:brightness-95"
-              style={{
-                background: SUNSET_GRADIENT,
-              }}
-            >
-              <IconCrown className="size-2.5" />
-              Upgrade
-            </button>
-          )}
-        </div>
-      )}
+      {search && <div className="px-gutter pb-3">{search}</div>}
     </header>
   )
 }
@@ -132,16 +107,18 @@ export function ScreenHeader({
 export function ScreenBody({
   children,
   className = '',
-}: {
-  children: ReactNode
-  className?: string
-}) {
-  return <div className={`min-h-0 flex-1 overflow-y-auto ${className}`}>{children}</div>
+  ...rest
+}: { children: ReactNode; className?: string } & React.HTMLAttributes<HTMLDivElement>) {
+  return (
+    <div className={`min-h-0 flex-1 overflow-y-auto ${className}`} {...rest}>
+      {children}
+    </div>
+  )
 }
 
 export function ScreenFooter({ children }: { children: ReactNode }) {
   return (
-    <footer className="shrink-0 border-t border-border-muted bg-surface px-4 py-3">
+    <footer className="shrink-0 border-t border-border-muted bg-surface px-gutter py-3">
       {children}
     </footer>
   )
@@ -174,11 +151,11 @@ export function TabBar() {
               type="button"
               onClick={() => nav.goToTab(key)}
               aria-current={active ? 'page' : undefined}
-              className={`flex flex-1 flex-col items-center gap-0.5 rounded-xl py-1.5 text-[11px] font-semibold transition-colors ${
+              className={`flex flex-1 flex-col items-center gap-1 rounded-xl py-2 text-2xs font-semibold transition-colors ${
                 active ? 'text-accent' : 'text-ink-dim hover:text-ink'
               }`}
             >
-              <Icon className="size-[18px]" />
+              <Icon className="size-5" />
               {label}
             </button>
           )
@@ -223,12 +200,14 @@ export function Button({
       disabled={disabled || loading}
       aria-busy={loading || undefined}
       className={[
-        'inline-flex items-center justify-center gap-1.5 rounded-full font-semibold transition-[filter,background-color,transform] duration-150 active:translate-y-px disabled:pointer-events-none disabled:opacity-45',
+        'inline-flex shrink-0 items-center justify-center gap-1.5 rounded-full font-semibold transition-[filter,background-color,transform] duration-150 active:translate-y-px disabled:pointer-events-none disabled:opacity-45',
+        // Heights come off the density scale rather than out of padding. A 28px button in a
+        // docked panel is a near-miss waiting to happen, and this surface gets used one-handed.
         size === 'sm'
-          ? 'px-3 py-1.5 text-[12.5px]'
+          ? 'min-h-8 px-3.5 text-sm'
           : size === 'lg'
-            ? 'px-5 py-3 text-[15px]'
-            : 'px-4 py-2 text-[13.5px]',
+            ? 'min-h-12 px-5 text-base'
+            : 'min-h-control px-4 text-sm',
         block ? 'w-full' : '',
         VARIANTS[variant],
         className,
@@ -276,7 +255,7 @@ export function Card({
 export function Chip({ children, className = '' }: { children: ReactNode; className?: string }) {
   return (
     <span
-      className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[12px] font-medium ${className}`}
+      className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium ${className}`}
     >
       {children}
     </span>
@@ -304,10 +283,11 @@ type Expression = 'happy' | 'think' | 'party' | 'excited'
 export type { Expression }
 
 /**
- * The hype friend: a rounded blob with the sunset gradient and a face.
+ * The mascot: a rounded blob with the sunset gradient and a face.
  *
- * Deliberately tiny and cheap — one SVG, a few mouth/eye variations, no image assets. It
- * shows up where the product talks to you: welcome, filling, empty states, the done moment.
+ * Deliberately tiny and cheap — one SVG, a few mouth/eye variations, no image assets. It shows
+ * up where the product talks to you: welcome, filling, empty states, the done moment. The face
+ * is where the warmth goes, which is what lets the copy around it stay plain.
  */
 export function Mascot({
   expression = 'happy',
@@ -411,18 +391,18 @@ export function Row({
       )}
       <span className="min-w-0 flex-1">
         <span
-          className={`block truncate text-[14px] ${tone === 'danger' ? 'text-danger' : 'text-ink'}`}
+          className={`block truncate text-base ${tone === 'danger' ? 'text-danger' : 'text-ink'}`}
         >
           {title}
         </span>
-        {detail && <span className="mt-0.5 block truncate text-[12px] text-ink-dim">{detail}</span>}
+        {detail && <span className="mt-0.5 block truncate text-xs text-ink-dim">{detail}</span>}
       </span>
-      {value && <span className="shrink-0 text-[12px] text-ink-dim">{value}</span>}
+      {value && <span className="shrink-0 text-xs text-ink-dim">{value}</span>}
       {trailing ?? (onClick && <IconChevronRight className="size-4 shrink-0 text-ink-dim" />)}
     </>
   )
 
-  const shared = 'flex w-full items-start gap-2.5 px-4 py-3 text-left'
+  const shared = 'flex min-h-row w-full items-center gap-3 px-gutter py-2.5 text-left'
 
   if (!onClick) {
     return <div className={shared}>{body}</div>
@@ -446,8 +426,16 @@ export function RowGroup({ children }: { children: ReactNode }) {
 
 /* ── Fields ──────────────────────────────────────────────────────────────── */
 
+/*
+  Filled, not outlined.
+
+  `surface-raised` on `surface` is 99.3% lightness on 97.2% — a difference nobody can see, so
+  every input read as a hairline rectangle drawn on the same flat sheet as everything else. A
+  filled control on the lighter ground is the separation, and focus lifts it to raised with an
+  accent ring, so "where I am typing" is unmistakable rather than a 1px colour change.
+*/
 const CONTROL =
-  'w-full rounded-xl border border-border bg-surface-raised px-3 py-2 text-[14px] text-ink placeholder:text-ink-dim transition-colors focus:border-accent disabled:opacity-50'
+  'min-h-control w-full rounded-xl border border-border bg-surface-muted px-3.5 py-2 text-base text-ink placeholder:text-ink-dim transition-[background-color,border-color,box-shadow] hover:border-ink-dim/40 focus:border-accent focus:bg-surface-raised focus:shadow-[0_0_0_3px_var(--color-accent-muted)] focus:outline-none disabled:opacity-50'
 
 export function Field({
   label,
@@ -467,17 +455,17 @@ export function Field({
 
   return (
     <div className="flex flex-col gap-1.5">
-      <label htmlFor={id} className="text-[12px] font-semibold text-ink-muted">
+      <label htmlFor={id} className="text-sm font-semibold text-ink-muted">
         {label}
       </label>
       {children({ id, describedBy: describedBy || undefined })}
       {hint && !error && (
-        <p id={hintId} className="text-[12px] text-ink-dim">
+        <p id={hintId} className="text-xs text-ink-dim">
           {hint}
         </p>
       )}
       {error && (
-        <p id={errorId} role="alert" className="flex items-start gap-1.5 text-[12px] text-danger">
+        <p id={errorId} role="alert" className="flex items-start gap-1.5 text-xs text-danger">
           <IconAlert className="mt-px size-3.5 shrink-0" />
           <span>{error}</span>
         </p>
@@ -524,7 +512,7 @@ export function AutoTextarea({
 
 export function SkeletonRow() {
   return (
-    <div className="flex items-center gap-2.5 px-4 py-3">
+    <div className="flex items-center gap-2.5 px-gutter py-3">
       <div className="awaiting size-4 shrink-0 rounded-full" />
       <div className="min-w-0 flex-1">
         <div className="awaiting h-3.5 w-2/5 rounded-full" />
@@ -558,10 +546,8 @@ export function EmptyState({
   return (
     <div className="flex flex-1 flex-col items-center justify-center px-7 py-10 text-center">
       <Mascot expression={mascot} size={52} className="bounce" />
-      <h2 className="mt-4 font-display text-[17px] font-bold tracking-[-0.02em] text-ink">
-        {title}
-      </h2>
-      <div className="mx-auto mt-1.5 max-w-[32ch] text-[13px] leading-relaxed text-ink-muted">
+      <h2 className="mt-4 font-display text-lg font-bold tracking-[-0.02em] text-ink">{title}</h2>
+      <div className="mx-auto mt-1.5 max-w-[32ch] text-sm leading-relaxed text-ink-muted">
         {body}
       </div>
       {action && <div className="mt-4 flex justify-center">{action}</div>}
@@ -573,7 +559,7 @@ export function ErrorNote({ children }: { children: ReactNode }) {
   return (
     <p
       role="alert"
-      className="flex items-start gap-1.5 px-4 py-2.5 text-[12.5px] leading-snug text-danger"
+      className="flex items-start gap-1.5 px-gutter py-2.5 text-xs leading-snug text-danger"
     >
       <IconAlert className="mt-px size-3.5 shrink-0" />
       <span className="min-w-0">{children}</span>
@@ -627,7 +613,7 @@ export function OverflowMenu({ items, label }: { items: MenuItem[]; label: strin
         aria-expanded={open}
         aria-haspopup="menu"
         onClick={() => setOpen((v) => !v)}
-        className="flex size-7 items-center justify-center rounded-full text-ink-dim transition-colors hover:bg-surface-muted hover:text-ink"
+        className="flex size-9 items-center justify-center rounded-full text-ink-dim transition-colors hover:bg-surface-muted hover:text-ink"
       >
         <IconMore className="size-4" />
       </button>
@@ -645,7 +631,7 @@ export function OverflowMenu({ items, label }: { items: MenuItem[]; label: strin
                 setOpen(false)
                 item.onSelect()
               }}
-              className={`block w-full rounded-lg px-3 py-2 text-left text-[13px] transition-colors hover:bg-surface-muted ${
+              className={`block min-h-9 w-full rounded-lg px-3 py-2 text-left text-sm transition-colors hover:bg-surface-muted ${
                 item.tone === 'danger' ? 'text-danger' : 'text-ink'
               }`}
             >
@@ -728,12 +714,12 @@ export function ConfirmSheet({
         role="alertdialog"
         aria-modal="true"
         aria-label={title}
-        className="pop relative rounded-t-2xl border-t border-border bg-surface-raised px-4 pb-4 pt-4 shadow-[0_-8px_24px_-12px_var(--color-shadow-strong)]"
+        className="pop relative rounded-t-2xl border-t border-border bg-surface-raised px-gutter pb-4 pt-4 shadow-[0_-8px_24px_-12px_var(--color-shadow-strong)]"
       >
-        <h2 className="font-display text-[16px] font-bold text-ink">{title}</h2>
-        <div className="mt-1.5 text-[13px] leading-relaxed text-ink-muted">{body}</div>
+        <h2 className="font-display text-lg font-bold text-ink">{title}</h2>
+        <div className="mt-1.5 text-sm leading-relaxed text-ink-muted">{body}</div>
         {error && (
-          <p role="alert" className="mt-2.5 text-[12px] leading-snug text-danger">
+          <p role="alert" className="mt-2.5 text-xs leading-snug text-danger">
             {error}
           </p>
         )}
@@ -784,7 +770,7 @@ export function SegmentedControl<T extends string>({
             role="tab"
             aria-selected={selected}
             onClick={() => onChange(segment.key)}
-            className={`flex flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-full px-2.5 py-1.5 text-[12.5px] font-semibold transition-colors ${
+            className={`flex flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-full px-2.5 py-1.5 text-xs font-semibold transition-colors ${
               selected ? 'bg-surface-raised text-ink shadow-sm' : 'text-ink-muted hover:text-ink'
             }`}
           >
@@ -804,7 +790,7 @@ export function ProBadge({ plan }: { plan: string }) {
   const label = plan === 'ultra' ? 'Ultra' : 'Pro'
   return (
     <span
-      className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-bold"
+      className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-2xs font-bold"
       style={{
         background: 'linear-gradient(135deg, var(--color-sparkle), var(--color-accent))',
         color: 'white',
@@ -836,13 +822,11 @@ export function Toggle({
       type="button"
       onClick={() => onChange(!checked)}
       disabled={disabled}
-      className="flex w-full items-center gap-2.5 px-4 py-3 text-left transition-colors hover:bg-surface-muted disabled:opacity-50"
+      className="flex min-h-row w-full items-center gap-3 px-gutter py-3 text-left transition-colors hover:bg-surface-muted disabled:opacity-50"
     >
       <span className="min-w-0 flex-1">
-        <span className="block text-[14px] text-ink">{label}</span>
-        {description && (
-          <span className="mt-0.5 block text-[12px] text-ink-dim">{description}</span>
-        )}
+        <span className="block text-base text-ink">{label}</span>
+        {description && <span className="mt-0.5 block text-xs text-ink-dim">{description}</span>}
       </span>
       <span
         role="switch"
@@ -882,16 +866,16 @@ export function UsageBar({
   const warning = pct >= 80 && !exhausted
 
   return (
-    <div className="mx-4 mb-3 mt-3 rounded-2xl border border-border-muted bg-surface-raised px-4 py-3">
+    <div className="mx-4 mb-3 mt-3 rounded-2xl border border-border-muted bg-surface-raised px-gutter py-3">
       <div className="flex items-center justify-between">
-        <span className="text-[12px] font-semibold text-ink-muted">
+        <span className="text-sm font-semibold text-ink-muted">
           {exhausted ? 'Monthly limit reached' : `${left} of ${limit} left`}
         </span>
         {plan === 'free' && (
           <button
             type="button"
             onClick={() => void openUpgrade()}
-            className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11.5px] font-bold text-white transition-[filter] hover:brightness-110 active:brightness-95"
+            className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-2xs font-bold text-white transition-[filter] hover:brightness-110 active:brightness-95"
             style={{
               background: 'linear-gradient(135deg, var(--color-sparkle), var(--color-accent))',
             }}
@@ -916,7 +900,7 @@ export function UsageBar({
           }}
         />
       </div>
-      <p className="mt-1.5 text-[11px] text-ink-dim">
+      <p className="mt-1.5 text-2xs text-ink-dim">
         {exhausted
           ? 'Upgrade to keep filling forms without waiting.'
           : warning
@@ -969,12 +953,12 @@ export function UpgradeSheet({ onClose, reason }: { onClose: () => void; reason?
             <IconCrown className="size-4 text-white" />
           </span>
           <div>
-            <h2 className="font-display text-[17px] font-bold text-ink">Unlock unlimited fills</h2>
-            <p className="text-[12px] text-ink-muted">Upgrade to Pro</p>
+            <h2 className="font-display text-lg font-bold text-ink">Unlock unlimited fills</h2>
+            <p className="text-xs text-ink-muted">Upgrade to Pro</p>
           </div>
         </div>
 
-        {reason && <p className="mt-3 text-[13px] leading-relaxed text-ink-muted">{reason}</p>}
+        {reason && <p className="mt-3 text-sm leading-relaxed text-ink-muted">{reason}</p>}
 
         <div className="mt-4 space-y-2.5">
           {[
@@ -1003,7 +987,7 @@ export function UpgradeSheet({ onClose, reason }: { onClose: () => void; reason?
                   <path d="M3.5 8.5 6.5 11.5 12.5 5" />
                 </svg>
               </span>
-              <span className="text-[13px] text-ink">{perk}</span>
+              <span className="text-sm text-ink">{perk}</span>
             </div>
           ))}
         </div>
@@ -1012,7 +996,7 @@ export function UpgradeSheet({ onClose, reason }: { onClose: () => void; reason?
           <button
             type="button"
             onClick={onClose}
-            className="flex-1 rounded-full border border-border px-4 py-2.5 text-[13.5px] font-semibold text-ink transition-colors hover:bg-surface-muted"
+            className="flex-1 rounded-full border border-border px-gutter py-2.5 text-sm font-semibold text-ink transition-colors hover:bg-surface-muted"
           >
             Maybe later
           </button>
@@ -1022,7 +1006,7 @@ export function UpgradeSheet({ onClose, reason }: { onClose: () => void; reason?
               void openUpgrade()
               onClose()
             }}
-            className="flex-1 rounded-full px-4 py-2.5 text-[13.5px] font-bold text-white transition-[filter] hover:brightness-110 active:brightness-95"
+            className="flex-1 rounded-full px-gutter py-2.5 text-sm font-bold text-white transition-[filter] hover:brightness-110 active:brightness-95"
             style={{
               background: 'linear-gradient(135deg, var(--color-sparkle), var(--color-accent))',
             }}
@@ -1052,7 +1036,7 @@ export function LockedFeature({
     <button
       type="button"
       onClick={onClick}
-      className="flex w-full items-center gap-2.5 px-4 py-3 text-left transition-colors hover:bg-surface-muted"
+      className="flex min-h-row w-full items-center gap-3 px-gutter py-3 text-left transition-colors hover:bg-surface-muted"
     >
       {icon && (
         <span className="flex size-4 shrink-0 items-center justify-center text-ink-dim">
@@ -1060,10 +1044,411 @@ export function LockedFeature({
         </span>
       )}
       <span className="min-w-0 flex-1">
-        <span className="block truncate text-[14px] text-ink-dim">{title}</span>
-        {detail && <span className="mt-0.5 block truncate text-[12px] text-ink-dim">{detail}</span>}
+        <span className="block truncate text-base text-ink-dim">{title}</span>
+        {detail && <span className="mt-0.5 block truncate text-xs text-ink-dim">{detail}</span>}
       </span>
       <IconLock className="size-3.5 shrink-0 text-ink-dim" />
     </button>
+  )
+}
+
+/* ── Sections ─────────────────────────────────────────────────────────────── */
+
+/**
+ * A named, collapsible group of fields.
+ *
+ * The whole point. The previous editor rendered every field a person has — identity, links and
+ * their own typed facts — into one flat scroll of thirty-odd rows under two headings, and the
+ * only way to find anything was to read all of it. A section that says `Address · 2 of 6` and
+ * stays shut answers "is my address in here?" without opening anything.
+ *
+ * `<details>`-backed, so keyboard toggling, find-in-page and screen readers all work without
+ * being reimplemented. `open` may be driven from outside — search results expand their
+ * sections — in which case pass `onToggle` too.
+ */
+export function Section({
+  title,
+  count,
+  open,
+  onToggle,
+  children,
+}: {
+  title: string
+  /** `n of m` filled. Omit where "filled" means nothing. */
+  count?: { filled: number; total: number }
+  open: boolean
+  onToggle: (open: boolean) => void
+  children: ReactNode
+}) {
+  return (
+    /*
+      A card, not a band.
+
+      Six sections divided by hairlines on one flat ground had no separation to speak of — the
+      complaint was that everything ran together, and it did. A raised card with air around it
+      is the separation, and it costs nothing that a border-bottom was buying.
+    */
+    <details
+      open={open}
+      /*
+        `shrink-0` is load-bearing. The screen body is a column flex container, so every section
+        is a flex item and defaults to `flex-shrink: 1` — six of them in a panel shorter than
+        their total height got squeezed to fit, clipping their own titles mid-glyph instead of
+        letting the body scroll.
+      */
+      className="group shrink-0 overflow-hidden rounded-2xl border border-border bg-surface-raised shadow-[0_1px_2px_var(--color-shadow)]"
+      // `toggle` rather than a click handler on the summary: it is the one event that fires for
+      // a pointer, the keyboard and find-in-page alike.
+      onToggle={(event) => onToggle(event.currentTarget.open)}
+    >
+      <summary className="flex min-h-row cursor-pointer list-none items-center gap-3 px-4 py-3 transition-colors hover:bg-surface-muted [&::-webkit-details-marker]:hidden">
+        <span className="min-w-0 flex-1 truncate font-display text-base font-bold tracking-[-0.01em] text-ink">
+          {title}
+        </span>
+        {count && count.total > 0 && (
+          <span
+            className={`shrink-0 rounded-full px-2 py-0.5 text-2xs font-bold tabular-nums ${
+              count.filled === 0
+                ? 'bg-surface-muted text-ink-dim'
+                : 'bg-positive-muted text-positive'
+            }`}
+          >
+            {count.filled}/{count.total}
+          </span>
+        )}
+        <IconChevronDown className="size-4 shrink-0 text-ink-dim transition-transform duration-200 group-open:rotate-180" />
+      </summary>
+
+      {/*
+        Two-up past `wide`, one-up below it.
+
+        A fact is a short label over a short value, so at 400px one column is right and at 620px
+        two columns halve the scroll. `items-start` because a field carrying a hint is taller
+        than its neighbour, and stretching both to match would strand an input mid-cell.
+      */}
+      <div className="grid grid-cols-1 items-start gap-x-4 border-t border-border-muted px-4 pb-4 pt-1 wide:grid-cols-2">
+        {children}
+      </div>
+    </details>
+  )
+}
+
+/* ── Field rows ───────────────────────────────────────────────────────────── */
+
+/**
+ * One editable fact: label above, full-width control below.
+ *
+ * Label above rather than beside, because the values here run from "M" to a nine-word job
+ * title and a two-column row has to pick a width that suits neither.
+ *
+ * `sensitive` hides the value behind `••••3210` until the eye is pressed. That is about the
+ * room, not about storage — a government ID number sitting in plain text in a docked panel is
+ * readable by anyone behind the user, on a page they do not control.
+ */
+export function FieldRow({
+  label,
+  hint,
+  value,
+  type = 'text',
+  placeholder,
+  sensitive = false,
+  autoFocus = false,
+  onChange,
+  onCommit,
+  onRemove,
+}: {
+  label: string
+  hint?: string
+  value: string
+  type?: string
+  placeholder?: string
+  sensitive?: boolean
+  autoFocus?: boolean
+  onChange: (next: string) => void
+  /** Blur, or Enter. Where a screen that saves on settle hooks in. */
+  onCommit?: () => void
+  onRemove?: () => void
+}) {
+  const id = useId()
+  const [revealed, setRevealed] = useState(false)
+  const hidden = sensitive && !revealed && value.trim() !== ''
+
+  return (
+    <div className="py-2">
+      <div className="flex items-center gap-2">
+        <label
+          htmlFor={id}
+          className="min-w-0 flex-1 truncate text-sm font-semibold text-ink-muted"
+        >
+          {label}
+        </label>
+        {sensitive && value.trim() !== '' && (
+          <button
+            type="button"
+            onClick={() => setRevealed((v) => !v)}
+            aria-label={revealed ? `Hide ${label}` : `Show ${label}`}
+            aria-pressed={revealed}
+            className="flex size-8 shrink-0 items-center justify-center rounded-full text-ink-dim transition-colors hover:bg-surface-muted hover:text-ink"
+          >
+            {revealed ? <IconEyeOff className="size-4" /> : <IconEye className="size-4" />}
+          </button>
+        )}
+        {onRemove && (
+          <button
+            type="button"
+            aria-label={`Remove ${label}`}
+            onClick={onRemove}
+            className="flex size-8 shrink-0 items-center justify-center rounded-full text-ink-dim transition-colors hover:bg-danger-muted hover:text-danger"
+          >
+            <IconClose className="size-3.5" />
+          </button>
+        )}
+      </div>
+      <Input
+        id={id}
+        // `password` rather than a masked string, so the real value is never in the DOM as text
+        // and the browser will not offer to autofill our own panel from someone else's form.
+        type={hidden ? 'password' : type}
+        value={value}
+        autoFocus={autoFocus}
+        placeholder={placeholder ?? 'Not set'}
+        aria-describedby={hint ? `${id}-hint` : undefined}
+        onChange={(event) => onChange(event.currentTarget.value)}
+        onBlur={onCommit}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter') {
+            event.preventDefault()
+            event.currentTarget.blur()
+          }
+        }}
+        className="mt-1.5"
+      />
+      {hint && (
+        <p id={`${id}-hint`} className="mt-1.5 text-xs leading-snug text-ink-dim">
+          {hint}
+        </p>
+      )}
+    </div>
+  )
+}
+
+/**
+ * Adding a fact: a name **and** a value, together, in place.
+ *
+ * The previous version asked only for a name, then appended an empty row to the bottom of a
+ * thirty-row scroll — so the thing you had just made was off-screen, and half-made. A fact is
+ * a pair; asking for one half and filing it out of sight is the whole complaint.
+ */
+export function AddFactForm({
+  onAdd,
+  onCancel,
+  /** Returns a message when the name is not usable — a duplicate, or already a known field. */
+  validate,
+}: {
+  onAdd: (name: string, value: string) => void
+  onCancel: () => void
+  validate?: (name: string) => string | null
+}) {
+  const [name, setName] = useState('')
+  const [value, setValue] = useState('')
+  const problem = name.trim() ? (validate?.(name.trim()) ?? null) : null
+  const ready = name.trim() !== '' && value.trim() !== '' && problem === null
+
+  const commit = () => {
+    if (!ready) return
+    onAdd(name.trim(), value.trim())
+    setName('')
+    setValue('')
+  }
+
+  return (
+    <div className="mt-2 rounded-2xl border border-border bg-surface p-3">
+      <div className="flex flex-col gap-2.5">
+        <div>
+          <label htmlFor="new-fact-name" className="text-sm font-semibold text-ink-muted">
+            Field name
+          </label>
+          <Input
+            id="new-fact-name"
+            autoFocus
+            value={name}
+            placeholder="e.g. T-shirt size"
+            onChange={(event) => setName(event.currentTarget.value)}
+            onKeyDown={(event) => event.key === 'Escape' && onCancel()}
+            className="mt-1.5"
+          />
+        </div>
+        <div>
+          <label htmlFor="new-fact-value" className="text-sm font-semibold text-ink-muted">
+            Value
+          </label>
+          <Input
+            id="new-fact-value"
+            value={value}
+            placeholder="e.g. Medium"
+            onChange={(event) => setValue(event.currentTarget.value)}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter') {
+                event.preventDefault()
+                commit()
+              }
+              if (event.key === 'Escape') onCancel()
+            }}
+            className="mt-1.5"
+          />
+        </div>
+      </div>
+
+      {problem && (
+        <p
+          role="alert"
+          className="mt-2.5 flex items-start gap-1.5 text-xs leading-snug text-warning"
+        >
+          <IconAlert className="mt-px size-3.5 shrink-0" />
+          <span>{problem}</span>
+        </p>
+      )}
+
+      <div className="mt-3 flex gap-2">
+        <Button variant="primary" onClick={commit} disabled={!ready}>
+          Add fact
+        </Button>
+        <Button variant="ghost" onClick={onCancel}>
+          Cancel
+        </Button>
+      </div>
+    </div>
+  )
+}
+
+/* ── Save state ───────────────────────────────────────────────────────────── */
+
+export type SaveStatus = 'idle' | 'saving' | 'saved' | 'error'
+
+/**
+ * What happened to the thing you just typed.
+ *
+ * This replaces the Save button, and the pairing of a Save button in a footer with an Add
+ * button in the header — two competing action loci for one screen. Nothing to press means
+ * nothing to forget to press; this is the receipt.
+ */
+export function SaveState({
+  status,
+  error,
+  onRetry,
+}: {
+  status: SaveStatus
+  error?: string
+  onRetry?: () => void
+}) {
+  if (status === 'idle') return null
+
+  if (status === 'error') {
+    return (
+      <button
+        type="button"
+        onClick={onRetry}
+        title={error}
+        className="flex min-h-8 shrink-0 items-center gap-1.5 rounded-full bg-danger-muted px-3 text-2xs font-bold text-danger"
+      >
+        <IconAlert className="size-3" />
+        Not saved · Retry
+      </button>
+    )
+  }
+
+  return (
+    <span
+      role="status"
+      aria-live="polite"
+      className={`flex min-h-8 shrink-0 items-center gap-1.5 px-1 text-2xs font-semibold ${
+        status === 'saved' ? 'animate-fade-in text-positive' : 'text-ink-dim'
+      }`}
+    >
+      {status === 'saving' ? (
+        <>
+          <span className="pulse-dot size-1.5 rounded-full bg-ink-dim" />
+          Saving
+        </>
+      ) : (
+        <>
+          <IconCheck className="size-3" />
+          Saved
+        </>
+      )}
+    </span>
+  )
+}
+
+/* ── Status pill ──────────────────────────────────────────────────────────── */
+
+/**
+ * A source's state, said once and in colour.
+ *
+ * It used to be the first clause of a grey metadata line — `Reading… ` or `Could not be read`
+ * in the same 12px dim ink as the file size — so the one thing worth knowing about a source
+ * looked exactly like the least important.
+ */
+export function StatusPill({
+  tone,
+  children,
+}: {
+  tone: 'busy' | 'ready' | 'bad'
+  children: ReactNode
+}) {
+  const tones = {
+    busy: 'bg-surface-muted text-ink-muted',
+    ready: 'bg-positive-muted text-positive',
+    bad: 'bg-danger-muted text-danger',
+  }
+  return (
+    <span
+      className={`inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-2xs font-bold ${tones[tone]}`}
+    >
+      {tone === 'busy' && <span className="pulse-dot size-1.5 rounded-full bg-current" />}
+      {children}
+    </span>
+  )
+}
+
+/* ── Search ───────────────────────────────────────────────────────────────── */
+
+/** Filters the screen it sits in. The reason forty fields fit in a 400px panel. */
+export function SearchInput({
+  value,
+  onChange,
+  placeholder = 'Search',
+  label,
+  className = '',
+}: {
+  value: string
+  onChange: (next: string) => void
+  placeholder?: string
+  label: string
+  /** Callers sharing a row with an action pass `flex-1 min-w-0` so the action reaches the edge. */
+  className?: string
+}) {
+  return (
+    <div className={`relative ${className}`}>
+      <IconSearch className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-ink-dim" />
+      <input
+        type="search"
+        aria-label={label}
+        value={value}
+        placeholder={placeholder}
+        onChange={(event) => onChange(event.currentTarget.value)}
+        className="min-h-control w-full rounded-full border border-border-muted bg-surface-muted pl-9 pr-9 text-sm text-ink placeholder:text-ink-dim transition-colors focus:border-accent focus:bg-surface-raised"
+      />
+      {value && (
+        <button
+          type="button"
+          aria-label="Clear search"
+          onClick={() => onChange('')}
+          className="absolute right-1.5 top-1/2 flex size-7 -translate-y-1/2 items-center justify-center rounded-full text-ink-dim transition-colors hover:bg-surface-raised hover:text-ink"
+        >
+          <IconClose className="size-3.5" />
+        </button>
+      )}
+    </div>
   )
 }

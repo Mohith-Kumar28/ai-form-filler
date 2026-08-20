@@ -20,6 +20,9 @@ const FACTS: KnownFacts = {
   custom: {
     'Notice period': '6 weeks from signing',
     'Earliest start': '3 November 2026',
+    'PAN number': 'ABCDE1234F',
+    'Current company': 'Monzo',
+    'State or region': 'Karnataka',
   },
 }
 
@@ -126,5 +129,57 @@ describe('suggestForField', () => {
         FACTS,
       ),
     ).toBeNull()
+  })
+
+  it('matches catalogue facts beyond the identity fields', () => {
+    expect(suggestForField({ label: 'PAN card number', kind: 'text' }, FACTS)).toEqual({
+      label: 'PAN number',
+      value: 'ABCDE1234F',
+    })
+
+    expect(suggestForField({ label: 'Current employer', kind: 'text' }, FACTS)).toEqual({
+      label: 'Current company',
+      value: 'Monzo',
+    })
+  })
+
+  it('matches a whole-label word that is too common to use as a substring', () => {
+    expect(suggestForField({ label: 'State', kind: 'text' }, FACTS)).toEqual({
+      label: 'State or region',
+      value: 'Karnataka',
+    })
+
+    // The reason `exact` exists: as a keyword, "state" also matches this.
+    expect(suggestForField({ label: 'Statement of purpose', kind: 'longtext' }, FACTS)).toBeNull()
+  })
+
+  it('prefers contact over address when a label contains both signals', () => {
+    expect(suggestForField({ label: 'Email address', kind: 'text' }, FACTS)).toEqual({
+      label: 'Email',
+      value: 'ifeoma@example.com',
+    })
+  })
+
+  it('derives a first and last name nobody stored separately', () => {
+    expect(suggestForField({ label: 'Given name', kind: 'text' }, FACTS)).toEqual({
+      label: 'First name',
+      value: 'Ife',
+    })
+
+    expect(suggestForField({ label: 'Surname', kind: 'text' }, FACTS)).toEqual({
+      label: 'Last name',
+      value: 'Balogun',
+    })
+  })
+
+  it('lets a stored value override the derived one', () => {
+    const withOverride: KnownFacts = {
+      ...FACTS,
+      custom: { ...FACTS.custom, 'First name': 'Ifeoma' },
+    }
+    expect(suggestForField({ label: 'First name', kind: 'text' }, withOverride)).toEqual({
+      label: 'First name',
+      value: 'Ifeoma',
+    })
   })
 })

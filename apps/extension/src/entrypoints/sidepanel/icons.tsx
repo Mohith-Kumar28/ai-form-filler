@@ -2,9 +2,9 @@
  * Authored on a 16px grid, one 1.75px stroke, round caps and joins throughout.
  *
  * The round join is the whole character: the previous set was mitred, which reads as
- * engraving — the language of a credential. This surface is your hype friend, so the same
- * geometry now rounds off, the way a friendly UI icon does, and the stroke gets a touch
- * bolder so it holds up against the bright palette.
+ * engraving — the language of a credential, which this is not. The same geometry rounds off
+ * the way an ordinary UI icon does, and the stroke gets a touch bolder so it holds up against
+ * the bright palette.
  */
 
 export interface IconProps {
@@ -304,6 +304,38 @@ export function IconLock(props: IconProps) {
     <Svg {...props}>
       <rect x="3.5" y="7" width="9" height="7" rx="1.5" />
       <path d="M5.5 7V5a2.5 2.5 0 0 1 5 0v2" />
+    </Svg>
+  )
+}
+
+/** Reveal a masked value. Same 16px grid, same round joins as the rest of the set. */
+export function IconEye({ className }: IconProps) {
+  return (
+    <Svg className={className}>
+      <path d="M1.5 8s2.4-4 6.5-4 6.5 4 6.5 4-2.4 4-6.5 4S1.5 8 1.5 8Z" />
+      <circle cx="8" cy="8" r="1.9" />
+    </Svg>
+  )
+}
+
+/** Hide it again. The slash is the whole message, so it runs corner to corner. */
+export function IconEyeOff({ className }: IconProps) {
+  return (
+    <Svg className={className}>
+      <path d="M6.2 4.2A6.9 6.9 0 0 1 8 4c4.1 0 6.5 4 6.5 4a12 12 0 0 1-1.9 2.3" />
+      <path d="M11 11.2A6.6 6.6 0 0 1 8 12c-4.1 0-6.5-4-6.5-4a12 12 0 0 1 2.8-3" />
+      <path d="M6.7 6.7a1.9 1.9 0 0 0 2.6 2.6" />
+      <path d="M2.5 2.5l11 11" />
+    </Svg>
+  )
+}
+
+/** Filter a long list. Only ever shown inside a search control. */
+export function IconSearch({ className }: IconProps) {
+  return (
+    <Svg className={className}>
+      <circle cx="7" cy="7" r="4.5" />
+      <path d="M10.4 10.4 14 14" />
     </Svg>
   )
 }

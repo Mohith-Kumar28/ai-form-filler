@@ -4,11 +4,13 @@ import { sendMessage } from '../../../lib/messaging.js'
 import { Button, Mascot } from '../components.js'
 
 /**
- * One purpose, one action, said cheerfully.
+ * One purpose, one action, said plainly.
  *
  * What a person needs here is the shape of the bargain — you give it material about you, it
  * answers forms from that and tells you when it guessed — and one button. The mascot and the
- * gradient do the persuading; a wall of copy never did.
+ * gradient carry the personality; the words say what the thing does. It used to open with
+ * "forms suck. let's make 'em not." under the wordmark "you fill", which is a mood rather than
+ * a product, and did not even match the name on the toolbar icon.
  */
 export function Welcome() {
   const queryClient = useQueryClient()
@@ -38,22 +40,22 @@ export function Welcome() {
         <div className="flex items-center gap-3">
           <Mascot expression="excited" size={56} className="bounce" />
           <div>
-            <p className="sunset-text font-display text-[20px] font-bold leading-none">you fill</p>
-            <p className="mt-1 text-[12px] font-semibold text-ink-muted">
-              the hype friend for forms
+            <p className="sunset-text font-display text-xl font-bold leading-none">Fillaform</p>
+            <p className="mt-1 text-xs font-semibold text-ink-muted">
+              Fills forms from your own information
             </p>
           </div>
         </div>
 
-        <h1 className="mt-6 font-display text-[26px] font-bold leading-[1.1] tracking-[-0.02em] text-ink">
-          forms suck.
+        <h1 className="mt-6 font-display text-2xl font-bold tracking-[-0.02em] text-ink">
+          Fill any form
           <br />
-          <span className="sunset-text">let's make 'em not.</span>
+          <span className="sunset-text">from what you know.</span>
         </h1>
 
-        <p className="mt-3 max-w-[34ch] text-[14px] leading-relaxed text-ink-muted">
-          Give it your résumé, your site, a few pasted notes. It fills any form from that, and marks
-          what the AI wrote, so you know what to check.
+        <p className="mt-3 max-w-[34ch] text-base leading-relaxed text-ink-muted">
+          Give it your résumé, your site, a few pasted notes. It answers forms from that, and marks
+          anything it guessed, so you know what to check.
         </p>
 
         <Button
@@ -67,12 +69,12 @@ export function Welcome() {
         </Button>
 
         {signIn.isError && (
-          <p className="mt-3 text-[12.5px] leading-snug text-danger" role="alert">
+          <p className="mt-3 text-xs leading-snug text-danger" role="alert">
             {signIn.error.message}
           </p>
         )}
 
-        <p className="mt-6 text-[11.5px] leading-relaxed text-ink-dim">
+        <p className="mt-6 text-2xs leading-relaxed text-ink-dim">
           Nothing is read from a page until you ask it to fill one.
         </p>
       </div>

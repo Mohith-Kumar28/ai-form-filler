@@ -1,4 +1,10 @@
-import { ApiErrorResponse, type Profile, type ProfileSource, type SourceKind } from '@aff/shared'
+import {
+  ApiErrorResponse,
+  type Profile,
+  type ProfileSource,
+  type SourceKind,
+  type SourceStatus,
+} from '@aff/shared'
 import { and, eq } from 'drizzle-orm'
 import { profileDocs, profileSources } from '../db/schema.js'
 import { compileProfileDoc } from '../profile/compile.js'
@@ -125,6 +131,21 @@ export async function getProfile(db: Db, userId: string): Promise<Profile> {
 }
 
 /**
+ * Drops link platforms whose value is empty.
+ *
+ * `''` is how the wire schema says "cleared" — see the note on `Identity.links`. Without this
+ * the key survives every subsequent save, and the editor has an undeletable empty row.
+ */
+export function pruneLinks(links: Record<string, string>): Record<string, string> {
+  const out: Record<string, string> = {}
+  for (const key of Object.keys(links).sort()) {
+    const value = links[key]
+    if (value && value.trim() !== '') out[key] = value
+  }
+  return out
+}
+
+/**
  * Applies a partial edit from the side-panel editor and recompiles.
  *
  * `identity` is merged **field by field**; every other key is replaced wholesale.
@@ -134,7 +155,12 @@ export async function getProfile(db: Db, userId: string): Promise<Profile> {
  * data loss the user only discovers when a form fills wrong. Lists (education, skills) are
  * edited as lists, where replace is exactly what the user means.
  *
- * To clear an identity field, send an empty string; omitting it keeps the stored value.
+ * To clear an identity field, send an empty string; omitting it keeps the stored value. That
+ * applies to `links` too, and used not to: the spread only ever *added* platform keys, so an
+ * empty string set a link to `''` and left the key behind forever. Since the ingest structuring
+ * pass takes `platform` as a bare string straight from a model, one stray `"LinkedIn"` beside
+ * the extractor's `"linkedin"` became two permanent rows in the editor, both reading "LinkedIn",
+ * with no way to remove either. A cleared link is now a deleted key.
  */
 export async function updateStructured(
   db: Db,
@@ -147,7 +173,7 @@ export async function updateStructured(
     ? {
         ...current.identity,
         ...definedOnly(patch.identity),
-        links: { ...current.identity.links, ...(patch.identity.links ?? {}) },
+        links: pruneLinks({ ...current.identity.links, ...(patch.identity.links ?? {}) }),
       }
     : current.identity
 
@@ -219,6 +245,17 @@ export interface NewSource {
   url?: string
   /** Structured extraction from the ingest pass, merged into the profile below. */
   structured?: StructuredSource
+  /**
+   * Not ready, and why.
+   *
+   * These two exist because the upload route was already passing them and they were being
+   * dropped on the floor: `NewSource` declared neither field, `addSource` hardcoded
+   * `status: 'ready'`, and because the route passed them through a **spread**, excess-property
+   * checking never fired. A source that never reached the memory index was shown to the user as
+   * a healthy document — the exact failure the route's own comment says it is preventing.
+   */
+  status?: SourceStatus
+  error?: string
 }
 
 /**
@@ -296,7 +333,8 @@ export async function addSource(db: Db, userId: string, source: NewSource): Prom
     mediaType: source.mediaType ?? null,
     sizeBytes: source.sizeBytes ?? null,
     url: source.url ?? null,
-    status: 'ready',
+    status: source.status ?? 'ready',
+    error: source.error ?? null,
     extractedText: source.text,
     createdAt: Date.now(),
   })

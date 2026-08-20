@@ -17,7 +17,7 @@ import { GLYPH, getOverlayHost, isOverlayEvent, isOverlayHost } from '../overlay
 import { type LauncherHandle, mountLauncher } from '../overlay/launcher.js'
 import { clearLearningNotes, noteLearning } from '../overlay/learning.js'
 import { type FieldMark, mountFieldMark } from '../overlay/markers.js'
-import { positionScheduler } from '../overlay/scheduler.js'
+import { positionScheduler, type Rect } from '../overlay/scheduler.js'
 import { type KnownFacts, suggestForField } from '../overlay/suggest.js'
 
 const BUILD_STAMP = chrome.runtime.getManifest().version_name ?? 'dev'
@@ -207,6 +207,8 @@ export default defineContentScript({
 
     function closeCard(): void {
       if (card) suggestionDismissed = true
+      cardUntrack?.()
+      cardUntrack = null
       card?.close()
       card = null
       dismissInputListeners()
@@ -222,6 +224,7 @@ export default defineContentScript({
 
     let fieldTrigger: HTMLElement | null = null
     let fieldTriggerTarget: HTMLElement | null = null
+    let triggerUntrack: (() => void) | null = null
 
     /**
      * The sparkle beside a focused field. Two jobs, decided by whether the field is empty.
@@ -250,7 +253,8 @@ export default defineContentScript({
       trigger.setAttribute('title', label)
       trigger.innerHTML = mode === 'review' ? GLYPH.pen : GLYPH.mascot
 
-      const TRIGGER_SIZE = 22
+      // Must match `.field-trigger`'s box in `host.ts`, or the icon sits off its own anchor.
+      const TRIGGER_SIZE = 26
       const GAP = 6
       // Thresholds where the icon stops fitting inside and moves outside.
       const NARROW_THRESHOLD = 56
@@ -258,8 +262,7 @@ export default defineContentScript({
       /** Past this, a field holds more than one line and centring lands mid-answer. */
       const MULTILINE_HEIGHT = 72
 
-      const place = () => {
-        const rect = element.getBoundingClientRect()
+      const place = (rect: Rect) => {
         const narrow = rect.width < NARROW_THRESHOLD
         const tiny = rect.width < TINY_THRESHOLD
 
@@ -282,15 +285,35 @@ export default defineContentScript({
           trigger.style.translate = `${Math.round(rect.left)}px ${Math.round(top)}px`
         } else if (narrow) {
           // Outside the right edge. Clamped so it never leaves the viewport.
-          const rawLeft = rect.right + GAP
+          const rawLeft = rect.left + rect.width + GAP
           const left = Math.min(rawLeft, window.innerWidth - TRIGGER_SIZE - GAP)
           trigger.style.translate = `${Math.round(left)}px ${Math.round(inside)}px`
         } else {
           // Inside the right edge, next to any existing decoration.
-          trigger.style.translate = `${Math.round(rect.right - TRIGGER_SIZE - GAP)}px ${Math.round(inside)}px`
+          const right = rect.left + rect.width
+          trigger.style.translate = `${Math.round(right - TRIGGER_SIZE - GAP)}px ${Math.round(inside)}px`
         }
       }
-      place()
+      place(element.getBoundingClientRect())
+
+      /**
+       * Follow the field.
+       *
+       * It used to be placed once, at viewport coordinates, and never again — so the moment the
+       * page scrolled the icon stayed exactly where it was on screen while the input it belongs
+       * to slid away underneath, and it ended up hovering over some unrelated question. The
+       * shared rAF loop already existed for the marks and the answer card; this simply joins it,
+       * which is also why it is not a per-element scroll listener (a 50-field form would install
+       * 50 of them).
+       */
+      triggerUntrack = positionScheduler.track({
+        element,
+        onMove: (rect, visible) => {
+          trigger.style.display = visible ? '' : 'none'
+          if (visible) place(rect)
+        },
+        onDetach: destroyFieldTrigger,
+      })
 
       trigger.addEventListener('mousedown', (event) => event.preventDefault())
       trigger.addEventListener('click', () => {
@@ -314,6 +337,8 @@ export default defineContentScript({
     }
 
     function destroyFieldTrigger() {
+      triggerUntrack?.()
+      triggerUntrack = null
       fieldTrigger?.remove()
       fieldTrigger = null
       fieldTriggerTarget = null
@@ -322,6 +347,9 @@ export default defineContentScript({
     let suggestionDismissed = false
 
     let suggestionInputCleanup: (() => void) | null = null
+
+    /** Untracks whatever `card` is currently following. Cleared by `closeCard`. */
+    let cardUntrack: (() => void) | null = null
 
     function mountAutofillSuggestion(
       element: HTMLElement,
@@ -356,6 +384,25 @@ export default defineContentScript({
           dismissInputListeners()
           element.focus()
         },
+      })
+
+      /**
+       * Follow the field, same as the trigger and the answer card.
+       *
+       * This one was anchored once and left there, so scrolling parted the suggestion from the
+       * input it was offering to fill — and unlike the answer card it has no `data-adrift`
+       * treatment, because a suggestion detached from its field is not a thing to keep on
+       * screen. It hides while the anchor is off screen and comes back with it.
+       */
+      cardUntrack?.()
+      cardUntrack = positionScheduler.track({
+        element,
+        onMove: (next, visible) => {
+          if (!card) return
+          card.element.style.display = visible ? '' : 'none'
+          if (visible) card.reposition(next)
+        },
+        onDetach: closeCard,
       })
 
       const onInput = () => {
@@ -844,9 +891,17 @@ export default defineContentScript({
         if (event.stage === 'applying') {
           closeCard()
           destroyFieldTrigger()
-        } else {
-          launcher?.setBusy(event.done, event.total)
         }
+        /*
+          Every stage, not just the ones before `applying`.
+
+          `applying` is the only event that carries a real count, and it was the one stage that
+          never reached the launcher — so the badge sat on whatever `generating` had left it
+          showing for the entire fill. Reporting all three is what makes the count mean
+          something; `setStage` decides whether a number or a message is the honest thing to
+          show.
+        */
+        launcher?.setStage(event.stage, event.done, event.total)
         return
       }
 
@@ -991,6 +1046,17 @@ export default defineContentScript({
           mountFieldMark(markTargetFor(field), {
             reason: fill.inferred ? 'inferred' : 'unsure',
             onOpen: () => openAnswerCard(fill.fieldId),
+            /*
+              The tick. Accept without opening anything.
+
+              The value is read off the page rather than taken from the plan: by the time
+              somebody approves it they may have typed over it, and recording what we wrote
+              instead of what is actually in the field would teach the wrong answer.
+            */
+            onAccept: () => {
+              const live = detection?.adapter.readValue(field)
+              reportVerdict(fill.fieldId, 'accepted', live?.trim() ? live : fill.value)
+            },
             // The page replaced the question. The mark has torn itself down; drop the dead
             // handle too, so a review row or a panel message cannot act on it afterwards.
             onDetach: () => marks.delete(fill.fieldId),
@@ -1182,19 +1248,48 @@ export default defineContentScript({
 
     if (!muted) ensureLauncher()
 
+    /**
+     * A click anywhere on the page dismisses whatever the overlay has open.
+     *
+     * Both kinds of card, and that is a change: this used to close only the menu/suggestion
+     * card, on the reasoning that the answer card holds an edit in progress and the commonest
+     * reason to click the form is to re-read the question it is asking about. In practice
+     * nobody reads it that way — a popover that ignores a click outside it reads as stuck, and
+     * the card is one click away from being reopened by its own tab. What made the old
+     * behaviour defensible was `close()` dropping the pending write; now that dismissal flushes
+     * it (see `card.ts`), leaving is safe and the edit survives.
+     */
     const onPointerDown = (event: PointerEvent) => {
       if (isOverlayEvent(event)) return
       if (card) closeCard()
-      /**
-       * The answer card is deliberately **not** dismissed by a click on the page.
-       *
-       * It holds an edit in progress, and the commonest reason to click the form while it is
-       * open is to look at the question it is asking about. It closes on Escape, on Keep, on
-       * Clear, on its own close button, and when the page throws its field away.
-       */
+      // `false`: the click already chose where focus goes. Yanking it back to the field would
+      // fight whatever the person just clicked on.
+      if (answerCard) closeAnswerCard(false)
+    }
+
+    /**
+     * Escape closes the open card wherever focus happens to be.
+     *
+     * Each card also handles Escape itself, which covers the ordinary case of focus sitting
+     * inside it. That was the *only* handler, so the key went dead the moment focus moved
+     * anywhere else — including the very common one of clicking the field to re-read the
+     * question, which left the card open with no keyboard way out. This is the backstop, on
+     * `document` rather than on the card, and it is why the card's own handler calls
+     * `stopPropagation`: inside the shadow root that halts propagation before it ever retargets
+     * to here, so the two can never both fire.
+     */
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return
+      if (!card && !answerCard) return
+      event.stopPropagation()
+      if (card) closeCard()
+      // `true`: a keyboard dismissal has to put focus somewhere reachable, and the field the
+      // card belongs to is the only sensible place.
+      if (answerCard) closeAnswerCard(true)
     }
 
     document.addEventListener('pointerdown', onPointerDown, true)
+    document.addEventListener('keydown', onKeyDown, true)
 
     // Field trigger: show on focus, hide on blur.
     const onFocusIn = (event: FocusEvent) => {
@@ -1236,6 +1331,7 @@ export default defineContentScript({
     window.addEventListener('pagehide', () => {
       observer.disconnect()
       document.removeEventListener('pointerdown', onPointerDown, true)
+      document.removeEventListener('keydown', onKeyDown, true)
       document.removeEventListener('focusin', onFocusIn, true)
       document.removeEventListener('focusout', onFocusOut, true)
       destroyFieldTrigger()

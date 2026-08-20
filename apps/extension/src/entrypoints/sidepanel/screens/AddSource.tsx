@@ -54,7 +54,7 @@ export function AddSource({ initial }: { initial?: Mode }) {
     <Screen>
       <ScreenHeader title="Add to your info" />
 
-      <div className="shrink-0 px-4 py-3">
+      <div className="shrink-0 px-gutter py-3">
         <SegmentedControl segments={MODES} value={mode} onChange={setMode} label="Kind of source" />
       </div>
 
@@ -80,7 +80,7 @@ function Submit({
   return (
     <ScreenFooter>
       {error != null && (
-        <p className="mb-2 text-[12px] leading-snug text-danger" role="alert">
+        <p className="mb-2 text-xs leading-snug text-danger" role="alert">
           {(error as Error).message}
         </p>
       )}
@@ -137,22 +137,22 @@ function UploadMode({ onDone }: { onDone: () => Promise<void> }) {
             setDragging(false)
             accept(event.dataTransfer.files[0] ?? null)
           }}
-          className={`rounded-2xl border border-dashed px-4 py-8 text-center transition-colors ${
+          className={`rounded-2xl border border-dashed px-gutter py-8 text-center transition-colors ${
             dragging ? 'border-accent bg-accent-muted' : 'border-border-muted bg-surface-raised'
           }`}
         >
           <IconUpload className="mx-auto size-5 text-ink-dim" />
-          <p className="mt-2 text-[13px] font-semibold text-ink">
+          <p className="mt-2 text-sm font-semibold text-ink">
             {file ? file.name : 'Drop a file here, or choose one'}
           </p>
-          <p className="mt-1 text-[12px] text-ink-dim">
+          <p className="mt-1 text-xs text-ink-dim">
             {file ? formatBytes(file.size) : `PDF, Word, slides, images, audio, up to ${maxMB} MB`}
           </p>
           <input
             type="file"
             aria-label="Choose a file"
             onChange={(event) => accept(event.currentTarget.files?.[0] ?? null)}
-            className="mt-3 w-full text-[12px] text-ink-muted file:mr-2 file:rounded-full file:border file:border-border file:bg-surface-raised file:px-3 file:py-1.5 file:text-[12px] file:font-semibold file:text-ink"
+            className="mt-3 w-full text-xs text-ink-muted file:mr-2 file:rounded-full file:border file:border-border file:bg-surface-raised file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-ink"
           />
         </div>
 
@@ -234,7 +234,7 @@ function LinkMode({ onDone }: { onDone: () => Promise<void> }) {
           )}
         </Field>
 
-        <p className="text-[12px] leading-relaxed text-ink-dim">
+        <p className="text-xs leading-relaxed text-ink-dim">
           The page is read for you, and re-read as it changes.
         </p>
       </ScreenBody>
@@ -374,12 +374,12 @@ function VoiceMode({ onDone }: { onDone: () => Promise<void> }) {
       }}
     >
       <ScreenBody className="flex flex-col gap-4 p-4">
-        <div className="rounded-2xl border border-border-muted bg-surface-raised px-4 py-6 text-center">
-          <p className="font-display text-[30px] font-bold leading-none text-ink">
+        <div className="rounded-2xl border border-border-muted bg-surface-raised px-gutter py-6 text-center">
+          <p className="font-display text-2xl font-bold leading-none text-ink">
             {String(Math.floor(seconds / 60)).padStart(2, '0')}:
             {String(seconds % 60).padStart(2, '0')}
           </p>
-          <p className="mt-2 text-[12px] text-ink-dim">
+          <p className="mt-2 text-xs text-ink-dim">
             {recording ? 'Recording' : blob ? 'Ready to save' : 'Talk about yourself'}
           </p>
 
@@ -402,7 +402,7 @@ function VoiceMode({ onDone }: { onDone: () => Promise<void> }) {
 
         {denied && (
           <div className="flex flex-col items-center gap-2">
-            <p className="text-[12px] leading-snug text-danger" role="alert">
+            <p className="text-xs leading-snug text-danger" role="alert">
               {denied}
             </p>
             {micPermission === 'denied' && (

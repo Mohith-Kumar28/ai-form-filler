@@ -102,10 +102,8 @@ export function Receipt({
         <ScreenBody className="flex flex-col">
           <div className="flex flex-1 flex-col items-center justify-center px-7 py-10 text-center">
             <Mascot expression="happy" size={52} />
-            <h2 className="mt-4 font-display text-[17px] font-bold text-ink">
-              Nothing was written
-            </h2>
-            <p className="mt-1.5 max-w-[32ch] text-[13px] leading-relaxed text-ink-muted">
+            <h2 className="mt-4 font-display text-lg font-bold text-ink">Nothing was written</h2>
+            <p className="mt-1.5 max-w-[32ch] text-sm leading-relaxed text-ink-muted">
               No field here could be answered. Add more about yourself in My info and that will
               change it.
             </p>
@@ -177,11 +175,14 @@ export function Receipt({
         {showStated && stated.length > 0 && (
           <div className="mx-4 mt-1.5 space-y-1">
             {stated.map((fill) => (
-              <div key={fill.fieldId} className="rounded-xl border border-border-muted px-4 py-2.5">
-                <p className="text-[12px] font-semibold text-ink-muted">
+              <div
+                key={fill.fieldId}
+                className="rounded-xl border border-border-muted px-gutter py-2.5"
+              >
+                <p className="text-xs font-semibold text-ink-muted">
                   {fill.label || 'Untitled field'}
                 </p>
-                <p className="mt-1 line-clamp-3 text-[13px] leading-snug text-ink">
+                <p className="mt-1 line-clamp-3 text-sm leading-snug text-ink">
                   {draft.values[fill.fieldId] ?? fill.value}
                 </p>
               </div>
@@ -191,7 +192,7 @@ export function Receipt({
 
         {judged.length > 0 && (
           <div className="mx-4 mt-4">
-            <p className="mb-2 text-[12px] font-semibold text-ink-dim">
+            <p className="mb-2 text-xs font-semibold text-ink-dim">
               These I worked out. Open one to change it
             </p>
             <div className="overflow-hidden rounded-2xl border border-border-muted">
@@ -231,13 +232,13 @@ export function Receipt({
 
         {plan.skipped.length > 0 && (
           <details className="mx-4 mt-3">
-            <summary className="cursor-pointer rounded-xl px-3 py-2.5 text-[13px] font-medium text-ink-muted transition-colors hover:bg-surface-muted">
+            <summary className="cursor-pointer rounded-xl px-3 py-2.5 text-sm font-medium text-ink-muted transition-colors hover:bg-surface-muted">
               Why {plan.skipped.length} {plural(plan.skipped.length, 'field')} stayed blank
             </summary>
             <div className="mt-1 space-y-1">
               {plan.skipped.map((skip) => (
                 <div key={skip.fieldId} className="rounded-xl border border-border-muted px-3 py-2">
-                  <p className="text-[12px] leading-snug text-ink-dim">
+                  <p className="text-xs leading-snug text-ink-dim">
                     {skip.detail ?? SKIP_REASON[skip.reason] ?? 'Left blank'}
                   </p>
                 </div>
@@ -258,7 +259,7 @@ export function Receipt({
               <Button size="sm" variant="ghost" onClick={() => step(-1)} aria-label="Previous">
                 ‹
               </Button>
-              <span className="flex-1 text-center text-[12px] font-medium text-ink-muted">
+              <span className="flex-1 text-center text-xs font-medium text-ink-muted">
                 {at + 1} of {outstanding.length} to look at
               </span>
               <Button size="sm" variant="ghost" onClick={() => step(1)} aria-label="Next">
@@ -278,7 +279,7 @@ export function Receipt({
               <IconSparkle className="size-4" />
               Open it on the page
             </Button>
-            <p className="mt-2 text-center text-[12px] text-ink-dim">
+            <p className="mt-2 text-center text-xs text-ink-dim">
               Or leave them. Submitting the form is still yours to do.
             </p>
           </div>
@@ -288,7 +289,7 @@ export function Receipt({
               <IconCheck className="size-4" />
               Done
             </Button>
-            <p className="mt-2 text-center text-[12px] text-ink-dim">
+            <p className="mt-2 text-center text-xs text-ink-dim">
               Submitting the form is still yours to do.
             </p>
           </div>

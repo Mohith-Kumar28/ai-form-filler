@@ -19,6 +19,9 @@ import './stub-chrome.js'
  *               that is the only signal available on a site we do not control.
  *   `?state=…`  which answer-card state to mount: idle, dirty, rewriting, error, choose, many.
  *               Defaults to idle.
+ *   `?only=marks` mounts the field marks and nothing else. The cards are anchored to the very
+ *               fields the judged marks sit on, so with everything up at once the provenance
+ *               tabs are underneath a popover and cannot be reviewed at all.
  */
 
 const params = new URLSearchParams(location.search)
@@ -29,6 +32,9 @@ const rectOf = (element: HTMLElement) => {
   return { top: box.top, left: box.left, width: box.width, height: box.height }
 }
 
+const only = params.get('only')
+const marksOnly = only === 'marks'
+
 const launcher = mountLauncher({
   onOpen: () => undefined,
   onStop: () => undefined,
@@ -36,19 +42,20 @@ const launcher = mountLauncher({
 launcher.setFieldCount(12)
 
 // The launcher's menu, anchored near a field.
-mountMenuCard({
-  kind: 'menu',
-  anchor: rectOf(field('auth')),
-  question: 'Do you require visa sponsorship?',
-  actions: [
-    { id: 'field', label: 'Fill this field', glyph: 'sparkle' },
-    { id: 'form', label: 'Fill all 12 fields', glyph: 'form' },
-    { id: 'panel', label: 'Open the panel', glyph: 'panel' },
-    { id: 'mute', label: 'Not on this site', glyph: 'mute' },
-  ],
-  onSelect: () => undefined,
-  onClose: () => undefined,
-})
+if (!marksOnly)
+  mountMenuCard({
+    kind: 'menu',
+    anchor: rectOf(field('auth')),
+    question: 'Do you require visa sponsorship?',
+    actions: [
+      { id: 'field', label: 'Fill this field', glyph: 'sparkle' },
+      { id: 'form', label: 'Fill all 12 fields', glyph: 'form' },
+      { id: 'panel', label: 'Open the panel', glyph: 'panel' },
+      { id: 'mute', label: 'Not on this site', glyph: 'mute' },
+    ],
+    onSelect: () => undefined,
+    onClose: () => undefined,
+  })
 
 /**
  * Field marks, one per state.
@@ -67,6 +74,8 @@ for (const [id, state, reason] of MARKS) {
   const mark = mountFieldMark(field(id), {
     ...(reason ? { reason } : {}),
     onOpen: () => undefined,
+    // Passed so the tick renders: the real caller only supplies it for a judged answer.
+    onAccept: () => undefined,
   })
   mark.setState(state)
 }
@@ -84,7 +93,9 @@ const LONG_ANSWER =
 
 const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
 
-if (state === 'choose' || state === 'many') {
+if (marksOnly) {
+  // Nothing else. The marks are the subject.
+} else if (state === 'choose' || state === 'many') {
   const options =
     state === 'many'
       ? Array.from({ length: 40 }, (_, index) => `Option ${index + 1}`)

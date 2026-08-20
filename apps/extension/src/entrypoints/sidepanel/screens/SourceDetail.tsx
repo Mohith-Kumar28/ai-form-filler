@@ -64,9 +64,9 @@ function Preview({ source }: { source: ProfileSourcesItem }) {
 
   if (source.kind === 'link' && source.url) {
     return (
-      <div className="border-b border-border-muted px-4 py-4">
-        <p className="text-[12px] font-semibold uppercase text-ink-dim">Address</p>
-        <p className="mt-1.5 break-all text-[13px] leading-relaxed text-ink">{source.url}</p>
+      <div className="border-b border-border-muted px-gutter py-4">
+        <p className="text-xs font-semibold uppercase text-ink-dim">Address</p>
+        <p className="mt-1.5 break-all text-sm leading-relaxed text-ink">{source.url}</p>
         <Button onClick={() => void openSourceInTab(source)} size="sm" className="mt-3">
           <IconExternal className="size-3.5" />
           Open {hostnameOf(source.url)}
@@ -77,8 +77,8 @@ function Preview({ source }: { source: ProfileSourcesItem }) {
 
   if (!source.hasFile) {
     return (
-      <div className="border-b border-border-muted px-4 py-4">
-        <p className="text-[13px] leading-relaxed text-ink-muted">
+      <div className="border-b border-border-muted px-gutter py-4">
+        <p className="text-sm leading-relaxed text-ink-muted">
           This one was pasted in as text, so there is no original file to show. What it holds is
           used to answer questions the same way everything else here is.
         </p>
@@ -88,8 +88,8 @@ function Preview({ source }: { source: ProfileSourcesItem }) {
 
   if (error) {
     return (
-      <div className="border-b border-border-muted px-4 py-4">
-        <p className="text-[13px] leading-snug text-danger" role="alert">
+      <div className="border-b border-border-muted px-gutter py-4">
+        <p className="text-sm leading-snug text-danger" role="alert">
           {error}
         </p>
       </div>
@@ -130,7 +130,7 @@ function Preview({ source }: { source: ProfileSourcesItem }) {
 
   if (file.type.startsWith('audio/')) {
     return (
-      <div className="border-b border-border-muted px-4 py-4">
+      <div className="border-b border-border-muted px-gutter py-4">
         {/* biome-ignore lint/a11y/useMediaCaption: a voice note the user recorded themselves */}
         <audio controls src={file.url} className="w-full" />
       </div>
@@ -138,8 +138,8 @@ function Preview({ source }: { source: ProfileSourcesItem }) {
   }
 
   return (
-    <div className="border-b border-border-muted px-4 py-4">
-      <p className="text-[13px] leading-relaxed text-ink-muted">
+    <div className="border-b border-border-muted px-gutter py-4">
+      <p className="text-sm leading-relaxed text-ink-muted">
         No preview for this format. The original is stored and can be opened in a tab.
       </p>
       <Button onClick={() => void openSourceInTab(source)} size="sm" className="mt-3">
@@ -152,9 +152,9 @@ function Preview({ source }: { source: ProfileSourcesItem }) {
 
 function Entry({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div className="flex items-baseline justify-between gap-3 px-4 py-2.5">
-      <span className="shrink-0 text-[12px] font-semibold uppercase text-ink-dim">{label}</span>
-      <span className="min-w-0 truncate text-right text-[13px] text-ink">{children}</span>
+    <div className="flex items-baseline justify-between gap-3 px-gutter py-2.5">
+      <span className="shrink-0 text-xs font-semibold uppercase text-ink-dim">{label}</span>
+      <span className="min-w-0 truncate text-right text-sm text-ink">{children}</span>
     </div>
   )
 }
@@ -219,7 +219,7 @@ export function SourceDetail({
         </div>
 
         {source.status === 'failed' && source.error && (
-          <p role="alert" className="px-4 py-3 text-[13px] leading-snug text-danger">
+          <p role="alert" className="px-gutter py-3 text-sm leading-snug text-danger">
             {source.error}
           </p>
         )}

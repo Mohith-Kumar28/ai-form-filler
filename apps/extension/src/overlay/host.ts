@@ -28,6 +28,21 @@ const OVERLAY_STYLES = `
 ${overlayVariables(':host')}
 
 :host {
+  /*
+    The overlay's own scale, because there is no Tailwind on someone else's page.
+
+    Everything here used to be picked per rule: nine sizes between 10px and 13px and paddings
+    from 3px to 13px, on a 280px card. That is what read as cramped and hard to hit — not any
+    one element. The tap floor is a floor, not a suggestion: this card appears over a form the
+    person is mid-way through, and a 22px target is a misclick into the page behind it.
+  */
+  --aff-text-xs: 12px;
+  --aff-text-sm: 13.5px;
+  --aff-text-base: 15px;
+  --aff-pad: 14px;
+  --aff-gap: 10px;
+  --aff-tap: 30px;
+
   all: initial;
   position: fixed;
   top: 0;
@@ -46,11 +61,21 @@ ${overlayVariables(':host')}
    Three shapes: a circle icon with a field-count badge below it when idle; an
    expanded pill with progress text and a red stop button while filling; and a
    brief pulse while thinking. A dots grabber appears on hover to drag it.     */
+/*
+  No gap between the grabber and the launcher, and that is load-bearing.
+
+  :host is pointer-events: none and only the interactive children opt back in, so a 6px
+  flex gap between the button and the grabber was 6px that accepted no pointer events at all.
+  Crossing it dropped :hover on the wrap, which is the only thing giving the grabber its
+  pointer-events: auto — so the handle faded out from under the cursor every time somebody
+  reached for it, and the launcher could not be dragged. The boxes now touch; the visual
+  separation is padding inside the grabber instead.
+*/
 .launcher-wrap {
   position: fixed;
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 0;
 }
 
 .launcher-body {
@@ -65,8 +90,8 @@ ${overlayVariables(':host')}
   align-items: center;
   justify-content: center;
   gap: 6px;
-  width: 34px;
-  height: 34px;
+  width: 38px;
+  height: 38px;
   padding: 0;
   border: 0;
   border-radius: 50%;
@@ -81,31 +106,63 @@ ${overlayVariables(':host')}
 }
 .launcher:active { scale: 0.97; }
 .launcher-icon { display: flex; flex: none; }
-.launcher-icon svg { width: 16px; height: 16px; }
+.launcher-icon svg { width: 18px; height: 18px; }
 .launcher-progress {
   display: none;
-  font-size: 12px;
+  font-size: var(--aff-text-sm);
   font-weight: 700;
   line-height: 1;
   white-space: nowrap;
 }
 
-/* The field-count badge under the icon, idle only. */
+/* The badge under the icon: the field count when idle, what it is doing while it works. */
 .launcher-count {
   position: absolute;
   top: calc(100% + 4px);
   left: 50%;
   translate: -50% 0;
+  max-width: 46vw;
   padding: 1px 7px;
   border-radius: 999px;
   background: var(--aff-surface-raised);
   color: var(--aff-ink-dim);
-  font-size: 11px;
+  font-size: var(--aff-text-xs);
   font-weight: 600;
   line-height: 1.6;
   white-space: nowrap;
   pointer-events: none;
   box-shadow: 0 1px 4px -1px var(--aff-shadow);
+}
+
+/*
+  Anything longer than "12 fields" grows leftward, not outward.
+
+  The launcher is pinned a few pixels off the right edge and the badge is centred under it, so
+  "Reading the form…" put half of itself past the edge of the window and was simply cut off.
+  Pinning the badge's right edge to the circle's right edge sends the text into the page, where
+  there is room for it.
+*/
+.launcher-count[data-wide="true"] {
+  left: auto;
+  right: 0;
+  translate: 0 0;
+}
+
+/* The thinking dot beside that text. The pulse is what says "still working", not the words. */
+.launcher-count-dot {
+  display: inline-block;
+  width: 5px;
+  height: 5px;
+  margin-right: 5px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--aff-sparkle), var(--aff-accent));
+  vertical-align: middle;
+  animation: count-breathe 1200ms var(--aff-ease) infinite;
+}
+
+@keyframes count-breathe {
+  0%, 100% { opacity: 0.35; scale: 0.8; }
+  50% { opacity: 1; scale: 1.25; }
 }
 
 .launcher-count[data-exhausted="true"] {
@@ -163,7 +220,8 @@ ${overlayVariables(':host')}
   flex-direction: column;
   align-items: center;
   gap: 3px;
-  padding: 9px 5px;
+  padding: 9px 5px 9px 7px;
+  margin-right: 2px;
   border: 0;
   border-radius: 999px;
   background: var(--aff-surface-raised);
@@ -171,11 +229,21 @@ ${overlayVariables(':host')}
   pointer-events: none;
   opacity: 0;
   box-shadow: 0 2px 8px -2px var(--aff-shadow);
-  transition: opacity 140ms var(--aff-ease);
+  /* Lingers on the way out, so a cursor that clips a corner on its way over recovers instead
+     of having the handle disappear mid-reach. Appears immediately — see the rule below. */
+  transition: opacity 140ms var(--aff-ease) 260ms;
 }
 .launcher-wrap:hover .launcher-grab {
   opacity: 1;
   pointer-events: auto;
+  transition-delay: 0s;
+}
+/* Mid-drag the cursor is outside the wrap almost immediately; the handle has to stay. */
+.launcher-grab:active,
+.launcher-wrap[data-dragging="true"] .launcher-grab {
+  opacity: 1;
+  pointer-events: auto;
+  transition-delay: 0s;
 }
 .launcher-grab:active { cursor: grabbing; }
 .launcher-grab span {
@@ -193,8 +261,8 @@ ${overlayVariables(':host')}
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 22px;
-  height: 22px;
+  width: 26px;
+  height: 26px;
   border: 0;
   border-radius: 50%;
   background: linear-gradient(135deg, var(--aff-sparkle), var(--aff-accent));
@@ -204,7 +272,7 @@ ${overlayVariables(':host')}
   box-shadow: 0 2px 8px -2px var(--aff-shadow-strong);
   animation: pop-in 160ms var(--aff-ease) both;
 }
-.field-trigger svg { width: 12px; height: 12px; }
+.field-trigger svg { width: 14px; height: 14px; }
 .field-trigger:focus-visible { outline: 2px solid var(--aff-accent); outline-offset: 2px; }
 
 /* Rewrite, not fill. The gradient means "the AI will write something here", and a field that
@@ -266,17 +334,17 @@ ${overlayVariables(':host')}
    Every popover: the launcher's menu, the review card, the result.         */
 .card {
   position: fixed;
-  min-width: 210px;
-  max-width: min(300px, calc(100vw - 24px));
+  min-width: 240px;
+  max-width: min(340px, calc(100vw - 24px));
   border: 1px solid var(--aff-border);
   border-radius: var(--aff-radius-md);
   background: var(--aff-surface-raised);
   color: var(--aff-ink);
-  font-size: 13px;
-  line-height: 1.45;
+  font-size: var(--aff-text-base);
+  line-height: 1.5;
   pointer-events: auto;
   overflow: hidden;
-  box-shadow: 0 8px 28px -8px var(--aff-shadow-strong), 0 1px 3px var(--aff-shadow);
+  box-shadow: 0 12px 36px -10px var(--aff-shadow-strong), 0 1px 3px var(--aff-shadow);
   animation: pop-in 160ms var(--aff-ease) both;
   transform-origin: var(--origin-x, 100%) var(--origin-y, 0%);
 }
@@ -284,15 +352,16 @@ ${overlayVariables(':host')}
 .card-item {
   display: flex;
   align-items: center;
-  gap: 9px;
+  gap: var(--aff-gap);
   width: 100%;
-  padding: 10px 13px;
+  min-height: var(--aff-tap);
+  padding: 11px var(--aff-pad);
   border: 0;
   border-bottom: 1px solid var(--aff-border-muted);
   background: transparent;
   color: var(--aff-ink);
   font: inherit;
-  font-size: 13px;
+  font-size: var(--aff-text-base);
   text-align: left;
   cursor: pointer;
   transition: background-color 120ms var(--aff-ease);
@@ -302,15 +371,15 @@ ${overlayVariables(':host')}
 .card-item:hover:not(:disabled),
 .card-item[data-active="true"] { background: var(--aff-surface-muted); }
 .card-item:disabled { color: var(--aff-ink-dim); cursor: default; }
-.card-item svg { width: 14px; height: 14px; flex: none; color: var(--aff-ink-muted); }
+.card-item svg { width: 16px; height: 16px; flex: none; color: var(--aff-ink-muted); }
 .card-item:focus-visible { outline: 2px solid var(--aff-accent); outline-offset: -2px; }
-.card-item-quiet { color: var(--aff-ink-muted); font-size: 12.5px; }
+.card-item-quiet { color: var(--aff-ink-muted); font-size: var(--aff-text-sm); }
 
 .card-question {
-  padding: 9px 13px 7px;
+  padding: 11px var(--aff-pad) 9px;
   border-bottom: 1px solid var(--aff-border-muted);
-  font-size: 12px;
-  line-height: 1.35;
+  font-size: var(--aff-text-sm);
+  line-height: 1.4;
   color: var(--aff-ink-muted);
   display: -webkit-box;
   -webkit-line-clamp: 2;
@@ -319,9 +388,9 @@ ${overlayVariables(':host')}
 }
 
 .card-note {
-  padding: 8px 13px;
-  font-size: 12px;
-  line-height: 1.4;
+  padding: 10px var(--aff-pad);
+  font-size: var(--aff-text-sm);
+  line-height: 1.45;
   color: var(--aff-ink-dim);
   border-top: 1px solid var(--aff-border-muted);
 }
@@ -332,8 +401,9 @@ ${overlayVariables(':host')}
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 20px;
-  height: 20px;
+  width: 28px;
+  height: 28px;
+  margin: -4px -6px -4px 0;
   border: 0;
   border-radius: 50%;
   background: transparent;
@@ -342,22 +412,22 @@ ${overlayVariables(':host')}
   flex: none;
 }
 .card-close:hover { background: var(--aff-surface-muted); color: var(--aff-ink); }
-.card-close svg { width: 12px; height: 12px; }
+.card-close svg { width: 14px; height: 14px; }
 
-.card-body { padding: 10px 13px; }
+.card-body { padding: 12px var(--aff-pad); }
 
 /* ── The answer card ──────────────────────────────────────────────────────
    One card under the field: what was asked, what we wrote, and everything the
    person might want to do about it. There is no "save to the page" button —
    edits write through on a debounce, so the card and the field can never hold
    different text. Opens only when the tab is pressed.                       */
-.card-answer { min-width: 280px; max-width: min(380px, calc(100vw - 24px)); }
+.card-answer { min-width: 320px; max-width: min(400px, calc(100vw - 24px)); }
 
 .answer-head {
   display: flex;
   align-items: flex-start;
-  gap: 8px;
-  padding: 10px 12px 8px;
+  gap: var(--aff-gap);
+  padding: 12px var(--aff-pad) 10px;
   border-bottom: 1px solid var(--aff-border-muted);
 }
 
@@ -366,42 +436,42 @@ ${overlayVariables(':host')}
   align-items: center;
   gap: 4px;
   flex: none;
-  padding: 2px 7px;
+  padding: 3px 9px;
   border-radius: var(--aff-radius-full);
   background: var(--aff-accent-muted);
   color: var(--aff-accent);
-  font-size: 10px;
+  font-size: var(--aff-text-xs);
   font-weight: 700;
   white-space: nowrap;
 }
-.answer-why svg { width: 10px; height: 10px; }
+.answer-why svg { width: 12px; height: 12px; }
 
 .answer-question {
   flex: 1;
   min-width: 0;
-  font-size: 12px;
-  line-height: 1.35;
+  font-size: var(--aff-text-sm);
+  line-height: 1.45;
   color: var(--aff-ink-muted);
   display: -webkit-box;
-  -webkit-line-clamp: 2;
+  -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
 
-.answer-body { padding: 10px 12px 0; }
+.answer-body { padding: 12px var(--aff-pad) 0; }
 
 .answer-text {
   width: 100%;
-  min-height: 62px;
-  max-height: 200px;
-  padding: 7px 9px;
+  min-height: 78px;
+  max-height: 240px;
+  padding: 10px 12px;
   border: 1px solid var(--aff-border);
-  border-radius: var(--aff-radius-sm);
+  border-radius: var(--aff-radius-md);
   background: var(--aff-surface);
   color: var(--aff-ink);
   font: inherit;
-  font-size: 12.5px;
-  line-height: 1.5;
+  font-size: var(--aff-text-base);
+  line-height: 1.55;
   resize: vertical;
 }
 .answer-text:focus-visible { outline: 2px solid var(--aff-accent); outline-offset: -1px; }
@@ -416,19 +486,20 @@ ${overlayVariables(':host')}
 .answer-options {
   display: flex;
   flex-wrap: wrap;
-  gap: 5px;
-  max-height: 168px;
+  gap: 7px;
+  max-height: 210px;
   overflow-y: auto;
 }
 
 .answer-option {
-  padding: 4px 9px;
+  min-height: var(--aff-tap);
+  padding: 6px 13px;
   border: 1px solid var(--aff-border-muted);
   border-radius: var(--aff-radius-full);
   background: transparent;
   color: var(--aff-ink-muted);
   font: inherit;
-  font-size: 12.5px;
+  font-size: var(--aff-text-sm);
   cursor: pointer;
   transition: border-color 120ms var(--aff-ease), color 120ms var(--aff-ease);
 }
@@ -442,28 +513,30 @@ ${overlayVariables(':host')}
 
 .answer-filter {
   width: 100%;
-  margin-bottom: 6px;
-  padding: 5px 9px;
+  min-height: var(--aff-tap);
+  margin-bottom: 8px;
+  padding: 6px 13px;
   border: 1px solid var(--aff-border);
   border-radius: var(--aff-radius-full);
   background: var(--aff-surface);
   color: var(--aff-ink);
   font: inherit;
-  font-size: 12.5px;
+  font-size: var(--aff-text-sm);
 }
 
-.answer-nudge { padding: 8px 12px 0; }
+.answer-nudge { padding: 10px var(--aff-pad) 0; }
 
-.answer-chips { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 6px; }
+.answer-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
 
 .answer-chip {
-  padding: 3px 9px;
+  min-height: 28px;
+  padding: 5px 12px;
   border: 1px solid var(--aff-border);
   border-radius: var(--aff-radius-full);
   background: transparent;
   color: var(--aff-ink-muted);
   font: inherit;
-  font-size: 12px;
+  font-size: var(--aff-text-sm);
   cursor: pointer;
   transition: border-color 120ms var(--aff-ease), color 120ms var(--aff-ease);
 }
@@ -473,18 +546,19 @@ ${overlayVariables(':host')}
 .answer-chip[data-last="true"] { border-color: var(--aff-accent); color: var(--aff-ink); }
 .answer-chip:focus-visible { outline: 2px solid var(--aff-accent); outline-offset: 2px; }
 
-.answer-ask { display: flex; align-items: center; gap: 6px; }
+.answer-ask { display: flex; align-items: center; gap: 8px; }
 
 .answer-ask-input {
   flex: 1;
   min-width: 0;
-  padding: 5px 10px;
+  min-height: var(--aff-tap);
+  padding: 6px 14px;
   border: 1px solid var(--aff-border);
   border-radius: var(--aff-radius-full);
   background: var(--aff-surface);
   color: var(--aff-ink);
   font: inherit;
-  font-size: 12.5px;
+  font-size: var(--aff-text-sm);
 }
 .answer-ask-input::placeholder { color: var(--aff-ink-dim); }
 .answer-ask-input:focus-visible { outline: 2px solid var(--aff-accent); outline-offset: -1px; }
@@ -495,23 +569,23 @@ ${overlayVariables(':host')}
   align-items: center;
   justify-content: center;
   flex: none;
-  width: 22px;
-  height: 22px;
+  width: var(--aff-tap);
+  height: var(--aff-tap);
   border: 0;
   border-radius: 50%;
   background: linear-gradient(135deg, var(--aff-sparkle), var(--aff-accent));
   color: #fff;
   cursor: pointer;
 }
-.answer-ask-go svg { width: 12px; height: 12px; }
+.answer-ask-go svg { width: 14px; height: 14px; }
 .answer-ask-go:disabled { opacity: 0.5; cursor: default; }
 .answer-ask-go[data-stop="true"] { background: var(--aff-danger); }
 .answer-ask-go:focus-visible { outline: 2px solid var(--aff-accent); outline-offset: 2px; }
 
 .answer-note {
-  padding: 8px 12px 0;
-  font-size: 12px;
-  line-height: 1.4;
+  padding: 10px var(--aff-pad) 0;
+  font-size: var(--aff-text-sm);
+  line-height: 1.45;
   color: var(--aff-ink-dim);
   min-height: 0;
 }
@@ -519,26 +593,34 @@ ${overlayVariables(':host')}
 .answer-note[data-bad="true"] { color: var(--aff-danger); }
 .answer-note[data-good="true"] { color: var(--aff-positive); }
 
-.answer-actions { display: flex; align-items: center; gap: 6px; padding: 10px 12px 12px; }
+.answer-actions { display: flex; align-items: center; gap: 8px; padding: 12px var(--aff-pad) var(--aff-pad); }
 
 .answer-keep,
 .answer-undo,
 .answer-clear {
-  padding: 6px 12px;
+  min-height: var(--aff-tap);
+  padding: 6px 14px;
   border: 1px solid var(--aff-border);
   border-radius: var(--aff-radius-full);
   background: transparent;
   color: var(--aff-ink);
   font: inherit;
-  font-size: 12.5px;
+  font-size: var(--aff-text-sm);
   font-weight: 600;
   cursor: pointer;
   transition: border-color 120ms var(--aff-ease), opacity 120ms var(--aff-ease);
 }
+
+/* Keep is the one thing to do here; Undo and Clear are exits. They used to be three pills of
+   equal weight, so the row read as a choice between equals rather than one action and two
+   escape hatches. */
 .answer-keep {
+  padding: 6px 20px;
   background: linear-gradient(135deg, var(--aff-sparkle), var(--aff-accent));
   border-color: transparent;
   color: #fff;
+  font-weight: 700;
+  box-shadow: 0 4px 14px -4px var(--aff-shadow-strong);
 }
 .answer-keep:hover { opacity: 0.9; }
 .answer-undo { color: var(--aff-ink-muted); border-color: transparent; }
@@ -598,33 +680,75 @@ ${overlayVariables(':host')}
   position: fixed;
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  height: 18px;
-  padding: 0 7px;
+  gap: 2px;
+  height: 24px;
+  padding: 0 3px 0 7px;
   border: 0;
   background: var(--aff-accent);
   color: #fff;
   font-family: inherit;
-  font-size: 10.5px;
+  font-size: 11.5px;
   font-weight: 700;
   line-height: 1;
   white-space: nowrap;
-  cursor: pointer;
   pointer-events: auto;
   box-shadow: 0 1px 4px -1px var(--aff-shadow);
   animation: tab-in 200ms var(--aff-spring) both;
 }
 
-/* The flat edge always faces the field, which is what makes 18px of accent read as a tab on
-   something rather than a badge floating near it. */
+/* The label. Opens the card, which is what the whole tab used to do. */
+.answer-tab-open {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 100%;
+  padding: 0 3px 0 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+.answer-tab-open:hover { opacity: 0.85; }
+.answer-tab-open:focus-visible { outline: 2px solid #fff; outline-offset: -2px; }
+
+/*
+  Verdict in one tap.
+
+  White grounds rather than bare glyphs: green and red read as nothing against a hot-pink tab,
+  and these two are the only place on the page where a colour has to mean yes or no rather than
+  provenance. They are 18px, which is under the 30px floor the rest of the overlay keeps — a
+  deliberate exception, because this control is pinned to the top edge of a form field and a
+  taller one would cover the question it is labelling.
+*/
+.answer-tab-act {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 18px;
+  height: 18px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--aff-surface-raised);
+  cursor: pointer;
+  transition: scale 120ms var(--aff-spring), background-color 120ms var(--aff-ease);
+}
+.answer-tab-act:hover { scale: 1.12; }
+.answer-tab-act:active { scale: 0.96; }
+.answer-tab-act svg { width: 11px; height: 11px; }
+.answer-tab-act:focus-visible { outline: 2px solid #fff; outline-offset: 1px; }
+.answer-tab-yes { color: var(--aff-positive); }
+.answer-tab-no { color: var(--aff-danger); }
+
+/* The flat edge always faces the field, which is what makes a bar of accent read as a tab on
+   something rather than a badge floating near it. Keep in lockstep with TAB_HEIGHT. */
 .answer-tab[data-place="above"] { border-radius: 6px 6px 2px 2px; }
 .answer-tab[data-place="below"],
 .answer-tab[data-place="pinned"] { border-radius: 2px 2px 6px 6px; }
 .answer-tab[data-place="beside"] { border-radius: 2px 6px 6px 2px; }
 
-.answer-tab svg { width: 10px; height: 10px; flex: none; }
-.answer-tab:hover { background: color-mix(in oklab, var(--aff-accent) 88%, black); }
-.answer-tab:focus-visible { outline: 2px solid var(--aff-accent); outline-offset: 2px; }
+.answer-tab-open svg { width: 11px; height: 11px; flex: none; }
 
 /* scale only — never translate, which is this element's placement, and never the
    transform shorthand. See the note in host.test.ts. */
@@ -643,11 +767,11 @@ ${overlayVariables(':host')}
   align-items: center;
   gap: 5px;
   max-width: 320px;
-  padding: 3px 9px;
+  padding: 5px 11px;
   border-radius: var(--aff-radius-full);
   background: var(--aff-surface);
   color: var(--aff-ink-dim);
-  font-size: 11.5px;
+  font-size: var(--aff-text-sm);
   font-weight: 600;
   line-height: 1.5;
   white-space: nowrap;
@@ -662,7 +786,7 @@ ${overlayVariables(':host')}
   transition: opacity 260ms var(--aff-ease), scale 260ms var(--aff-ease);
 }
 
-.learn-chip svg { width: 11px; height: 11px; flex: none; }
+.learn-chip svg { width: 13px; height: 13px; flex: none; }
 .learn-chip span { overflow: hidden; text-overflow: ellipsis; }
 
 /* Thinking. The sparkle breathes rather than spins: nothing is being waited *for* here — the

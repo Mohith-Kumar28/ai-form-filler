@@ -104,6 +104,47 @@ export const PROFILE: Profile = {
   ],
 }
 
+/**
+ * The state a real profile drifts into, which is what this rebuild exists to fix.
+ *
+ * Every defect here is one that actually happens: the ingest structuring pass takes `platform`
+ * as a bare string from a model, so `LinkedIn` lands beside the extractor's `linkedin`; the old
+ * editor cleared a link by writing `''` and the merge only ever added keys, so the empty one
+ * survived every save; nothing normalised a `custom` key, so `notice period` and
+ * `Notice Period ` were two facts that both reached the model; and `addFact` only checked
+ * against `custom`, so a fact called `Email` sat below the identity field of the same name.
+ *
+ * Reviewed against this, the Facts screen has to show **one** row per fact.
+ */
+export const MESSY_PROFILE: Profile = {
+  version: 12,
+  identity: {
+    fullName: 'Ifeoma Balogun',
+    email: 'ifeoma.balogun@fastmail.com',
+    phone: '+44 7911 248 630',
+    location: 'Bristol, United Kingdom',
+    links: {
+      linkedin: '',
+      LinkedIn: 'https://www.linkedin.com/in/ifeomabalogun',
+      github: 'https://github.com/ifeomab',
+      GitHub: '',
+      mastodon: 'https://mas.to/@ife',
+    },
+  },
+  custom: {
+    Email: 'ife@oldmail.example',
+    'notice period': '6 weeks',
+    'Notice Period ': '',
+    'Current CTC': '£68,000',
+    'PAN number': 'ABCDE1234F',
+    'Aadhaar number': '2345 6789 0123',
+    'Current company': 'Kestrel Health',
+    'T-shirt size': 'M',
+    'Dietary needs': 'No shellfish',
+  },
+  sources: PROFILE.sources,
+}
+
 export const EMPTY_PROFILE: Profile = {
   version: 0,
   identity: { links: {} },

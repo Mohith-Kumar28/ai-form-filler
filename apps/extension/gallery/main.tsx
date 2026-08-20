@@ -4,6 +4,7 @@ import { createRoot } from 'react-dom/client'
 import './gallery.css'
 import { NavigationProvider } from '../src/entrypoints/sidepanel/navigation.js'
 import { AddSource } from '../src/entrypoints/sidepanel/screens/AddSource.js'
+import { Facts } from '../src/entrypoints/sidepanel/screens/Facts.js'
 import { Filling } from '../src/entrypoints/sidepanel/screens/Filling.js'
 import { Home } from '../src/entrypoints/sidepanel/screens/Home.js'
 import { Profile } from '../src/entrypoints/sidepanel/screens/Profile.js'
@@ -13,7 +14,15 @@ import { Sources } from '../src/entrypoints/sidepanel/screens/Sources.js'
 import { Welcome } from '../src/entrypoints/sidepanel/screens/Welcome.js'
 import { cssName, DARK, LIGHT, TOKEN_NAMES } from '../src/lib/tokens.js'
 import './stub-chrome.js'
-import { ACCOUNT, ACCOUNT_LOW_QUOTA, EMPTY_PROFILE, PLAN, PROFILE, REPORT } from './fixtures.js'
+import {
+  ACCOUNT,
+  ACCOUNT_LOW_QUOTA,
+  EMPTY_PROFILE,
+  MESSY_PROFILE,
+  PLAN,
+  PROFILE,
+  REPORT,
+} from './fixtures.js'
 
 const scheme = new URLSearchParams(location.search).get('scheme') === 'dark' ? DARK : LIGHT
 const style = document.createElement('style')
@@ -43,16 +52,29 @@ const PAGE_WITHOUT_FORM = {
   form: null,
 }
 
-function Frame({ label, note, children }: { label: string; note?: string; children: ReactNode }) {
+function Frame({
+  label,
+  note,
+  width = 400,
+  children,
+}: {
+  label: string
+  note?: string
+  width?: number
+  children: ReactNode
+}) {
   return (
-    <figure className="m-0 flex flex-col gap-2">
+    <figure className="m-0 flex flex-col gap-2" style={{ width }}>
       <figcaption className="px-1">
-        <span className="text-[11px] font-semibold uppercase tracking-[0.1em] text-ink-dim">
+        <span className="text-2xs font-semibold uppercase tracking-[0.1em] text-ink-dim">
           {label}
         </span>
-        {note && <span className="ml-2 text-[11px] text-ink-dim">{note}</span>}
+        {note && <span className="ml-2 text-2xs text-ink-dim">{note}</span>}
       </figcaption>
-      <div className="h-[720px] w-[400px] overflow-hidden border border-border-muted rounded-xl bg-surface">
+      <div
+        className="h-[720px] overflow-hidden rounded-xl border border-border-muted bg-surface"
+        style={{ width }}
+      >
         <NavigationProvider>{children}</NavigationProvider>
       </div>
     </figure>
@@ -63,7 +85,7 @@ function Gallery() {
   return (
     <QueryClientProvider client={queryClient}>
       <div className="min-h-screen bg-surface p-8">
-        <div className="grid grid-cols-[repeat(auto-fill,400px)] gap-x-8 gap-y-10">
+        <div className="flex flex-wrap items-start gap-x-8 gap-y-10">
           <Frame label="Welcome" note="signed out, first run">
             <Welcome />
           </Frame>
@@ -122,11 +144,31 @@ function Gallery() {
             <Receipt plan={PLAN} report={REPORT} tabId={1} onDone={() => undefined} />
           </Frame>
 
-          <Frame label="Your info" note="about you, facts, documents">
+          <Frame label="Facts" note="grouped into sections">
+            <Facts profile={PROFILE} />
+          </Frame>
+
+          <Frame label="Facts" note="dragged wider — two-up past 480px" width={620}>
+            <Facts profile={PROFILE} />
+          </Frame>
+
+          <Frame label="Account" note="dragged wider" width={620}>
+            <Profile account={ACCOUNT} />
+          </Frame>
+
+          <Frame label="Facts" note="duplicated and messy — must show one row per fact">
+            <Facts profile={MESSY_PROFILE} />
+          </Frame>
+
+          <Frame label="Facts" note="nothing on file yet">
+            <Facts profile={EMPTY_PROFILE} />
+          </Frame>
+
+          <Frame label="Sources" note="one ready, one reading, one failed">
             <Sources profile={PROFILE} />
           </Frame>
 
-          <Frame label="Your info" note="empty">
+          <Frame label="Sources" note="empty">
             <Sources profile={EMPTY_PROFILE} />
           </Frame>
 

@@ -5,10 +5,12 @@
   and the page overlay's inlined CSS string. `src/lib/tokens.test.ts` fails if they diverge —
   the previous build kept two hand-maintained palettes and they had already drifted.
 
-  The world: your hype friend who does the boring homework for you. Bright, saturated,
-  playful — a signature sunset gradient (violet → pink → orange) for the hero moments, hot
-  pink for a guessed answer, lime for what it read straight off. Warm neutrals, never pure
-  gray or black.
+  Bright and saturated on purpose — a signature sunset gradient (violet → pink → orange) for
+  the hero moments, hot pink for a guessed answer, lime for what it read straight off. Warm
+  neutrals, never pure gray or black.
+
+  The colour carries the personality. The words do not: copy says what the thing does, plainly.
+  See the note in tokens.ts.
 */
 
 /*
@@ -77,6 +79,50 @@
   --radius-lg: 18px;
   --radius-full: 9999px;
 
+  /*
+    The type ramp. Six steps, and no screen may invent a seventh — the previous build had
+    eleven hand-picked arbitrary sizes (11, 10.5, 12, 12.5, 13, 13.5, 15, 16, 18) and that,
+    rather than any one layout, is what read as "crammed".
+
+    Base is 15px, not 14px. This is a 400px panel someone reads mid-task on someone else's
+    site, not a dense table, and every tier below base is metadata by definition.
+  */
+  --text-2xs: 11.5px;
+  --text-2xs--line-height: 1.4;
+  --text-xs: 12.5px;
+  --text-xs--line-height: 1.45;
+  --text-sm: 13.5px;
+  --text-sm--line-height: 1.5;
+  --text-base: 15px;
+  --text-base--line-height: 1.55;
+  --text-lg: 17px;
+  --text-lg--line-height: 1.35;
+  --text-xl: 21px;
+  --text-xl--line-height: 1.25;
+  /* Two places only: the sign-in headline and the voice-note timer. */
+  --text-2xl: 27px;
+  --text-2xl--line-height: 1.1;
+
+  /*
+    The one breakpoint.
+
+    Chrome gives an extension no control over the side panel's width — `chrome.sidePanel` takes
+    `enabled`, `path` and `tabId` and nothing else, and the minimum is hard-coded in the browser.
+    So the panel cannot be made wider from here; what it can do is be worth widening. Past this
+    point a field list goes two-up, which is where dragging the panel edge starts to pay for
+    itself instead of just stretching the same single column.
+  */
+  --breakpoint-wide: 480px;
+
+  /*
+    Density. One gutter for every screen edge, one floor for a row, one height for a control.
+    `row` and `control` are deliberately generous: a 28px row in a docked panel is a miss
+    waiting to happen, and this surface is used one-handed on a laptop.
+  */
+  --spacing-gutter: 16px;
+  --spacing-row: 44px;
+  --spacing-control: 40px;
+
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
   --font-display: "Bricolage Grotesque", "Inter", ui-sans-serif, system-ui, sans-serif;
 }
@@ -130,8 +176,8 @@ body {
   background: var(--color-surface);
   color: var(--color-ink);
   font-family: var(--font-sans);
-  font-size: 14px;
-  line-height: 1.5;
+  font-size: var(--text-base);
+  line-height: 1.55;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
 }

@@ -37,8 +37,17 @@ export type JudgedReason = 'inferred' | 'unsure'
 
 export interface FieldMarkOptions {
   reason?: JudgedReason
-  /** Clicking the tab. The only thing the tab does. */
+  /** The label, and the cross: open the card and do something about the answer. */
   onOpen?: () => void
+  /**
+   * The tick: this answer is fine, with no card and no reading.
+   *
+   * The tab used to be open-the-card or nothing, so clearing eight guessed answers meant eight
+   * rounds of open, read, Keep, close — for answers most of which are right. Approving one is
+   * now one tap on the thing already pointing at it, and rejecting one still opens the card,
+   * because "this is wrong" is the case that needs the editor.
+   */
+  onAccept?: () => void
   /**
    * The page threw the field away, and this mark is now gone with it.
    *
@@ -58,7 +67,7 @@ export interface FieldMark {
 }
 
 /** Tab geometry. Exported so the placement tests read the same numbers the code does. */
-export const TAB_HEIGHT = 18
+export const TAB_HEIGHT = 24
 /** Clearance between the tab's bottom edge and the field's top border. */
 export const TAB_GAP = 4
 /** Minimum breathing room against the viewport edges. */
@@ -242,20 +251,63 @@ export function mountFieldMark(element: HTMLElement, options: FieldMarkOptions =
   const ensureTab = () => {
     if (dead || !options.onOpen) return
     if (!tab) {
-      const button = document.createElement('button')
-      button.type = 'button'
-      button.className = 'answer-tab'
       const reason = options.reason ?? 'unsure'
-      button.dataset.reason = reason
-      button.setAttribute('aria-label', 'Check this answer')
-      button.innerHTML = `${GLYPH.sparkle}<span>${TAB_LABEL[reason]}</span>`
-      button.addEventListener('click', (event) => {
+
+      /*
+        A group, not a button, because it now holds three of them — and `.answer-tab` stays the
+        outer class so placement, the `data-place` geometry and everything that counts tabs are
+        untouched.
+      */
+      const group = document.createElement('div')
+      group.className = 'answer-tab'
+      group.dataset.reason = reason
+      group.setAttribute('role', 'group')
+      group.setAttribute('aria-label', `${TAB_LABEL[reason]} — check this answer`)
+
+      const open = document.createElement('button')
+      open.type = 'button'
+      open.className = 'answer-tab-open'
+      open.innerHTML = `${GLYPH.sparkle}<span>${TAB_LABEL[reason]}</span>`
+      open.setAttribute('aria-label', 'Read this answer')
+      open.addEventListener('click', (event) => {
         event.preventDefault()
         event.stopPropagation()
         options.onOpen?.()
       })
-      tab = button
-      root.appendChild(button)
+      group.appendChild(open)
+
+      if (options.onAccept) {
+        const yes = document.createElement('button')
+        yes.type = 'button'
+        yes.className = 'answer-tab-act answer-tab-yes'
+        yes.innerHTML = GLYPH.check
+        yes.setAttribute('aria-label', 'This is right — keep it')
+        yes.setAttribute('title', 'Looks right')
+        yes.addEventListener('click', (event) => {
+          event.preventDefault()
+          event.stopPropagation()
+          options.onAccept?.()
+        })
+        group.appendChild(yes)
+      }
+
+      const no = document.createElement('button')
+      no.type = 'button'
+      no.className = 'answer-tab-act answer-tab-no'
+      no.innerHTML = GLYPH.close
+      no.setAttribute('aria-label', 'This is wrong — change it')
+      no.setAttribute('title', 'Change it')
+      // Rejecting opens the editor: saying an answer is wrong is not the same as being done
+      // with it, and the person still needs somewhere to put the right one.
+      no.addEventListener('click', (event) => {
+        event.preventDefault()
+        event.stopPropagation()
+        options.onOpen?.()
+      })
+      group.appendChild(no)
+
+      tab = group
+      root.appendChild(group)
     }
     placeTheTab()
   }

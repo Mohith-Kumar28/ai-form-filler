@@ -14,14 +14,26 @@ const EDGE = 16
 const DRAG_THRESHOLD = 4
 
 /** Rotating reassurance shown in place of the field count while the AI thinks. */
-const LOADING_MESSAGES = ['Thinking…', 'Reading the form…', 'Writing answers…']
+/**
+ * What the badge says while there is no number worth showing.
+ *
+ * Per stage, and every line is true of the stage it belongs to — the previous set rotated
+ * "Thinking… / Reading the form… / Writing answers…" regardless of what was actually happening.
+ * `generating` gets two lines because it is the one that takes ten to twenty seconds, and a
+ * label that never changes for that long reads as a hang.
+ */
+const STAGE_MESSAGES: Record<string, string[]> = {
+  detecting: ['Reading the form…'],
+  generating: ['Writing your answers…', 'Working through the form…'],
+  applying: ['Filling the fields…'],
+}
 
 export interface LauncherHandle {
   element: HTMLElement
   anchorRect: () => Rect
   setFieldCount: (count: number) => void
   /** Switches to the filling pill, sets the progress text, and shows the stop button. */
-  setBusy: (done: number, total: number) => void
+  setStage: (stage: string, done: number, total: number) => void
   /** Pulsing animation while thinking (before the pill appears). */
   setLoading: (loading: boolean) => void
   /** Shows an upgrade indicator instead of the field count. */
@@ -67,20 +79,44 @@ export function mountLauncher(options: { onOpen: () => void; onStop: () => void 
   let loadingIndex = 0
 
   const showFieldCount = () => {
-    countBadge.textContent =
-      fieldCount === 0 ? '' : `${fieldCount} ${fieldCount === 1 ? 'field' : 'fields'}`
+    setBadge(
+      fieldCount === 0 ? '' : `${fieldCount} ${fieldCount === 1 ? 'field' : 'fields'}`,
+      false,
+    )
   }
 
-  const loadingMessage = (index: number): string =>
-    LOADING_MESSAGES[index % LOADING_MESSAGES.length] ?? 'Thinking…'
+  /** The badge, with the breathing dot that carries the "still working" signal. */
+  const setBadge = (text: string, thinking: boolean) => {
+    countBadge.textContent = ''
+    if (thinking) {
+      const dot = document.createElement('span')
+      dot.className = 'launcher-count-dot'
+      countBadge.appendChild(dot)
+    }
+    countBadge.appendChild(document.createTextNode(text))
+    // Long text grows leftward into the page instead of off the right edge of the window.
+    if (text.length > 11) countBadge.setAttribute('data-wide', 'true')
+    else countBadge.removeAttribute('data-wide')
+  }
 
-  const startLoadingText = () => {
+  let loadingStage = 'generating'
+
+  const messagesFor = (stage: string): string[] =>
+    STAGE_MESSAGES[stage] ?? STAGE_MESSAGES.generating ?? ['Working…']
+
+  const startLoadingText = (stage: string) => {
+    const messages = messagesFor(stage)
+    // Restarting the same stage would reset the rotation on every progress event.
+    if (loadingTimer !== null && stage === loadingStage) return
+    stopLoadingText()
+    loadingStage = stage
     loadingIndex = 0
-    countBadge.textContent = loadingMessage(0)
+    setBadge(messages[0] ?? 'Working…', true)
+    if (messages.length < 2) return
     loadingTimer = setInterval(() => {
-      loadingIndex = (loadingIndex + 1) % LOADING_MESSAGES.length
-      countBadge.textContent = loadingMessage(loadingIndex)
-    }, 1400)
+      loadingIndex = (loadingIndex + 1) % messages.length
+      setBadge(messages[loadingIndex] ?? 'Working…', true)
+    }, 2600)
   }
 
   const stopLoadingText = () => {
@@ -100,6 +136,7 @@ export function mountLauncher(options: { onOpen: () => void; onStop: () => void 
     }
     button.classList.remove('launcher--loading')
     stopLoadingText()
+    loadingStage = ''
   }
 
   const stopBtn = document.createElement('button')
@@ -198,12 +235,30 @@ export function mountLauncher(options: { onOpen: () => void; onStop: () => void 
       fieldCount = count
       showFieldCount()
     },
-    setBusy: (done, total) => {
-      settleLoading()
-      wrap.setAttribute('data-filling', 'true')
-      progressText.textContent = `${done}/${total}`
-      // The pill is wider than the circle, and wider again with every digit. Re-pin, or it
-      // hangs off the right edge of the window and the count is cut in half.
+    /**
+     * Where the fill has got to.
+     *
+     * `done === 0` shows the thinking state, not the number. This is the whole fix for a
+     * launcher that read as hung: the pipeline emits `{done: 0}` for both `detecting` and
+     * `generating`, the old `setBusy` called `settleLoading()` unconditionally — killing the
+     * pulse and the text it had just started — and then displayed a frozen "0/5" for the ten
+     * to twenty seconds the model actually takes. A zero is not progress; say what is
+     * happening instead, and show a count only once there is one.
+     */
+    setStage: (stage, done, total) => {
+      if (done > 0) {
+        settleLoading()
+        wrap.setAttribute('data-filling', 'true')
+        progressText.textContent = `${done}/${total}`
+        // The pill is wider than the circle, and wider again with every digit. Re-pin, or it
+        // hangs off the right edge of the window and the count is cut in half.
+        reposition()
+        return
+      }
+
+      wrap.removeAttribute('data-filling')
+      button.classList.add('launcher--loading')
+      startLoadingText(stage)
       reposition()
     },
     setExhausted: () => {
@@ -214,7 +269,7 @@ export function mountLauncher(options: { onOpen: () => void; onStop: () => void 
     setLoading: (loading) => {
       if (loading) {
         button.classList.add('launcher--loading')
-        startLoadingText()
+        startLoadingText('detecting')
         if (loadingSafety !== null) clearTimeout(loadingSafety)
         loadingSafety = setTimeout(() => {
           loadingSafety = null
