@@ -19,7 +19,7 @@ export function PricingCards() {
               plan.highlighted
                 ? {
                     background:
-                      'linear-gradient(160deg, var(--sparkle), var(--accent) 55%, var(--sun))',
+                      'linear-gradient(160deg, var(--sparkle), var(--accent) 68%, var(--sun) 150%)',
                   }
                 : undefined
             }
@@ -43,7 +43,7 @@ export function PricingCards() {
                 ${plan.price}
               </span>
               <span
-                className={cn('text-[13px]', plan.highlighted ? 'text-white/70' : 'text-ink-dim')}
+                className={cn('text-[13px]', plan.highlighted ? 'text-white/80' : 'text-ink-dim')}
               >
                 / {plan.cadence}
               </span>
@@ -51,7 +51,7 @@ export function PricingCards() {
             <p
               className={cn(
                 'mt-2 text-[13px] font-medium',
-                plan.highlighted ? 'text-white/80' : 'text-ink-dim',
+                plan.highlighted ? 'text-white/90' : 'text-ink-dim',
               )}
             >
               {plan.forms} forms / month
@@ -59,7 +59,7 @@ export function PricingCards() {
             <p
               className={cn(
                 'mt-3 text-[13.5px] leading-relaxed',
-                plan.highlighted ? 'text-white/85' : 'text-ink-muted',
+                plan.highlighted ? 'text-white/90' : 'text-ink-muted',
               )}
             >
               {plan.description}
@@ -72,13 +72,13 @@ export function PricingCards() {
                     className={cn(
                       'mt-0.5 flex size-4 shrink-0 items-center justify-center rounded-full',
                       plan.highlighted
-                        ? 'bg-white/20 text-white'
+                        ? 'bg-white/25 text-white'
                         : 'bg-positive-muted text-positive',
                     )}
                   >
                     <IconCheck className="size-3" />
                   </span>
-                  <span className={plan.highlighted ? 'text-white/95' : 'text-ink-muted'}>{f}</span>
+                  <span className={plan.highlighted ? 'text-white' : 'text-ink-muted'}>{f}</span>
                 </li>
               ))}
             </ul>
@@ -86,7 +86,7 @@ export function PricingCards() {
             <a
               href={plan.plan === 'free' ? '#demo' : '/pricing'}
               className={cn(
-                'mt-7 block rounded-full px-4 py-3 text-center text-[14px] font-semibold no-underline transition-all duration-150',
+                'mt-7 flex min-h-11 items-center justify-center rounded-full px-4 text-center text-[14px] font-semibold no-underline transition-all duration-150',
                 plan.highlighted
                   ? 'bg-white text-accent hover:brightness-95'
                   : 'text-white shadow-glow hover:brightness-110',

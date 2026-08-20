@@ -40,19 +40,17 @@ function Home() {
     <>
       <Hero />
 
-      {/* Demo section — peaks up into the hero so ~25% of the card is visible on load */}
-      <section id="demo" className="relative -mt-32 pb-20 md:-mt-56 md:pb-28">
+      {/* Demo section — sits just below the fold so the card peeks in on load */}
+      <section id="demo" className="relative scroll-mt-24 pb-20 md:pb-28">
         <div className="mx-auto max-w-3xl px-6">
-          <p className="mb-3 text-center text-[12px] font-semibold uppercase tracking-[0.1em] text-ink-dim">
+          <p className="mb-4 text-center text-[12px] font-semibold uppercase tracking-[0.1em] text-ink-dim">
             Click the launcher to watch it fill
           </p>
           <ExtensionDemo />
         </div>
       </section>
 
-      <section id="how-it-works">
-        <HowItWorks />
-      </section>
+      <HowItWorks />
 
       <section className="py-20 md:py-28">
         <div className="mx-auto max-w-6xl px-6">

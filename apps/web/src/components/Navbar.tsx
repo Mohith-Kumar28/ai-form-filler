@@ -36,7 +36,8 @@ export function Navbar() {
             style={{ background: 'linear-gradient(135deg, var(--sparkle), var(--accent))' }}
           >
             <IconSparkle className="size-4" />
-            Add to Chrome
+            <span className="hidden sm:inline">Add to Chrome</span>
+            <span className="sm:hidden">Add</span>
           </a>
           <button
             type="button"

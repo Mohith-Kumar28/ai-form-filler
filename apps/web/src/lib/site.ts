@@ -9,7 +9,7 @@ export const site = {
   domain: 'https://fillaform.in',
   tagline: 'Fill any form, in your own voice.',
   description:
-    'Fillaform is a Chrome extension that fills any web form — job applications, Google Forms, event registrations, surveys — from your own knowledge base, in your own writing voice. It tells you which answers it read and which it concluded.',
+    'Fillaform is a Chrome extension that fills any web form — job applications, Google Forms, event registrations, surveys — from your own knowledge base, in your own writing voice. It tells you which answers it read and which it guessed.',
   /** Pinned extension ID. The Web Store URL goes live once the listing is published. */
   chromeExtensionId: 'bkjmijloddfiilopdckanmnpmiimpcho',
   chromeWebStoreUrl: 'https://chromewebstore.google.com/detail/bkjmijloddfiilopdckanmnpmiimpcho',
@@ -29,8 +29,8 @@ export const pricing = [
     features: [
       '5 forms per month',
       'Every site adapter (Google Forms, Greenhouse, Lever, Ashby)',
-      'Resume, link & text sources',
-      'Read vs concluded stamps',
+      'Résumé, link & text sources',
+      'Read vs. guessed stamps',
     ],
     cta: 'Add to Chrome',
     highlighted: false,

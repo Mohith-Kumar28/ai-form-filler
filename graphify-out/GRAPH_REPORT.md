@@ -1,21 +1,21 @@
 # Graph Report - ai-form-filler  (2026-08-20)
 
 ## Corpus Check
-- 257 files · ~361,907 words
+- 257 files · ~363,493 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 1776 nodes · 3476 edges · 112 communities (99 shown, 13 thin omitted)
-- Extraction: 99% EXTRACTED · 1% INFERRED · 0% AMBIGUOUS · INFERRED: 29 edges (avg confidence: 0.6)
+- 1790 nodes · 3506 edges · 112 communities (99 shown, 13 thin omitted)
+- Extraction: 99% EXTRACTED · 1% INFERRED · 0% AMBIGUOUS · INFERRED: 35 edges (avg confidence: 0.64)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `f712cb70`
+- Built from commit: `3292aa40`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
 ## Community Hubs (Navigation)
-- compile.ts
+- fetch-url.ts
 - scripts
 - content.ts
 - profile/profile.ts
@@ -31,33 +31,33 @@
 - compilerOptions
 - dependencies
 - High-Agency Frontend Skill
-- Account
+- routes/profile.ts
 - components.tsx
 - form-adapters/src/index.ts
 - services/fill.ts
-- generate.ts
+- shared/src/index.ts
 - account/account.ts
 - devDependencies
 - constants.ts
 - form-adapters/package.json
-- shared/src/index.ts
+- messages.ts
 - shared/package.json
 - dependencies
 - migrate-learned-to-memory.mjs
 - write.ts
-- background.ts
+- learned-store.ts
 - model/index.ts
 - answer-bank.ts
 - routes/index.tsx
-- resolveLabel
-- routes/profile.ts
+- generic.ts
+- services/profile.ts
 - compilerOptions
 - api/tsconfig.json
 - env.ts
 - package.json
 - form-adapters/tsconfig.json
 - devDependencies
-- schemas.ts
+- ApiErrorResponse
 - compilerOptions
 - Design Audit
 - Sources.tsx
@@ -72,7 +72,7 @@
 - use-fill.ts
 - Fillaform
 - ui.tsx
-- http-client.ts
+- background.ts
 - 6. Remaining work
 - shared/tsconfig.json
 - `users`
@@ -87,7 +87,7 @@
 - seo.ts
 - devDependencies
 - 3. Architecture
-- GoogleFormsAdapter
+- google-forms.fixture.test.ts
 - Setup
 - secrets.mjs
 - costs.mjs
@@ -95,32 +95,32 @@
 - dev-token.mjs
 - 2. The two hard invariants
 - card.ts
-- site
+- site.ts
 - $slug.tsx
 - reveal-extension.mjs
 - Receipt.tsx
 - animate.ts
 - suggest.ts
 - PositionScheduler
-- fill-port.ts
+- compile.ts
 - markers.ts
 - Profile
 - scheduler.ts
 - opencode.json
-- site.ts
+- PricingCards.tsx
 - router.tsx
-- sidepanel/main.tsx
+- http-client.ts
 - matchOptions
 - @types/react
 - @types/react-dom
 - typescript
 - vitest
-- generic.ts
-- wxt
+- overlay.ts
+- addTextSource
 - standardwebhooks
 - httpClient
-- openUpgrade
-- profileSourcesItem.ts
+- Profile.tsx
+- happy-dom
 
 ## God Nodes (most connected - your core abstractions)
 1. `scripts` - 53 edges
@@ -139,10 +139,10 @@
   apps/extension/src/overlay/card.ts → package.json
 - `Variables` --references--> `Account`  [EXTRACTED]
   apps/api/src/env.ts → packages/shared/src/account.ts
-- `GenerateInput` --references--> `FillTier`  [EXTRACTED]
-  apps/api/src/llm/generate.ts → packages/shared/src/fill.ts
 - `generateFills()` --calls--> `matchOptions()`  [EXTRACTED]
   apps/api/src/llm/generate.ts → packages/shared/src/options.ts
+- `UserMessageInput` --references--> `FieldSchema`  [EXTRACTED]
+  apps/api/src/llm/prompt.ts → packages/shared/src/form.ts
 - `RoutedForm` --references--> `FillTier`  [EXTRACTED]
   apps/api/src/router/classify.ts → packages/shared/src/fill.ts
 
@@ -151,49 +151,49 @@
 
 ## Communities (112 total, 13 thin omitted)
 
-### Community 0 - "compile.ts"
-Cohesion: 0.13
-Nodes (23): CompiledProfile, compileProfileDoc(), estimateTokens(), normalizeText(), renderCustom(), renderIdentity(), sha256Hex(), digitCount() (+15 more)
+### Community 0 - "fetch-url.ts"
+Cohesion: 0.18
+Nodes (16): normalizeText(), digitCount(), extractIdentity(), LINK_PATTERNS, mergeIdentity(), trimUrl(), BrowserBinding, fetchAndStrip() (+8 more)
 
 ### Community 1 - "scripts"
 Cohesion: 0.04
 Nodes (53): scripts, //1-develop, //2-build, //3-ship, //4-setup, //5-database, //6-contract, //7-quality (+45 more)
 
 ### Community 2 - "content.ts"
-Cohesion: 0.17
-Nodes (19): main(), CardAction, CardHandle, burstConfetti(), COLORS, getOverlayHost(), GLYPH, isOverlayEvent() (+11 more)
+Cohesion: 0.12
+Nodes (23): main(), detectPageScheme(), CardAction, burstConfetti(), COLORS, getOverlayHost(), GLYPH, isOverlayEvent() (+15 more)
 
 ### Community 3 - "profile/profile.ts"
 Cohesion: 0.06
-Nodes (47): LinkMode(), TextMode(), VoiceMode(), addTextSource(), AddTextSourceMutationBody, AddTextSourceMutationError, AddTextSourceMutationResult, deleteSource() (+39 more)
+Nodes (46): VoiceMode(), AddTextSourceMutationBody, AddTextSourceMutationError, AddTextSourceMutationResult, deleteSource(), DeleteSourceMutationError, DeleteSourceMutationResult, getDeleteSourceMutationOptions() (+38 more)
 
 ### Community 4 - "classify.ts"
-Cohesion: 0.16
-Nodes (15): AUTOCOMPLETE_SLOT, Classification, classifyField(), classifyForm(), IdentitySlot, identitySlotFor(), LABEL_SLOTS, RoutedForm (+7 more)
+Cohesion: 0.12
+Nodes (23): GenerateInput, GenerateResult, TokenUsage, UserMessageInput, AUTOCOMPLETE_SLOT, Classification, classifyField(), classifyForm() (+15 more)
 
 ### Community 5 - "includes"
 Cohesion: 0.05
 Nodes (37): css, parser, files, includes, formatter, enabled, indentStyle, indentWidth (+29 more)
 
 ### Community 6 - "App.tsx"
-Cohesion: 0.20
-Nodes (17): Stack(), useFillNavigation(), ScreenHeader(), TabBar(), useNavigation(), AddSource(), Home(), SourceDetail() (+9 more)
+Cohesion: 0.16
+Nodes (20): App(), Stack(), useFillNavigation(), useSignedIn(), ScreenBody(), SkeletonRow(), TabBar(), useNavigation() (+12 more)
 
 ### Community 7 - "fill/fill.ts"
-Cohesion: 0.12
-Nodes (22): fillForm(), FillFormMutationBody, FillFormMutationError, FillFormMutationResult, getFillFormMutationOptions(), getFillFormUrl(), getImproveAnswerMutationOptions(), getImproveAnswerUrl() (+14 more)
+Cohesion: 0.09
+Nodes (23): FillFormMutationBody, FillFormMutationError, FillFormMutationResult, getFillFormMutationOptions(), getImproveAnswerMutationOptions(), getImproveAnswerUrl(), getSubmitFeedbackMutationOptions(), getSubmitFeedbackUrl() (+15 more)
 
 ### Community 8 - "google-forms.ts"
-Cohesion: 0.21
-Nodes (22): answerFor(), detectQuestion(), hasLayout(), isChosen(), isOpen(), isOtherOption(), isVisible(), matchOption() (+14 more)
+Cohesion: 0.18
+Nodes (23): answerFor(), detectQuestion(), GoogleFormsAdapter, hasLayout(), isChosen(), isOpen(), isOtherOption(), isVisible() (+15 more)
 
 ### Community 9 - "ats.ts"
-Cohesion: 0.16
-Nodes (14): ATS_HOSTS, AtsAdapter, driveReactSelect(), isReactSelect(), reactSelectLabel(), readPreloadedOptions(), readSelectedValue(), waitForOption() (+6 more)
+Cohesion: 0.17
+Nodes (15): ATS_HOSTS, AtsAdapter, driveReactSelect(), isReactSelect(), reactSelectLabel(), readPreloadedOptions(), readSelectedValue(), waitForOption() (+7 more)
 
 ### Community 10 - "gallery/main.tsx"
 Cohesion: 0.06
-Nodes (38): ACCOUNT, ACCOUNT_LOW_QUOTA, EMPTY_PROFILE, PLAN, PROFILE, REPORT, PAGE_WITH_FORM, PAGE_WITHOUT_FORM (+30 more)
+Nodes (37): ACCOUNT, ACCOUNT_LOW_QUOTA, EMPTY_PROFILE, PLAN, PROFILE, REPORT, PAGE_WITH_FORM, PAGE_WITHOUT_FORM (+29 more)
 
 ### Community 11 - "devDependencies"
 Cohesion: 0.05
@@ -215,45 +215,45 @@ Nodes (19): ai, @ai-sdk/anthropic, @ai-sdk/google, dependencies, @aff/shared, ai
 Cohesion: 0.06
 Nodes (30): 10. FINAL PRE-FLIGHT CHECK, 1. ACTIVE BASELINE CONFIGURATION, 2. DEFAULT ARCHITECTURE & CONVENTIONS, 3. DESIGN ENGINEERING DIRECTIVES (Bias Correction), 4. CREATIVE PROACTIVITY (Anti-Slop Implementation), 5. PERFORMANCE GUARDRAILS, 6. TECHNICAL REFERENCE (Dial Definitions), 7. AI TELLS (Forbidden Patterns) (+22 more)
 
-### Community 16 - "Account"
-Cohesion: 0.31
-Nodes (6): Account, AccountQuota, AccountSubscription, AccountSubscriptionPlan, AccountSubscriptionStatus, SignInResponse
+### Community 16 - "routes/profile.ts"
+Cohesion: 0.09
+Nodes (23): AddSourceResponse, ApiError, Identity, Profile, ProfilePatch, ProfileResponse, ProfileSource, SourceKind (+15 more)
 
 ### Community 17 - "components.tsx"
 Cohesion: 0.06
-Nodes (31): AutoTextarea(), Field(), Input(), MenuItem, OverflowMenu(), Segment, SegmentedControl(), SkeletonRow() (+23 more)
+Nodes (31): AutoTextarea(), ConfirmSheet(), Field(), Input(), MenuItem, Segment, SegmentedControl(), SUNSET_GRADIENT_180 (+23 more)
 
 ### Community 18 - "form-adapters/src/index.ts"
-Cohesion: 0.19
-Nodes (8): document, collectPageContext(), detectPageForm(), genericAdapter, selectAdapter(), siteAdapters, detect(), FormAdapter
+Cohesion: 0.17
+Nodes (9): document, collectPageContext(), detectPageForm(), genericAdapter, selectAdapter(), siteAdapters, detect(), DetectionResult (+1 more)
 
 ### Community 19 - "services/fill.ts"
-Cohesion: 0.17
-Nodes (17): fillLog, learnedPointers, profileDocs, profileSources, quotaUsage, subscriptions, users, consumeQuota() (+9 more)
+Cohesion: 0.12
+Nodes (23): fillLog, learnedPointers, profileDocs, profileSources, quotaUsage, subscriptions, users, consumeQuota() (+15 more)
 
-### Community 20 - "generate.ts"
-Cohesion: 0.09
-Nodes (38): Env, generateFills(), GenerateInput, GenerateResult, readCacheCounters(), translateProviderError(), improveAnswer(), ImproveInput (+30 more)
+### Community 20 - "shared/src/index.ts"
+Cohesion: 0.10
+Nodes (31): Env, generateFills(), readCacheCounters(), translateProviderError(), improveAnswer(), ImproveInput, costMicroUsd(), MODELS (+23 more)
 
 ### Community 21 - "account/account.ts"
-Cohesion: 0.24
-Nodes (11): Welcome(), getAccount(), GetAccountQueryError, GetAccountQueryResult, getGetAccountQueryKey(), getGetAccountQueryOptions(), getGetAccountUrl(), SecondParameter (+3 more)
+Cohesion: 0.32
+Nodes (7): getAccount(), GetAccountQueryError, GetAccountQueryResult, getGetAccountQueryOptions(), getGetAccountUrl(), SecondParameter, ErrorType
 
 ### Community 22 - "devDependencies"
 Cohesion: 0.12
-Nodes (17): devDependencies, happy-dom, orval, tailwindcss, @tailwindcss/vite, @types/chrome, vite, @vitejs/plugin-react (+9 more)
+Nodes (17): devDependencies, orval, tailwindcss, @tailwindcss/vite, @types/chrome, vite, @vitejs/plugin-react, wxt (+9 more)
 
 ### Community 23 - "constants.ts"
-Cohesion: 0.12
-Nodes (23): canonical(), clampAnswer(), createFeedbackCapture(), displayValueOf(), Entry, FeedbackCapture, feedbackEntryFor(), FeedbackSend (+15 more)
+Cohesion: 0.11
+Nodes (24): canonical(), clampAnswer(), createFeedbackCapture(), displayValueOf(), Entry, FeedbackCapture, feedbackEntryFor(), FeedbackSend (+16 more)
 
 ### Community 24 - "form-adapters/package.json"
 Cohesion: 0.12
 Nodes (16): dependencies, @aff/shared, devDependencies, happy-dom, vitest, exports, @aff/shared, happy-dom (+8 more)
 
-### Community 25 - "shared/src/index.ts"
-Cohesion: 0.18
-Nodes (13): Plan, QuotaState, ApiErrorCode, HTTP_STATUS_FOR_CODE, PLAN_LIMITS, REVIEW_CONFIDENCE_THRESHOLD, minimalForm, FeedbackRequest (+5 more)
+### Community 25 - "messages.ts"
+Cohesion: 0.08
+Nodes (30): Variables, fillForm(), getFillFormUrl(), registerFillPort(), runFillFlow(), FakePort, fill(), fillForm (+22 more)
 
 ### Community 26 - "shared/package.json"
 Cohesion: 0.11
@@ -271,29 +271,29 @@ Nodes (3): key, remote, rows
 Cohesion: 0.32
 Nodes (10): matchSelectOption(), nativeValueSetter(), notifyChange(), simulateVisit(), ValueElement, writeCheckedValue(), writeContentEditable(), writeMultiSelectValue() (+2 more)
 
-### Community 30 - "background.ts"
-Cohesion: 0.22
-Nodes (8): DEFAULT_SETTINGS, FORWARDED_TO_CONTENT, getGetProfileUrl(), getProfile(), toResult(), Request, ResponseFor, Result
+### Community 30 - "learned-store.ts"
+Cohesion: 0.25
+Nodes (13): addRejection(), answerHashOf(), canonical(), digest(), keptRejections(), LearnedPointer, questionHashFor(), readNegatives() (+5 more)
 
 ### Community 31 - "model/index.ts"
-Cohesion: 0.12
-Nodes (8): AccountQuotaPlan, ImproveAnswer200, ImproveAnswerBody, RenameSourceRequest, SignInRequest, SubmitFeedback200, TextSourceRequest, UploadSourceBody
+Cohesion: 0.15
+Nodes (11): Account, AccountQuota, AccountQuotaPlan, AccountSubscription, AccountSubscriptionPlan, AccountSubscriptionStatus, RenameSourceRequest, SignInRequest (+3 more)
 
 ### Community 32 - "answer-bank.ts"
-Cohesion: 0.12
-Nodes (37): learningBudget(), isAboutApplicant(), applyToIdentity(), Destination, destinationFor(), Entry, isBlank(), isPlausible() (+29 more)
+Cohesion: 0.14
+Nodes (26): learningBudget(), applyToIdentity(), Destination, destinationFor(), Entry, isBlank(), isPlausible(), looksSecret() (+18 more)
 
 ### Community 33 - "routes/index.tsx"
-Cohesion: 0.14
-Nodes (13): FAQ(), FAQS, FEATURES, FeaturesGrid(), HowItWorks(), STEPS, ReadVsGuessed(), Reveal() (+5 more)
+Cohesion: 0.19
+Nodes (12): ChromeCTA(), FAQ(), FAQS, HowItWorks(), STEPS, ReadVsGuessed(), Reveal(), MascotPattern() (+4 more)
 
-### Community 34 - "resolveLabel"
-Cohesion: 0.30
-Nodes (13): baseSchema(), groupLabel(), adapter, detect(), labelsOf(), clean(), fromAriaLabelledBy(), fromLabelElement() (+5 more)
+### Community 34 - "generic.ts"
+Cohesion: 0.17
+Nodes (23): baseSchema(), documentHasLayout(), GenericAdapter, groupControls(), groupLabel(), isFillable(), isVisible(), nextId() (+15 more)
 
-### Community 35 - "routes/profile.ts"
-Cohesion: 0.10
-Nodes (35): BY_EXTENSION, isPreviewableInline(), MAX_UPLOAD_BYTES, mediaTypeFor(), sourceKindFor(), StructuredSource, addTextSourceRoute, Defined (+27 more)
+### Community 35 - "services/profile.ts"
+Cohesion: 0.22
+Nodes (20): StructuredSource, Db, emptyUsage(), runFill(), addSource(), definedOnly(), deleteSource(), emptyProfile() (+12 more)
 
 ### Community 36 - "compilerOptions"
 Cohesion: 0.08
@@ -305,7 +305,7 @@ Nodes (11): compilerOptions, lib, noEmit, types, extends, include, ES2023, src (
 
 ### Community 38 - "env.ts"
 Cohesion: 0.10
-Nodes (26): here, outPath, AppEnv, Variables, app, onError(), authRoutes, billingRoutes (+18 more)
+Nodes (27): here, outPath, AppEnv, app, requireAuth, onError(), Account, bearerAuth (+19 more)
 
 ### Community 39 - "package.json"
 Cohesion: 0.17
@@ -319,9 +319,9 @@ Nodes (11): compilerOptions, lib, noEmit, types, extends, include, DOM, DOM.Iter
 Cohesion: 0.18
 Nodes (11): devDependencies, @cloudflare/workers-types, drizzle-kit, tsx, vitest, wrangler, vitest, wrangler (+3 more)
 
-### Community 42 - "schemas.ts"
-Cohesion: 0.07
-Nodes (36): GoogleIdentity, TokenInfo, UserInfo, verifyGoogleAccessToken(), issueSessionToken(), key(), verifySessionToken(), requireAuth (+28 more)
+### Community 42 - "ApiErrorResponse"
+Cohesion: 0.15
+Nodes (13): GoogleIdentity, TokenInfo, UserInfo, verifyGoogleAccessToken(), issueSessionToken(), key(), verifySessionToken(), SignInRequest (+5 more)
 
 ### Community 43 - "compilerOptions"
 Cohesion: 0.18
@@ -332,8 +332,8 @@ Cohesion: 0.10
 Nodes (19): Code Quality, Color and Surfaces, Component Patterns, Content, Design Audit, Fix Priority, How This Works, Iconography (+11 more)
 
 ### Community 45 - "Sources.tsx"
-Cohesion: 0.14
-Nodes (22): ConfirmSheet(), EmptyState(), ScreenFooter(), IconExternal(), IconTrash(), KIND_NOUN, Preview(), FACT_LIMITS (+14 more)
+Cohesion: 0.15
+Nodes (21): EmptyState(), OverflowMenu(), KIND_NOUN, Preview(), SourceDetail(), FACT_LIMITS, HINTS, KIND_ICON (+13 more)
 
 ### Community 46 - "scripts"
 Cohesion: 0.18
@@ -376,12 +376,12 @@ Cohesion: 0.22
 Nodes (7): Before public listing, Before this is real, Build phases, Fillaform, Layout, Two invariants, Verification
 
 ### Community 56 - "ui.tsx"
-Cohesion: 0.16
-Nodes (16): ANSWERS, DemoState, ExtensionDemo(), FORM_FIELDS, MarkState, ReviewPanel(), STAGES, Button() (+8 more)
+Cohesion: 0.09
+Nodes (26): ANSWERS, DemoState, ExtensionDemo(), FORM_FIELDS, MarkState, ReviewPanel(), STAGES, FEATURES (+18 more)
 
-### Community 57 - "http-client.ts"
-Cohesion: 0.30
-Nodes (9): getAuthToken(), signIn(), signOut(), API_URL, STORAGE_KEYS, BodyType, readLocal(), removeLocal() (+1 more)
+### Community 57 - "background.ts"
+Cohesion: 0.27
+Nodes (9): DEFAULT_SETTINGS, FORWARDED_TO_CONTENT, getAuthToken(), signIn(), signOut(), LAST_FILL_KEY, readLocal(), removeLocal() (+1 more)
 
 ### Community 58 - "6. Remaining work"
 Cohesion: 0.25
@@ -421,15 +421,15 @@ Nodes (4): name, private, type, version
 
 ### Community 67 - "billing/billing.ts"
 Cohesion: 0.12
-Nodes (17): createCheckout(), CreateCheckoutMutationBody, CreateCheckoutMutationError, CreateCheckoutMutationResult, getCreateCheckoutMutationOptions(), getCreateCheckoutUrl(), getGetPortalQueryKey(), getGetPortalQueryOptions() (+9 more)
+Nodes (18): createCheckout(), CreateCheckoutMutationBody, CreateCheckoutMutationError, CreateCheckoutMutationResult, getCreateCheckoutMutationOptions(), getCreateCheckoutUrl(), getGetPortalQueryKey(), getGetPortalQueryOptions() (+10 more)
 
 ### Community 68 - "extension/package.json"
 Cohesion: 0.40
 Nodes (4): name, private, type, version
 
 ### Community 69 - "seo.ts"
-Cohesion: 0.14
-Nodes (11): buildMeta(), canonicalLink(), jsonLd(), MetaTag, softwareAppSchema(), ComparisonRow, Route, ROWS (+3 more)
+Cohesion: 0.10
+Nodes (14): FeaturesGrid(), buildMeta(), canonicalLink(), jsonLd(), MetaTag, softwareAppSchema(), ComparisonRow, Route (+6 more)
 
 ### Community 70 - "devDependencies"
 Cohesion: 0.29
@@ -456,20 +456,20 @@ Cohesion: 0.67
 Nodes (3): 2.1 The LLM output schema is fixed and global, 2.2 Quota is enforced server-side, before any provider call, 2. The two hard invariants
 
 ### Community 79 - "card.ts"
-Cohesion: 0.14
-Nodes (19): launcher, MARKS, params, AnswerCardSpec, BaseSpec, CardSpec, escapeHtml(), MenuCard (+11 more)
+Cohesion: 0.19
+Nodes (18): AnswerCardSpec, BaseSpec, CardHandle, CardSpec, escapeHtml(), MenuCard, mountAnswerCard(), mountCard() (+10 more)
 
-### Community 80 - "site"
-Cohesion: 0.18
-Nodes (11): ChromeCTA(), Footer(), footerNav, Hero(), Logo(), Navbar(), IconSparkle(), Mascot() (+3 more)
+### Community 80 - "site.ts"
+Cohesion: 0.23
+Nodes (9): Footer(), footerColumns, Hero(), Navbar(), IconSparkle(), useMascotGaze(), navLinks, site (+1 more)
 
 ### Community 82 - "$slug.tsx"
 Cohesion: 0.22
 Nodes (10): posts, BlogBlock, BlogPost, formatDate(), getPost(), getPosts(), BlogIndex(), Route (+2 more)
 
 ### Community 88 - "Receipt.tsx"
-Cohesion: 0.09
-Nodes (35): Button(), Card(), Chip(), Expression, Mascot(), ProBadge(), Row(), RowGroup() (+27 more)
+Cohesion: 0.13
+Nodes (22): Button(), Chip(), Expression, Mascot(), Row(), RowGroup(), Screen(), ScreenFooter() (+14 more)
 
 ### Community 89 - "animate.ts"
 Cohesion: 0.26
@@ -479,69 +479,69 @@ Nodes (10): AnimatedFill, ANIMATION_TIMINGS, AnimationHooks, isTypeable(), runFi
 Cohesion: 0.24
 Nodes (7): KnownFacts, Rule, RULES, SUGGESTABLE_KINDS, suggestForField(), Suggestion, FACTS
 
-### Community 92 - "fill-port.ts"
-Cohesion: 0.22
-Nodes (10): LAST_FILL_KEY, registerFillPort(), runFillFlow(), FakePort, fill(), fillForm, ContentRequest, ContentResponseFor (+2 more)
+### Community 92 - "compile.ts"
+Cohesion: 0.36
+Nodes (7): CompiledProfile, compileProfileDoc(), estimateTokens(), renderCustom(), renderIdentity(), sha256Hex(), Profile
 
 ### Community 93 - "markers.ts"
 Cohesion: 0.15
 Nodes (13): FieldMarkOptions, JudgedReason, MarkState, mountFieldMark(), placeTab(), TAB_GAP, TAB_HEIGHT, TAB_LABEL (+5 more)
 
 ### Community 94 - "Profile"
-Cohesion: 0.28
-Nodes (7): AddSourceResponse, Profile, ProfileCustom, ProfileIdentity, ProfileIdentityLinks, ProfileResponse, ProfileSourcesItem
-
-### Community 95 - "scheduler.ts"
 Cohesion: 0.20
-Nodes (8): COPY, LearningNote, LearningState, live, mountLearningNote(), noteLearning(), PositionTarget, TrackedTarget
+Nodes (9): AddSourceResponse, Profile, ProfileCustom, ProfileIdentity, ProfileIdentityLinks, ProfileResponse, ProfileSourcesItem, ProfileSourcesItemKind (+1 more)
 
 ### Community 96 - "opencode.json"
 Cohesion: 0.29
 Nodes (6): plugin, $schema, skills, paths, @dodopayments/opencode-plugin, node_modules/@dodopayments/opencode-plugin/skills
 
-### Community 97 - "site.ts"
-Cohesion: 0.43
-Nodes (3): PricingCards(), pricing, Route
+### Community 97 - "PricingCards.tsx"
+Cohesion: 0.33
+Nodes (4): PricingCards(), IconCheck(), pricing, Route
 
-### Community 99 - "sidepanel/main.tsx"
-Cohesion: 0.28
-Nodes (7): App(), useSignedIn(), container, hasSession(), chromeStoragePersister, queryClient, onSessionEnded()
+### Community 99 - "http-client.ts"
+Cohesion: 0.29
+Nodes (6): container, API_URL, STORAGE_KEYS, chromeStoragePersister, queryClient, SESSION_EXPIRED_MESSAGE
 
 ### Community 100 - "matchOptions"
 Cohesion: 0.33
 Nodes (6): indexOfWord(), isWordChar(), matchOptions(), normalize(), OptionMatch, FEATURES
 
-### Community 106 - "generic.ts"
+### Community 106 - "overlay.ts"
 Cohesion: 0.29
-Nodes (10): documentHasLayout(), groupControls(), isFillable(), isVisible(), nextId(), optionsOf(), resetIdCounter(), SKIPPED_INPUT_TYPES (+2 more)
+Nodes (3): launcher, MARKS, params
+
+### Community 107 - "addTextSource"
+Cohesion: 0.33
+Nodes (6): LinkMode(), TextMode(), addTextSource(), getAddTextSourceMutationOptions(), getAddTextSourceUrl(), useAddTextSource()
 
 ### Community 109 - "httpClient"
 Cohesion: 0.29
 Nodes (9): getSignInWithGoogleMutationOptions(), getSignInWithGoogleUrl(), SecondParameter, signInWithGoogle(), SignInWithGoogleMutationBody, SignInWithGoogleMutationError, SignInWithGoogleMutationResult, useSignInWithGoogle() (+1 more)
 
-### Community 110 - "openUpgrade"
-Cohesion: 0.33
-Nodes (8): UpgradeSheet(), UsageBar(), getGetPortalUrl(), getPortal(), detectCountry(), openExternal(), openManageSubscription(), openUpgrade()
+### Community 110 - "Profile.tsx"
+Cohesion: 0.12
+Nodes (24): Card(), ProBadge(), ScreenHeader(), SkeletonText(), SUNSET_GRADIENT, Toggle(), UpgradeSheet(), UsageBar() (+16 more)
 
 ## Knowledge Gaps
-- **626 isolated node(s):** `name`, `version`, `private`, `type`, `dev` (+621 more)
+- **628 isolated node(s):** `name`, `version`, `private`, `type`, `dev` (+623 more)
   These have ≤1 connection - possible missing edges or undocumented components.
 - **13 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `mountAnswerCard()` connect `card.ts` to `content.ts`, `package.json`?**
-  _High betweenness centrality (0.062) - this node is a cross-community bridge._
+- **Why does `mountAnswerCard()` connect `card.ts` to `overlay.ts`, `content.ts`, `package.json`?**
+  _High betweenness centrality (0.061) - this node is a cross-community bridge._
 - **Why does `node` connect `package.json` to `card.ts`?**
-  _High betweenness centrality (0.059) - this node is a cross-community bridge._
+  _High betweenness centrality (0.053) - this node is a cross-community bridge._
 - **What connects `name`, `version`, `private` to the rest of the system?**
-  _626 weakly-connected nodes found - possible documentation gaps or missing edges._
-- **Should `compile.ts` be split into smaller, more focused modules?**
-  _Cohesion score 0.12643678160919541 - nodes in this community are weakly interconnected._
+  _628 weakly-connected nodes found - possible documentation gaps or missing edges._
 - **Should `scripts` be split into smaller, more focused modules?**
   _Cohesion score 0.03773584905660377 - nodes in this community are weakly interconnected._
+- **Should `content.ts` be split into smaller, more focused modules?**
+  _Cohesion score 0.12310606060606061 - nodes in this community are weakly interconnected._
 - **Should `profile/profile.ts` be split into smaller, more focused modules?**
-  _Cohesion score 0.05851063829787234 - nodes in this community are weakly interconnected._
-- **Should `includes` be split into smaller, more focused modules?**
-  _Cohesion score 0.05128205128205128 - nodes in this community are weakly interconnected._
+  _Cohesion score 0.061979648473635525 - nodes in this community are weakly interconnected._
+- **Should `classify.ts` be split into smaller, more focused modules?**
+  _Cohesion score 0.11693548387096774 - nodes in this community are weakly interconnected._

@@ -7,6 +7,7 @@ import {
   GuessedBadge,
   IconCheck,
   IconSparkle,
+  Mascot,
   ReadBadge,
 } from '@/components/ui'
 import { cn } from '@/lib/cn'
@@ -150,7 +151,7 @@ export function ExtensionDemo() {
   }, [marks])
 
   return (
-    <div className="relative w-full">
+    <div className="relative w-full pt-14">
       {/* The form — looks like a real job application page */}
       <div ref={formRef} className="rounded-2xl border border-border-muted bg-surface p-6 md:p-8">
         <div className="mb-6 space-y-1">
@@ -252,7 +253,7 @@ export function ExtensionDemo() {
                     <button
                       type="button"
                       onClick={() => setState('review')}
-                      className="inline-flex items-center gap-1 rounded-full bg-accent-muted px-2 py-0.5 text-[10px] font-medium text-accent transition-colors hover:bg-accent-muted/80"
+                      className="inline-flex items-center gap-1 rounded-full border border-accent/30 bg-accent-muted px-2 py-0.5 text-[10px] font-medium text-accent shadow-glow transition-colors hover:bg-accent-muted/80"
                     >
                       <IconSparkle className="size-2.5" />
                       needs a look
@@ -265,12 +266,13 @@ export function ExtensionDemo() {
         </div>
       </div>
 
-      {/* Launcher pill — sticky on the right edge */}
+      {/* Launcher pill — floats in its own band above the card, so it never
+          lands on top of a field (and stays clear of the form at every width). */}
       <motion.div
-        initial={{ opacity: 0, x: 20 }}
-        animate={{ opacity: 1, x: 0 }}
+        initial={{ opacity: 0, y: -8 }}
+        animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4, ease: [0.34, 1.56, 0.64, 1] }}
-        className="absolute right-4 top-1/2 -translate-y-1/2"
+        className="absolute top-0 right-0 flex h-14 items-center"
       >
         <button
           type="button"
@@ -293,19 +295,17 @@ export function ExtensionDemo() {
         >
           {launcherMode === 'busy' ? (
             <>
-              <span className="flex h-3.5 w-3.5 items-center justify-center">
-                <span className="h-2.5 w-2.5 animate-spin rounded-full border-2 border-accent border-t-transparent" />
-              </span>
+              <Mascot expression="think" size={18} className="shrink-0 animate-breathe" />
               <span className="text-ink-muted">{launcherText}</span>
             </>
           ) : launcherMode === 'result' ? (
             <>
-              <IconSparkle className="size-3.5" />
+              <Mascot expression="party" size={18} className="shrink-0" />
               <span>{launcherText}</span>
             </>
           ) : (
             <>
-              <IconSparkle className="size-3.5 text-accent" />
+              <Mascot expression="happy" size={18} blink className="shrink-0" />
               <span>{launcherText}</span>
             </>
           )}
@@ -316,11 +316,22 @@ export function ExtensionDemo() {
       <AnimatePresence>
         {showReview && (
           <motion.div
+            key="scrim"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="pointer-events-none absolute inset-x-0 top-14 bottom-0 rounded-2xl bg-surface/60"
+            aria-hidden
+          />
+        )}
+        {showReview && (
+          <motion.div
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: 20 }}
             transition={{ duration: 0.3, ease: [0.2, 0, 0, 1] }}
-            className="absolute right-0 top-0 h-full w-[320px] overflow-y-auto rounded-2xl border border-border-muted bg-surface-raised p-4 shadow-card md:w-[380px]"
+            className="absolute inset-x-0 top-14 bottom-0 flex flex-col rounded-2xl border border-border-muted bg-surface-raised p-4 shadow-card sm:inset-x-auto sm:right-0 sm:w-[340px] md:w-[380px]"
           >
             <ReviewPanel
               onDone={() => {
@@ -350,8 +361,8 @@ function ReviewPanel({
   const settled = FORM_FIELDS.filter((f) => !f.concluded && f.confidence >= 0.7)
 
   return (
-    <div className="flex h-full flex-col">
-      <div className="mb-3 flex items-center gap-2 border-b border-border-muted pb-3">
+    <div className="flex h-full min-h-0 flex-col">
+      <div className="mb-3 flex shrink-0 items-center gap-2 border-b border-border-muted pb-3">
         <button
           type="button"
           onClick={onToggleSettled}
@@ -364,121 +375,125 @@ function ReviewPanel({
         </h3>
       </div>
 
-      <p className="mb-3 text-[12px] font-medium text-ink-muted">{FORM_FIELDS.length} written</p>
+      <div className="-mr-1 min-h-0 flex-1 overflow-y-auto pr-1">
+        <p className="mb-3 text-[12px] font-medium text-ink-muted">{FORM_FIELDS.length} written</p>
 
-      {checkable.length > 0 && (
-        <div className="flex flex-col gap-px">
-          <p className="mb-2 text-[11px] font-semibold uppercase text-ink-dim">
-            check these — I guessed
-          </p>
-          {checkable.map((field) => (
-            <Card
-              key={field.id}
-              className="!rounded-none first:rounded-t-2xl last:rounded-b-2xl border-b-0"
-            >
-              <div className="p-3">
-                <div className="flex items-start justify-between gap-2">
-                  <p className="min-w-0 flex-1 text-[12px] font-semibold text-ink">{field.label}</p>
-                  {field.concluded && <GuessedBadge />}
-                  {!field.concluded && field.confidence < 0.7 && (
-                    <GuessedBadge label={`unsure · ${Math.round(field.confidence * 100)}%`} />
-                  )}
-                </div>
-
-                <div className="mt-2">
-                  {field.kind === 'radio' || field.kind === 'select' ? (
-                    <div className="flex flex-wrap gap-1">
-                      {(
-                        field.options ?? [
-                          'LinkedIn',
-                          'A friend',
-                          'Our careers page',
-                          'A recruiter',
-                          'Other',
-                        ]
-                      ).map((opt) => {
-                        const selected = ANSWERS[field.id] === opt
-                        return (
-                          <span
-                            key={opt}
-                            className={cn(
-                              'rounded-full border px-2 py-1 text-[11px] font-medium',
-                              selected
-                                ? 'border-accent bg-accent text-white'
-                                : 'border-border-muted text-ink-muted',
-                            )}
-                          >
-                            {opt}
-                          </span>
-                        )
-                      })}
-                    </div>
-                  ) : (
-                    <div className="rounded-lg border border-border-muted px-2 py-1.5 text-[12px] leading-relaxed text-ink">
-                      {ANSWERS[field.id]}
-                    </div>
-                  )}
-                </div>
-
-                {field.concluded && (
-                  <p className="mt-1.5 flex items-center gap-1 text-[10px] text-ink-dim">
-                    <IconSparkle className="size-2.5 text-accent" />i
-                    {field.confidence < 0.5
-                      ? "'m not sure"
-                      : field.confidence < 0.7
-                        ? ' think so'
-                        : "'m pretty sure"}
-                  </p>
-                )}
-
-                <div className="mt-2 flex flex-wrap gap-1.5">
-                  <Button size="sm" variant="secondary">
-                    <IconCheck className="size-3" />
-                    Keep
-                  </Button>
-                  <Button size="sm" variant="ghost">
-                    Rewrite
-                  </Button>
-                </div>
-              </div>
-            </Card>
-          ))}
-        </div>
-      )}
-
-      {settled.length > 0 && (
-        <div className="mt-3">
-          <button
-            type="button"
-            onClick={onToggleSettled}
-            className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left transition-colors hover:bg-surface-muted"
-          >
-            <IconCheck className="size-3.5 shrink-0 text-positive" />
-            <span className="flex-1 text-[12px] font-medium text-ink-muted">
-              {settled.length} answers read straight off
-            </span>
-            <span className="text-[10px] font-semibold uppercase text-ink-dim">
-              {showSettled ? 'hide' : 'show'}
-            </span>
-          </button>
-
-          {showSettled && (
-            <div className="mt-1 space-y-1">
-              {settled.map((field) => (
-                <div key={field.id} className="rounded-lg border border-border-muted px-3 py-2">
-                  <div className="flex items-center justify-between">
-                    <p className="text-[11px] font-semibold text-ink-muted">{field.label}</p>
-                    <ReadBadge />
+        {checkable.length > 0 && (
+          <div className="flex flex-col gap-px">
+            <p className="mb-2 text-[11px] font-semibold uppercase text-ink-dim">
+              check these — I guessed
+            </p>
+            {checkable.map((field) => (
+              <Card
+                key={field.id}
+                className="!rounded-none first:rounded-t-2xl last:rounded-b-2xl border-b-0"
+              >
+                <div className="p-3">
+                  <div className="flex items-start justify-between gap-2">
+                    <p className="min-w-0 flex-1 text-[12px] font-semibold text-ink">
+                      {field.label}
+                    </p>
+                    {field.concluded && <GuessedBadge />}
+                    {!field.concluded && field.confidence < 0.7 && (
+                      <GuessedBadge label={`unsure · ${Math.round(field.confidence * 100)}%`} />
+                    )}
                   </div>
-                  <p className="mt-1 text-[12px] leading-snug text-ink">{ANSWERS[field.id]}</p>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
 
-      <div className="mt-auto border-t border-border-muted pt-3">
+                  <div className="mt-2">
+                    {field.kind === 'radio' || field.kind === 'select' ? (
+                      <div className="flex flex-wrap gap-1">
+                        {(
+                          field.options ?? [
+                            'LinkedIn',
+                            'A friend',
+                            'Our careers page',
+                            'A recruiter',
+                            'Other',
+                          ]
+                        ).map((opt) => {
+                          const selected = ANSWERS[field.id] === opt
+                          return (
+                            <span
+                              key={opt}
+                              className={cn(
+                                'rounded-full border px-2 py-1 text-[11px] font-medium',
+                                selected
+                                  ? 'border-accent bg-accent text-white'
+                                  : 'border-border-muted text-ink-muted',
+                              )}
+                            >
+                              {opt}
+                            </span>
+                          )
+                        })}
+                      </div>
+                    ) : (
+                      <div className="rounded-lg border border-border-muted px-2 py-1.5 text-[12px] leading-relaxed text-ink">
+                        {ANSWERS[field.id]}
+                      </div>
+                    )}
+                  </div>
+
+                  {field.concluded && (
+                    <p className="mt-1.5 flex items-center gap-1 text-[10px] text-ink-dim">
+                      <IconSparkle className="size-2.5 text-accent" />i
+                      {field.confidence < 0.5
+                        ? "'m not sure"
+                        : field.confidence < 0.7
+                          ? ' think so'
+                          : "'m pretty sure"}
+                    </p>
+                  )}
+
+                  <div className="mt-2 flex flex-wrap gap-1.5">
+                    <Button size="sm" variant="secondary">
+                      <IconCheck className="size-3" />
+                      Keep
+                    </Button>
+                    <Button size="sm" variant="ghost">
+                      Rewrite
+                    </Button>
+                  </div>
+                </div>
+              </Card>
+            ))}
+          </div>
+        )}
+
+        {settled.length > 0 && (
+          <div className="mt-3">
+            <button
+              type="button"
+              onClick={onToggleSettled}
+              className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left transition-colors hover:bg-surface-muted"
+            >
+              <IconCheck className="size-3.5 shrink-0 text-positive" />
+              <span className="flex-1 text-[12px] font-medium text-ink-muted">
+                {settled.length} answers read straight off
+              </span>
+              <span className="text-[10px] font-semibold uppercase text-ink-dim">
+                {showSettled ? 'hide' : 'show'}
+              </span>
+            </button>
+
+            {showSettled && (
+              <div className="mt-1 space-y-1">
+                {settled.map((field) => (
+                  <div key={field.id} className="rounded-lg border border-border-muted px-3 py-2">
+                    <div className="flex items-center justify-between">
+                      <p className="text-[11px] font-semibold text-ink-muted">{field.label}</p>
+                      <ReadBadge />
+                    </div>
+                    <p className="mt-1 text-[12px] leading-snug text-ink">{ANSWERS[field.id]}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      <div className="mt-3 shrink-0 border-t border-border-muted pt-3">
         <Button variant="primary" block size="md" onClick={onDone}>
           <IconSparkle className="size-3.5" />
           Done

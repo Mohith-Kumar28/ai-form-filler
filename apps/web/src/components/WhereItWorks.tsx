@@ -1,4 +1,5 @@
 import { Reveal } from '@/components/Reveal'
+import { MascotPattern } from '@/components/ui'
 
 const SITES = [
   'Greenhouse',
@@ -16,20 +17,27 @@ const SITES = [
 
 export function WhereItWorks() {
   return (
-    <section className="border-t border-border-muted bg-surface-muted py-20 md:py-24">
-      <div className="mx-auto max-w-6xl px-6">
+    <section className="relative overflow-hidden border-t border-border-muted bg-surface-muted py-20 md:py-24">
+      <div className="pointer-events-none absolute inset-0" aria-hidden>
+        <MascotPattern className="h-full w-full text-ink" cell={64} opacity={0.045} />
+      </div>
+
+      <div className="relative mx-auto max-w-6xl px-6">
         <Reveal>
-          <h2 className="display text-center text-[28px] text-ink md:text-[36px]">
+          <p className="text-center text-[13px] font-semibold uppercase tracking-[0.1em] text-accent">
+            Coverage
+          </p>
+          <h2 className="display mt-3 text-center text-[28px] text-ink md:text-[36px]">
             Works wherever forms live
           </h2>
-          <p className="mx-auto mt-3 max-w-[48ch] text-center text-[14px] leading-relaxed text-ink-muted">
+          <p className="mx-auto mt-4 max-w-[52ch] text-center text-[14.5px] leading-relaxed text-ink-muted">
             Dedicated adapters for the big ATSes and Google Forms, a generic fallback for everything
             else. If there&rsquo;s a field, it gets filled.
           </p>
         </Reveal>
 
         <Reveal delay={0.1}>
-          <div className="mt-12 flex flex-wrap items-center justify-center gap-2.5">
+          <div className="mt-11 flex flex-wrap items-center justify-center gap-2.5">
             {SITES.map((site) => (
               <span
                 key={site}

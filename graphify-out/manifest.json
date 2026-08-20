@@ -1110,53 +1110,53 @@
     "semantic_hash": ""
   },
   "apps/web/src/components/ChromeCTA.tsx": {
-    "mtime": 1787078567.0474174,
-    "ast_hash": "920e7457fae9fd8fc7f865890c760cda",
+    "mtime": 1787235997.7489865,
+    "ast_hash": "041fe0539e96479a4c2c330268771503",
     "semantic_hash": ""
   },
   "apps/web/src/components/ExtensionDemo.tsx": {
-    "mtime": 1787228198.4830391,
-    "ast_hash": "3bb5c0804398e39673deaa14eae418f7",
+    "mtime": 1787236013.8576858,
+    "ast_hash": "23113800e422b3315276388fcdd1aaee",
     "semantic_hash": ""
   },
   "apps/web/src/components/FAQ.tsx": {
-    "mtime": 1787078567.047319,
-    "ast_hash": "203dfc718681f186f8f758b75288ad43",
+    "mtime": 1787235144.3164082,
+    "ast_hash": "29b211fabf8c0e5b87ce679405b29dc0",
     "semantic_hash": ""
   },
   "apps/web/src/components/FeaturesGrid.tsx": {
-    "mtime": 1787078567.0473187,
-    "ast_hash": "9508b688c28b8c5472fe4c7a00dc6b47",
+    "mtime": 1787235275.5901365,
+    "ast_hash": "ed151f25572ddc637602fc3c0e81d812",
     "semantic_hash": ""
   },
   "apps/web/src/components/Footer.tsx": {
-    "mtime": 1787078567.0488992,
-    "ast_hash": "c289e0ebfc3f82e8238d63c5b796ffa3",
+    "mtime": 1787235185.5524607,
+    "ast_hash": "d4ffac361094b62bb090eccff3e50545",
     "semantic_hash": ""
   },
   "apps/web/src/components/Hero.tsx": {
-    "mtime": 1787078657.6325715,
-    "ast_hash": "d2f5e52f67ec6bf140322c536ccd520a",
+    "mtime": 1787235998.2625566,
+    "ast_hash": "1cb435d243fde749623404aed6d802b6",
     "semantic_hash": ""
   },
   "apps/web/src/components/HowItWorks.tsx": {
-    "mtime": 1787078567.0501337,
-    "ast_hash": "3cf7b8704d2b38bfa24a7d93bc2bda71",
+    "mtime": 1787235998.262278,
+    "ast_hash": "391183c9a99790318d2036ea30dffa9f",
     "semantic_hash": ""
   },
   "apps/web/src/components/Logo.tsx": {
-    "mtime": 1786862074.313035,
-    "ast_hash": "8d07086a01f2f6a40ba48dbaac820b58",
+    "mtime": 1787235918.6377263,
+    "ast_hash": "003e7125fe1ca496fef317080b6d39dd",
     "semantic_hash": ""
   },
   "apps/web/src/components/Navbar.tsx": {
-    "mtime": 1787078660.427537,
-    "ast_hash": "d64f370bee47b89c634a98fba52d2b59",
+    "mtime": 1787236122.2761035,
+    "ast_hash": "97191f15cb5c52ff241077aaf25aae1c",
     "semantic_hash": ""
   },
   "apps/web/src/components/PricingCards.tsx": {
-    "mtime": 1787078567.0519881,
-    "ast_hash": "0eaaf381e67ffd2016d765fcd825c13b",
+    "mtime": 1787235592.8821003,
+    "ast_hash": "87f68f78e2c5ba1ea888871c5ac667f1",
     "semantic_hash": ""
   },
   "apps/web/src/components/ReadVsGuessed.tsx": {
@@ -1170,13 +1170,13 @@
     "semantic_hash": ""
   },
   "apps/web/src/components/WhereItWorks.tsx": {
-    "mtime": 1787078567.0508597,
-    "ast_hash": "a89a7a3c2de5007f35349b4d6ba85884",
+    "mtime": 1787236052.5441163,
+    "ast_hash": "56b752a492aec68da2d3ae6681589d9d",
     "semantic_hash": ""
   },
   "apps/web/src/components/ui.tsx": {
-    "mtime": 1786862074.3188663,
-    "ast_hash": "f84b425696471f5e1dc9331dae072fe9",
+    "mtime": 1787235905.9801023,
+    "ast_hash": "590ff6d59bd8c5b9a7639873e3513dfe",
     "semantic_hash": ""
   },
   "apps/web/src/content/blog/posts.ts": {
@@ -1205,8 +1205,8 @@
     "semantic_hash": ""
   },
   "apps/web/src/lib/site.ts": {
-    "mtime": 1786860371.9220428,
-    "ast_hash": "db07c626bf033dd7436d6ef386ac3ea1",
+    "mtime": 1787235095.2509677,
+    "ast_hash": "ae45807092d21060ae3113dcb9269ba4",
     "semantic_hash": ""
   },
   "apps/web/src/router.tsx": {
@@ -1250,8 +1250,8 @@
     "semantic_hash": ""
   },
   "apps/web/src/routes/index.tsx": {
-    "mtime": 1787078567.0591993,
-    "ast_hash": "974c9c01471af4240d19b22e5ec09e90",
+    "mtime": 1787235042.3312743,
+    "ast_hash": "996cf2cb4491e916803e42049e8a3d1d",
     "semantic_hash": ""
   },
   "apps/web/src/routes/pricing.tsx": {
@@ -1400,8 +1400,8 @@
     "semantic_hash": ""
   },
   "apps/web/public/favicon.svg": {
-    "mtime": 1787078651.667976,
-    "ast_hash": "7da64a5b62209116c2759a8dc3c507cc",
+    "mtime": 1787235918.6394832,
+    "ast_hash": "01fc45dc2d4bd41506fcb92d4a43c48d",
     "semantic_hash": ""
   },
   "fillaform-demo-filled.png": {

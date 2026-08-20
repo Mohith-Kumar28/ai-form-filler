@@ -1,12 +1,16 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="none" role="img">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" fill="none" role="img">
   <title>Fillaform</title>
   <defs>
-    <linearGradient id="g" x1="0" y1="0" x2="32" y2="32" gradientUnits="userSpaceOnUse">
+    <linearGradient id="g" x1="0" y1="0" x2="40" y2="40" gradientUnits="userSpaceOnUse">
       <stop stop-color="#8b4bd1"/>
       <stop offset="0.55" stop-color="#e0459b"/>
       <stop offset="1" stop-color="#f2a133"/>
     </linearGradient>
   </defs>
-  <rect width="32" height="32" rx="8" fill="url(#g)"/>
-  <path d="M16 6 18.6 13.4 26 16 18.6 18.6 16 26 13.4 18.6 6 16 13.4 13.4Z" fill="#fff"/>
+  <circle cx="20" cy="20" r="20" fill="url(#g)"/>
+  <g fill="#fff">
+    <circle cx="14.5" cy="16.5" r="2.4"/>
+    <circle cx="25.5" cy="16.5" r="2.4"/>
+  </g>
+  <path d="M14.5 24.5q5.5 5 11 0" stroke="#fff" stroke-width="2.4" stroke-linecap="round" fill="none"/>
 </svg>

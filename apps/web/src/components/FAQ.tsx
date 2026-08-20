@@ -11,10 +11,10 @@ const FAQS = [
   },
   {
     q: 'What makes it different from browser autofill?',
-    a: 'Browser autofill remembers your name and address. Fillaform answers open-ended questions — "why do you want to work here?" — from your own material, in your own voice.',
+    a: 'Browser autofill remembers your name and address. Fillaform answers open-ended questions — “why do you want to work here?” — from your own material, in your own voice.',
   },
   {
-    q: 'What does "guessed" mean?',
+    q: 'What does “guessed” mean?',
     a: 'A hot-pink badge means Fillaform made a judgement call rather than reading the answer straight off your profile. Review those before submitting.',
   },
   {

@@ -1,10 +1,11 @@
 import { Reveal } from '@/components/Reveal'
-import { Mascot } from '@/components/ui'
+import { Mascot, type MascotShape } from '@/components/ui'
 
 const STEPS = [
   {
     n: '1',
-    mascot: 'happy' as const,
+    mascot: 'wow' as const,
+    shape: 'circle' as MascotShape,
     title: 'Feed it',
     description:
       'Drop in your résumé, paste a LinkedIn or GitHub link, type a few notes. Fillaform extracts your name, history, skills and preferences — no hand-mapping required.',
@@ -12,6 +13,7 @@ const STEPS = [
   {
     n: '2',
     mascot: 'think' as const,
+    shape: 'squircle' as MascotShape,
     title: 'It gets to know you',
     description:
       'Your material becomes a searchable memory. When a form asks an open-ended question, Fillaform retrieves the right facts and writes the answer in your voice.',
@@ -19,6 +21,7 @@ const STEPS = [
   {
     n: '3',
     mascot: 'party' as const,
+    shape: 'blob' as MascotShape,
     title: 'Fill anything',
     description:
       'Open any form, click fill. Every field — text, dropdown, radio, checkbox — gets filled. Hot pink marks what it guessed; lime marks what it read straight off.',
@@ -43,21 +46,26 @@ export function HowItWorks() {
 
         <div className="mt-16 grid gap-8 md:grid-cols-3">
           {STEPS.map((s, idx) => (
-            <Reveal key={s.n} delay={idx * 0.12}>
-              <div className="flex h-full flex-col rounded-2xl border border-border-muted bg-surface-raised p-6 text-center">
-                <div className="flex items-center justify-center gap-3">
+            <Reveal key={s.n} delay={idx * 0.12} className="h-full">
+              <div className="flex h-full flex-col items-center rounded-2xl border border-border-muted bg-surface-raised p-7 text-center">
+                {/* One unit: the mascot, with the step number pinned to its corner */}
+                <div className="relative">
+                  <Mascot
+                    expression={s.mascot}
+                    shape={s.shape}
+                    size={48}
+                    blink
+                    className="hover-wobble"
+                  />
                   <span
-                    className="flex size-9 items-center justify-center rounded-full font-display text-[15px] font-bold text-white"
+                    className="absolute -right-1.5 -bottom-1 flex size-6 items-center justify-center rounded-full border-2 border-surface-raised font-display text-[12px] font-bold text-white"
                     style={{ background: 'linear-gradient(135deg, var(--sparkle), var(--accent))' }}
                   >
                     {s.n}
                   </span>
-                  <Mascot expression={s.mascot} size={40} />
                 </div>
                 <h3 className="display mt-5 text-[19px] text-ink">{s.title}</h3>
-                <p className="mt-2.5 text-[13.5px] leading-relaxed text-ink-muted">
-                  {s.description}
-                </p>
+                <p className="mt-2.5 text-[14px] leading-relaxed text-ink-muted">{s.description}</p>
               </div>
             </Reveal>
           ))}

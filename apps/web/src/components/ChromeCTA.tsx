@@ -1,20 +1,37 @@
+import { useRef } from 'react'
 import { Reveal } from '@/components/Reveal'
-import { IconSparkle, Mascot } from '@/components/ui'
+import { IconSparkle, Mascot, MascotPattern, useMascotGaze } from '@/components/ui'
 import { site } from '@/lib/site'
 
 export function ChromeCTA() {
+  const gazeRef = useRef<HTMLDivElement>(null)
+  const look = useMascotGaze(gazeRef)
+
   return (
     <section className="relative overflow-hidden py-24 md:py-32">
-      <div
-        className="pointer-events-none absolute inset-0 flex items-center justify-center opacity-[0.04]"
-        aria-hidden
-      >
-        <Mascot expression="party" size={720} />
+      <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden>
+        <MascotPattern className="absolute inset-0 h-full w-full text-accent" opacity={0.07} />
+        <div
+          className="absolute top-1/2 left-1/2 h-[520px] w-[520px] -translate-x-1/2 -translate-y-1/2 rounded-full opacity-[0.14] blur-3xl"
+          style={{ background: 'radial-gradient(circle, var(--accent), transparent 70%)' }}
+        />
+        <div
+          className="absolute top-1/3 left-1/4 h-72 w-72 rounded-full opacity-[0.1] blur-3xl"
+          style={{ background: 'radial-gradient(circle, var(--sparkle), transparent 70%)' }}
+        />
       </div>
 
       <div className="relative mx-auto max-w-3xl px-6 text-center">
         <Reveal>
-          <Mascot expression="party" size={64} className="mx-auto animate-bounce" />
+          <div ref={gazeRef} className="mx-auto w-fit">
+            <Mascot
+              expression="party"
+              size={72}
+              look={look}
+              blink
+              className="animate-breathe hover-wobble"
+            />
+          </div>
           <h2 className="display mt-6 text-[34px] leading-tight text-ink md:text-[52px]">
             Stop retyping.
             <br />

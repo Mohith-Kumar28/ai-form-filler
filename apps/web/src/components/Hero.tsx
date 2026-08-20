@@ -1,12 +1,15 @@
 import { motion, useReducedMotion } from 'motion/react'
-import { IconSparkle, Mascot } from '@/components/ui'
+import { useRef } from 'react'
+import { IconSparkle, Mascot, useMascotGaze } from '@/components/ui'
 import { site } from '@/lib/site'
 
 export function Hero() {
   const reduce = useReducedMotion()
+  const gazeRef = useRef<HTMLDivElement>(null)
+  const look = useMascotGaze(gazeRef)
 
   return (
-    <section className="relative overflow-visible pt-28 pb-12 md:pt-40 md:pb-16">
+    <section className="relative overflow-visible pt-28 pb-14 md:pt-36 md:pb-16">
       {/* soft sunset blobs — clipped to their own container */}
       <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden>
         <div
@@ -20,6 +23,31 @@ export function Hero() {
         <div
           className="absolute right-1/4 -bottom-32 h-72 w-72 rounded-full opacity-15 blur-3xl"
           style={{ background: 'var(--sparkle)' }}
+        />
+
+        {/* A few faces loose in the background, drifting at different rates */}
+        <Mascot
+          shape="squircle"
+          expression="wink"
+          size={64}
+          className="absolute top-32 left-[6%] opacity-[0.12] animate-drift blur-[0.5px]"
+        />
+        <Mascot
+          shape="blob"
+          expression="wow"
+          size={44}
+          className="absolute top-24 right-[9%] opacity-[0.1] animate-drift [animation-delay:-5s]"
+        />
+        <Mascot
+          shape="pill"
+          expression="think"
+          size={52}
+          className="absolute bottom-16 left-[14%] opacity-[0.09] animate-drift [animation-delay:-9s]"
+        />
+        <Mascot
+          expression="flat"
+          size={36}
+          className="absolute right-[16%] bottom-24 opacity-[0.1] animate-drift [animation-delay:-3s]"
         />
       </div>
 
@@ -38,7 +66,7 @@ export function Hero() {
           initial={reduce ? false : { opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, delay: 0.08, ease: [0.2, 0, 0, 1] }}
-          className="display mt-6 text-[44px] leading-[1.05] text-ink md:text-[68px]"
+          className="display mt-6 text-[clamp(34px,8.8vw,44px)] leading-[1.05] text-ink md:text-[68px]"
         >
           Forms are homework.
           <br />
@@ -86,36 +114,18 @@ export function Hero() {
           initial={reduce ? false : { opacity: 0, scale: 0.8 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: 0.6, delay: 0.4, ease: [0.34, 1.56, 0.64, 1] }}
-          className="mt-10 flex items-center justify-center gap-2"
+          className="mt-10 flex items-center justify-center gap-2.5"
         >
-          <Mascot expression="happy" size={40} className={reduce ? '' : 'animate-bounce'} />
-          <p className="text-[12.5px] text-ink-dim">
-            &ldquo;I filled 12 fields in 20 seconds&rdquo;
-          </p>
-        </motion.div>
-
-        {/* scroll cue */}
-        <motion.div
-          initial={reduce ? false : { opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.6, delay: 0.8 }}
-          className="mt-10 flex flex-col items-center gap-1.5 text-ink-dim"
-        >
-          <span className="text-[11px] font-medium uppercase tracking-[0.1em]">
-            Scroll to try it
-          </span>
-          <svg
-            viewBox="0 0 16 16"
-            className="size-4 animate-bounce"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.75"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            aria-hidden="true"
-          >
-            <path d="M4 6 L8 10 L12 6" />
-          </svg>
+          <div ref={gazeRef} className="shrink-0">
+            <Mascot
+              expression="happy"
+              size={40}
+              look={look}
+              blink
+              className={reduce ? '' : 'animate-breathe hover-wobble'}
+            />
+          </div>
+          <p className="text-[13px] text-ink-dim">&ldquo;I filled 12 fields in 20 seconds&rdquo;</p>
         </motion.div>
       </div>
     </section>
