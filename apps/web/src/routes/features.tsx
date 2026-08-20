@@ -6,7 +6,7 @@ import { site } from '@/lib/site'
 
 const title = 'Features'
 const description =
-  'Fillaform fills any web form — job applications, Google Forms, event registrations and surveys — in your own writing voice, with read-vs-concluded stamps on every answer.'
+  'Fillaform fills any web form — job applications, Google Forms, registrations and surveys — with your own answers, and labels the ones it had to guess so you know what to check.'
 
 export const Route = createFileRoute('/features')({
   head: () => ({

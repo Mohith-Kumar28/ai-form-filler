@@ -6,25 +6,25 @@ const STEPS = [
     n: '1',
     mascot: 'wow' as const,
     shape: 'circle' as MascotShape,
-    title: 'Feed it',
+    title: 'Add your details once',
     description:
-      'Drop in your résumé, paste a LinkedIn or GitHub link, type a few notes. Fillaform extracts your name, history, skills and preferences — no hand-mapping required.',
+      'Upload your CV, paste a LinkedIn or GitHub link, or just type a few notes. Fillaform pulls out your name, contact details, work history and skills. You never map a field by hand.',
   },
   {
     n: '2',
     mascot: 'think' as const,
     shape: 'squircle' as MascotShape,
-    title: 'It gets to know you',
+    title: 'Open any form',
     description:
-      'Your material becomes a searchable memory. When a form asks an open-ended question, Fillaform retrieves the right facts and writes the answer in your voice.',
+      'Fillaform spots the fields and reads the questions — text boxes, dropdowns, radio buttons, checkboxes. A launcher appears on the right showing how many fields it found.',
   },
   {
     n: '3',
     mascot: 'party' as const,
     shape: 'blob' as MascotShape,
-    title: 'Fill anything',
+    title: 'Click fill, then check',
     description:
-      'Open any form, click fill. Every field — text, dropdown, radio, checkbox — gets filled. Hot pink marks what it guessed; lime marks what it read straight off.',
+      'Every field gets an answer, written in your own words. Anything Fillaform had to guess is labelled so you can review it, edit it, or ask for a rewrite. You submit.',
   },
 ]
 
@@ -40,7 +40,7 @@ export function HowItWorks() {
             How it works
           </p>
           <h2 className="display mt-3 text-center text-[32px] text-ink md:text-[42px]">
-            Three steps. Zero retyping.
+            Three steps, then never again
           </h2>
         </Reveal>
 

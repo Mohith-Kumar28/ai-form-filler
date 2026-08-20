@@ -3,27 +3,27 @@ import { Reveal } from '@/components/Reveal'
 const FAQS = [
   {
     q: 'Is Fillaform really free?',
-    a: 'Yes — the Free plan gives you 5 form fills every month, forever. No credit card. Upgrade to Pro or Ultra when you need more.',
+    a: 'Yes. The free plan fills 5 forms every month, with no card and no time limit. Upgrade to Pro or Ultra only if you need more.',
   },
   {
     q: 'Does it submit forms on its own?',
-    a: 'Never. Fillaform fills the fields, then shows you every answer for review. Submitting is always yours to do.',
+    a: 'No. Fillaform fills the fields and stops. You read the answers and press submit yourself.',
   },
   {
     q: 'What makes it different from browser autofill?',
-    a: 'Browser autofill remembers your name and address. Fillaform answers open-ended questions — “why do you want to work here?” — from your own material, in your own voice.',
+    a: 'Browser autofill only repeats things you have typed before, like your name and address. Fillaform also answers written questions such as “why do you want to work here?”, using your CV and notes.',
   },
   {
     q: 'What does “guessed” mean?',
-    a: 'A hot-pink badge means Fillaform made a judgement call rather than reading the answer straight off your profile. Review those before submitting.',
+    a: 'Some answers come straight from details you gave it. Others it works out for itself — those get a small tag reading “I guessed” or “not sure”. Click the tag to read, edit or rewrite the answer.',
   },
   {
     q: 'What happens to my data?',
-    a: 'Your sources are stored so Fillaform can search them at fill time. You can delete anything, or everything, from the extension settings. We never sell it or use it to train models.',
+    a: 'Your CV and notes are stored so Fillaform can look things up while filling. You can delete any of it, or all of it, from the extension settings. We do not sell your data or use it to train models.',
   },
   {
     q: 'Which sites does it work on?',
-    a: 'Greenhouse, Lever, Ashby, Google Forms, and a generic adapter for anything else with form fields — event registrations, surveys, contact forms.',
+    a: 'Greenhouse, Lever, Ashby and Google Forms have purpose-built support. Everything else — registrations, surveys, contact forms — is handled by a general fallback.',
   },
 ]
 
@@ -36,7 +36,7 @@ export function FAQ() {
             FAQ
           </p>
           <h2 className="display mt-3 text-center text-[30px] text-ink md:text-[40px]">
-            Fair questions, honest answers
+            Common questions
           </h2>
         </Reveal>
 

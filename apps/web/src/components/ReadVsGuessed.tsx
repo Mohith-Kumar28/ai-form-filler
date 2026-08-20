@@ -9,19 +9,19 @@ export function ReadVsGuessed() {
           <Reveal>
             <div>
               <p className="text-[13px] font-semibold uppercase tracking-[0.1em] text-accent">
-                The trust layer
+                Why you can trust it
               </p>
               <h2 className="display mt-3 text-[32px] leading-tight text-ink md:text-[42px]">
-                A wrong-but-confident answer is worse than a blank field
+                A wrong answer you didn&rsquo;t notice is worse than a blank field
               </h2>
               <p className="mt-5 max-w-[48ch] text-[15px] leading-relaxed text-ink-muted">
-                Other autofillers answer your name and email and stop. Fillaform answers the
-                judgement calls — <em>“why do you want to work here?”</em> — and tells you exactly
-                what it <span className="font-semibold text-positive">read</span> from your profile
-                and what it <span className="font-semibold text-accent">guessed</span>.
+                Most autofill tools stop at your name and email. Fillaform also answers the written
+                questions — and every answer comes labelled with where it came from.
               </p>
               <p className="mt-4 max-w-[48ch] text-[15px] leading-relaxed text-ink-muted">
-                You review the guesses before anything is submitted. No surprises, ever.
+                Answers taken straight from your details are left alone. Anything it worked out for
+                itself gets a small tag you can click to read, edit, or rewrite. Then you submit —
+                Fillaform never does.
               </p>
             </div>
           </Reveal>
@@ -36,7 +36,7 @@ export function ReadVsGuessed() {
                 <p className="mt-2 text-[15px] text-ink">Ifeoma Balogun</p>
                 <div className="mt-3 flex items-center gap-1.5 border-t border-border-muted pt-3 text-[12px] text-positive">
                   <IconCheck className="size-3.5" />
-                  read straight off what you told it
+                  taken straight from your details
                 </div>
               </div>
 
@@ -52,7 +52,8 @@ export function ReadVsGuessed() {
                   I liked was the archaeology of working out why a system ended up the way it had.
                 </p>
                 <div className="mt-3 flex items-center gap-1.5 border-t border-border-muted pt-3 text-[12px] text-accent">
-                  <IconSparkle className="size-3.5" />a judgement call it made for you — check me
+                  <IconSparkle className="size-3.5" />
+                  Fillaform worked this one out &mdash; worth a read
                 </div>
               </div>
             </div>

@@ -59,7 +59,7 @@ export function Hero() {
           className="mx-auto inline-flex items-center gap-2 rounded-full border border-border-muted bg-surface-raised px-4 py-1.5 text-[12.5px] font-medium text-ink-muted"
         >
           <IconSparkle className="size-3.5 text-accent" />
-          The AI form filler that actually sounds like you
+          Chrome extension · free to start
         </motion.div>
 
         <motion.h1
@@ -68,9 +68,9 @@ export function Hero() {
           transition={{ duration: 0.6, delay: 0.08, ease: [0.2, 0, 0, 1] }}
           className="display mt-6 text-[clamp(34px,8.8vw,44px)] leading-[1.05] text-ink md:text-[68px]"
         >
-          Forms are homework.
+          Fill any form
           <br />
-          <span className="sunset-text">Your hype friend</span> does them.
+          in <span className="sunset-text">one click</span>.
         </motion.h1>
 
         <motion.p
@@ -79,11 +79,10 @@ export function Hero() {
           transition={{ duration: 0.6, delay: 0.16, ease: [0.2, 0, 0, 1] }}
           className="mx-auto mt-6 max-w-[52ch] text-[16px] leading-relaxed text-ink-muted md:text-[17px]"
         >
-          Fillaform reads your résumé, links and notes, then fills{' '}
-          <strong className="font-semibold text-ink">any form</strong> — job applications, Google
-          Forms, registrations, surveys — in your own voice. It flags what it{' '}
-          <span className="font-semibold text-accent">guessed</span> and cheers you on the whole
-          way.
+          Add your CV and a few notes once. After that, Fillaform answers every form you open — job
+          applications, Google Forms, registrations, surveys — in your own words. It labels the
+          answers it <span className="font-semibold text-accent">guessed</span>, so you know exactly
+          what to check before you submit.
         </motion.p>
 
         <motion.div
@@ -100,13 +99,13 @@ export function Hero() {
             style={{ background: 'linear-gradient(135deg, var(--sparkle), var(--accent))' }}
           >
             <IconSparkle className="size-4.5" />
-            Add to Chrome — it's free
+            Add to Chrome — free
           </a>
           <a
             href="#demo"
             className="inline-flex items-center gap-2 rounded-full border border-border bg-surface-raised px-6 py-3 text-[15px] font-semibold text-ink no-underline transition-colors duration-150 hover:bg-surface-muted"
           >
-            Watch it fill a form
+            See it fill a form
           </a>
         </motion.div>
 
@@ -114,18 +113,22 @@ export function Hero() {
           initial={reduce ? false : { opacity: 0, scale: 0.8 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: 0.6, delay: 0.4, ease: [0.34, 1.56, 0.64, 1] }}
-          className="mt-10 flex items-center justify-center gap-2.5"
+          className="mt-9 flex flex-wrap items-center justify-center gap-x-2.5 gap-y-1.5 text-[13px] text-ink-dim"
         >
           <div ref={gazeRef} className="shrink-0">
             <Mascot
               expression="happy"
-              size={40}
+              size={28}
               look={look}
               blink
               className={reduce ? '' : 'animate-breathe hover-wobble'}
             />
           </div>
-          <p className="text-[13px] text-ink-dim">&ldquo;I filled 12 fields in 20 seconds&rdquo;</p>
+          <span>5 forms a month, free</span>
+          <span aria-hidden>·</span>
+          <span>No card</span>
+          <span aria-hidden>·</span>
+          <span>Nothing is submitted without you</span>
         </motion.div>
       </div>
     </section>

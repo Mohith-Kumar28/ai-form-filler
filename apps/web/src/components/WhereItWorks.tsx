@@ -31,8 +31,8 @@ export function WhereItWorks() {
             Works wherever forms live
           </h2>
           <p className="mx-auto mt-4 max-w-[52ch] text-center text-[14.5px] leading-relaxed text-ink-muted">
-            Dedicated adapters for the big ATSes and Google Forms, a generic fallback for everything
-            else. If there&rsquo;s a field, it gets filled.
+            Purpose-built support for the big job sites and Google Forms, and a general fallback
+            that handles the rest. If a page has fields, it gets filled.
           </p>
         </Reveal>
 

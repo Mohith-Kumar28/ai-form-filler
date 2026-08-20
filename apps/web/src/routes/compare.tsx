@@ -5,7 +5,7 @@ import { site } from '@/lib/site'
 
 const title = 'Fillaform vs. the rest'
 const description =
-  'How Fillaform compares to Simplify Copilot, JobWizard, JobFill and LazyApply. Fillaform fills any form — not just job applications — in your own voice, with read-vs-concluded transparency.'
+  'How Fillaform compares to Simplify Copilot, JobWizard, JobFill and LazyApply. Fillaform fills any form, not just job applications, and tells you which answers it had to guess.'
 
 interface ComparisonRow {
   label: string
@@ -24,8 +24,8 @@ const ROWS: ComparisonRow[] = [
     fillaform: true,
     others: 'Limited or generic templates',
   },
-  { label: 'Writes in your own voice', fillaform: true, others: 'Fixed profile schema' },
-  { label: 'Read vs. concluded stamps', fillaform: true, others: 'No transparency' },
+  { label: 'Writes answers in your own words', fillaform: true, others: 'Fixed profile fields' },
+  { label: 'Labels the answers it guessed', fillaform: true, others: 'No indication' },
   { label: 'Works on Google Forms & surveys', fillaform: true, others: 'ATS-only adapters' },
   { label: 'Free tier', fillaform: true, others: 'Varies; often trial-only' },
 ]

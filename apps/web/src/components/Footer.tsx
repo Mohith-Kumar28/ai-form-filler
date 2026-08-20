@@ -17,7 +17,6 @@ const footerColumns = [
   {
     heading: 'Company',
     links: [
-      { label: 'Blog', to: '/blog' },
       { label: 'Contact', to: '/contact' },
       { label: 'Privacy', to: '/privacy' },
       { label: 'Terms', to: '/terms' },
@@ -33,8 +32,8 @@ export function Footer() {
           <div className="flex flex-col gap-4">
             <Logo />
             <p className="max-w-[36ch] text-[13px] leading-relaxed text-ink-muted">
-              The hype friend who does the boring homework. Fill any form in your own voice — and
-              always know what it read vs. what it guessed.
+              A Chrome extension that fills any web form with your own answers, and tells you which
+              ones it had to guess.
             </p>
             <a
               href={site.chromeWebStoreUrl}
@@ -76,7 +75,7 @@ export function Footer() {
               {site.supportEmail}
             </a>
             <p className="text-[13px] text-ink-dim">
-              Made with a sparkle and a lot of form-filling empathy.
+              Questions, bugs, or a site that won&rsquo;t fill? Tell us and we&rsquo;ll fix it.
             </p>
           </div>
         </div>

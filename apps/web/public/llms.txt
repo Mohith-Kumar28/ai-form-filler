@@ -1,13 +1,13 @@
 # Fillaform
 
-> Fillaform is a Chrome extension that fills any web form — job applications, Google Forms, event registrations, and surveys — from your own knowledge base, in your own writing voice. Every answer is stamped: read (from your profile) or concluded (inferred, in vermilion).
+> Fillaform is a Chrome extension that fills any web form — job applications, Google Forms, registrations, and surveys — using your CV and notes. Answers taken straight from your details are left unmarked; answers it inferred are tagged "I guessed" or "not sure" so you review only those.
 
 ## What Fillaform does
 
 - Ingests your resume, links, and pasted notes into a searchable knowledge graph.
 - Fills any web form — text, dropdowns, radio buttons, checkboxes, and textareas.
-- Answers open-ended questions ("Why do you want to work here?") in your own voice.
-- Marks every answer as read (unmarked) or concluded (vermilion CONCLUDED stamp) so you review only inferred answers.
+- Answers written questions ("Why do you want to work here?") from your own CV and notes.
+- Leaves answers read from your details unmarked, and tags inferred answers so you review only those.
 - Supports Google Forms, Greenhouse, Lever, Ashby, and a generic fallback for everything else.
 
 ## Key pages
@@ -17,7 +17,6 @@
 - [Features](https://fillaform.in/features) — the full feature list.
 - [Pricing](https://fillaform.in/pricing) — Free (5 forms/mo), Pro (50 forms/mo, $12), Ultra (300 forms/mo, $30).
 - [Compare](https://fillaform.in/compare) — Fillaform vs. other autofillers.
-- [Blog](https://fillaform.in/blog) — guides and comparisons.
 
 ## Plans
 

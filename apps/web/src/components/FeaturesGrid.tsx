@@ -10,37 +10,37 @@ const FEATURES: {
   {
     title: 'Any form, any site',
     description:
-      'Job applications, Google Forms, event registrations, surveys, contact forms — if it has fields, Fillaform fills it.',
+      'Job applications, Google Forms, registrations, surveys, contact forms. If a page has fields, Fillaform fills them.',
     Icon: IconGlobe,
   },
   {
-    title: 'Answers in your voice',
+    title: 'Written answers, not templates',
     description:
-      'Not a templated profile mapper. Fillaform reads your writing and composes open-ended answers the way you would.',
+      '\u201cWhy do you want to work here?\u201d gets a real answer, drawn from your own notes and written the way you write.',
     Icon: IconQuote,
   },
   {
-    title: 'Read vs. guessed',
+    title: 'It tells you what it guessed',
     description:
-      'Lime means it read straight off your profile. Hot pink + sparkle means it guessed — check me. No wrong-but-confident surprises.',
+      'Answers taken straight from your details are left alone. Anything Fillaform inferred gets a small label, so you review those and nothing else.',
     Icon: IconMarks,
   },
   {
-    title: 'Built for the big ATSes',
+    title: 'Knows the big job sites',
     description:
-      'Dedicated adapters for Greenhouse, Lever, Ashby and Google Forms, plus a generic fallback for everything else.',
+      'Purpose-built support for Greenhouse, Lever, Ashby and Google Forms, plus a general fallback that handles everything else.',
     Icon: IconBuilding,
   },
   {
-    title: 'Your data, your control',
+    title: 'Nothing is sent without you',
     description:
-      'You decide what to feed it and what to fill. Nothing is submitted automatically — review every answer first.',
+      'Fillaform fills the fields and stops. You review and press submit yourself. Delete any of your details, or all of them, whenever you like.',
     Icon: IconLock,
   },
   {
     title: 'Free to start',
     description:
-      'Fill 5 forms a month on the free plan, forever. Upgrade for more when you need it.',
+      'Five forms a month, free, with no card and no time limit. Upgrade only if you need more.',
     Icon: IconGift,
   },
 ]

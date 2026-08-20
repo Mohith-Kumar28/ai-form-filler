@@ -5,7 +5,7 @@ import { site } from '@/lib/site'
 
 const title = 'How Fillaform Works'
 const description =
-  'Learn how Fillaform fills any web form in your own voice. Feed it your resume and links, it builds a knowledge graph, then fills any form with answers that sound like you.'
+  'How Fillaform works: add your CV, links and notes once, then it fills any web form with your own answers and labels the ones it had to guess.'
 
 export const Route = createFileRoute('/how-it-works')({
   head: () => ({

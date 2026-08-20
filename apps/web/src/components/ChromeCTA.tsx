@@ -33,13 +33,13 @@ export function ChromeCTA() {
             />
           </div>
           <h2 className="display mt-6 text-[34px] leading-tight text-ink md:text-[52px]">
-            Stop retyping.
+            Stop retyping
             <br />
-            <span className="sunset-text">Start filling.</span>
+            the <span className="sunset-text">same answers</span>.
           </h2>
           <p className="mx-auto mt-5 max-w-[46ch] text-[15px] leading-relaxed text-ink-muted">
-            Add Fillaform to Chrome, feed it once, and never fill the same information twice. Five
-            forms a month on us — no card required.
+            Add it to Chrome, give it your details once, and let it handle the rest. Five forms a
+            month are free, and there is no card to enter.
           </p>
           <div className="mt-9 flex justify-center">
             <a
@@ -50,7 +50,7 @@ export function ChromeCTA() {
               style={{ background: 'linear-gradient(135deg, var(--sparkle), var(--accent))' }}
             >
               <IconSparkle className="size-4.5" />
-              Add to Chrome — it's free
+              Add to Chrome — free
             </a>
           </div>
         </Reveal>

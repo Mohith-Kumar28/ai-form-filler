@@ -249,6 +249,34 @@ body {
   animation: float 6s ease-in-out infinite;
 }
 
+/* The launcher while the model thinks: a soft pulse, and a slow spin on its sparkle.
+   Mirrors `.launcher--loading` / `trigger-think` in the extension's overlay CSS. */
+@keyframes pulse-soft {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 var(--accent);
+    filter: brightness(1);
+  }
+  50% {
+    box-shadow: 0 0 0 7px transparent;
+    filter: brightness(1.12);
+  }
+}
+
+.animate-pulse-soft {
+  animation: pulse-soft 1400ms cubic-bezier(0.2, 0, 0, 1) infinite;
+}
+
+@keyframes spin-slow {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.animate-spin-slow {
+  animation: spin-slow 2.4s linear infinite;
+}
+
 /* ── The mascot's tics ──────────────────────────────────────────────────────
  *
  * The face is the brand mark, so it is never quite still: it blinks, it breathes,
