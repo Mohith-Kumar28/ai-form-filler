@@ -6,11 +6,11 @@ import { site } from '@/lib/site'
 
 const title = 'Features'
 const description =
-  'Fillaform fills any web form — job applications, Google Forms, registrations and surveys — with your own answers, and labels the ones it had to guess so you know what to check.'
+  'Fillaform fills any web form, from job applications to Google Forms, registrations and surveys, with your own answers, and labels the ones it had to guess so you know what to check.'
 
 export const Route = createFileRoute('/features')({
   head: () => ({
-    meta: buildMeta({ title: `${title} — ${site.name}`, description, path: '/features' }),
+    meta: buildMeta({ title: `${title} | ${site.name}`, description, path: '/features' }),
     links: [canonicalLink('/features')],
   }),
   component: FeaturesPage,

@@ -5,6 +5,7 @@ import type { ActivePage } from '../../../lib/use-active-page.js'
 import {
   Button,
   Card,
+  Mascot,
   ProBadge,
   Screen,
   ScreenBody,
@@ -13,7 +14,7 @@ import {
   SUNSET_GRADIENT,
   UpgradeSheet,
 } from '../components.js'
-import { IconCrown, IconSparkle } from '../icons.js'
+import { IconCrown, IconMascot, IconSparkle } from '../icons.js'
 import { useNavigation } from '../navigation.js'
 
 function PageEntry({ page }: { page: ActivePage }) {
@@ -34,7 +35,7 @@ function PageEntry({ page }: { page: ActivePage }) {
         </p>
         <p className="mt-1 text-[13px] leading-snug text-ink-muted">
           {page.status === 'unavailable'
-            ? 'This kind of page cannot be read — browser pages and the Web Store are off limits.'
+            ? 'This kind of page cannot be read. Browser pages and the Web Store are off limits.'
             : 'No form found. Open a page with inputs and it will show up here.'}
         </p>
       </div>
@@ -79,7 +80,7 @@ export function Home({
 
   const profileBlocked = !account.profileReady
   const blockedReason = profileBlocked
-    ? 'Add something about yourself first — a résumé, a link, whatever.'
+    ? 'Add something about yourself first: a résumé, a link, whatever.'
     : null
 
   const handleFill = () => {
@@ -95,11 +96,10 @@ export function Home({
       <ScreenHeader
         title={
           <span className="flex items-center gap-2">
-            <IconSparkle className="size-4 shrink-0 text-accent" />
+            <Mascot size={18} className="shrink-0" />
             <span>Fillaform</span>
           </span>
         }
-        usage={{ used, limit, plan }}
         right={plan !== 'free' ? <ProBadge plan={plan} /> : undefined}
       />
 
@@ -115,7 +115,7 @@ export function Home({
               onClick={handleFill}
               disabled={!canFill || blockedReason !== null}
             >
-              <IconSparkle className="size-4" />
+              <IconMascot className="size-4" />
               {exhausted ? 'Upgrade to fill' : 'Fill this form'}
             </Button>
 

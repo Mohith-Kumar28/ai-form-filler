@@ -248,7 +248,7 @@ export default defineContentScript({
       const label = mode === 'review' ? 'Rewrite this answer' : 'Fill this field'
       trigger.setAttribute('aria-label', label)
       trigger.setAttribute('title', label)
-      trigger.innerHTML = mode === 'review' ? GLYPH.pen : GLYPH.sparkle
+      trigger.innerHTML = mode === 'review' ? GLYPH.pen : GLYPH.mascot
 
       const TRIGGER_SIZE = 22
       const GAP = 6

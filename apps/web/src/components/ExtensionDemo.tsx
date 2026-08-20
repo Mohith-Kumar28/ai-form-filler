@@ -1,6 +1,6 @@
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { IconCheck, IconClose, IconPen, IconSparkle } from '@/components/ui'
+import { IconCheck, IconClose, IconMascot, IconPen, IconSparkle } from '@/components/ui'
 import { cn } from '@/lib/cn'
 
 /**
@@ -86,10 +86,10 @@ const FIELDS: DemoField[] = [
     required: true,
     provenance: 'inferred',
     answer:
-      'I spent four years at Kestrel Health rebuilding a claims pipeline nobody wanted to touch, and the part I liked was the archaeology — working out why a system had ended up the way it had before changing it. Your engineering posts read like people who do that on purpose.',
+      'I spent four years at Kestrel Health rebuilding a claims pipeline nobody wanted to touch, and the part I liked was the archaeology of working out why a system had ended up the way it had before changing it. Your engineering posts read like people who do that on purpose.',
     variants: [
       'Four years at Kestrel Health, mostly rebuilding a claims pipeline nobody else wanted. What I liked was the archaeology: understanding why a system ended up the way it did before touching it. Your engineering posts read like people who work that way too.',
-      'I rebuilt a claims pipeline at Kestrel Health over four years. The work I enjoy is figuring out why a system is the way it is before changing it — which is what your engineering writing sounds like.',
+      'I rebuilt a claims pipeline at Kestrel Health over four years. The work I enjoy is figuring out why a system is the way it is before changing it, which is what your engineering writing sounds like.',
     ],
   },
   {
@@ -280,6 +280,44 @@ export function ExtensionDemo() {
  * it is the demo's own gutter.
  */
 
+/**
+ * The nudge that tells you the demo is yours to drive.
+ *
+ * A replica of the overlay is not self-evidently interactive: it looks like a screenshot, so
+ * people read it and scroll past. This is the one piece with no counterpart in the extension,
+ * where the launcher arrives on a page the person came to fill and needs no invitation.
+ *
+ * It shows only in `idle`, so it is gone the moment the demo is running and comes back with
+ * the reset.
+ */
+function ClickMe() {
+  const reduce = useReducedMotion()
+
+  return (
+    <motion.span
+      initial={reduce ? { opacity: 0 } : { opacity: 0, x: 8 }}
+      animate={reduce ? { opacity: 1 } : { opacity: 1, x: [0, 5, 0] }}
+      exit={{ opacity: 0 }}
+      transition={
+        reduce
+          ? { duration: 0.2 }
+          : {
+              x: { duration: 1.4, repeat: Infinity, ease: 'easeInOut' },
+              opacity: { duration: 0.4 },
+            }
+      }
+      className="pointer-events-none relative flex items-center rounded-full bg-ink py-1.5 pr-3 pl-3 text-[11.5px] font-bold whitespace-nowrap text-surface shadow-card"
+    >
+      Click me to fill it
+      {/* The arrowhead, pointing at the button on its right. */}
+      <span
+        aria-hidden
+        className="absolute top-1/2 -right-[5px] size-2.5 -translate-y-1/2 rotate-45 rounded-[2px] bg-ink"
+      />
+    </motion.span>
+  )
+}
+
 function Launcher({
   phase,
   fieldCount,
@@ -323,6 +361,8 @@ function Launcher({
       </span>
 
       <div className="flex items-center gap-1.5">
+        <AnimatePresence>{phase === 'idle' && <ClickMe key="nudge" />}</AnimatePresence>
+
         {filling && (
           <motion.button
             type="button"
@@ -348,11 +388,13 @@ function Launcher({
             'flex h-11 items-center justify-center gap-2 rounded-full text-white shadow-card transition-all duration-200',
             filling ? 'px-4' : 'w-11',
             thinking && 'animate-pulse-soft',
+            // Idle, the ring breathes so the eye lands on the one thing worth clicking.
+            phase === 'idle' && 'ring-4 ring-accent/25 animate-pulse-soft',
             !filling && !thinking && 'hover:brightness-110',
           )}
           style={{ background: 'linear-gradient(135deg, var(--sparkle), var(--accent))' }}
         >
-          <IconSparkle className={cn('size-5 shrink-0', thinking && 'animate-spin-slow')} />
+          <IconMascot className={cn('size-5 shrink-0', thinking && 'animate-spin-slow')} />
           {filling && (
             <span className="font-display text-[14px] font-bold tabular-nums">
               {progress}/{total}

@@ -1,6 +1,6 @@
 import { useRef } from 'react'
 import { Reveal } from '@/components/Reveal'
-import { IconSparkle, Mascot, MascotPattern, useMascotGaze } from '@/components/ui'
+import { IconMascot, Mascot, MascotPattern, useMascotGaze } from '@/components/ui'
 import { site } from '@/lib/site'
 
 export function ChromeCTA() {
@@ -49,8 +49,8 @@ export function ChromeCTA() {
               className="inline-flex items-center gap-2 rounded-full px-7 py-3.5 text-[15px] font-semibold text-white no-underline shadow-glow transition-[filter] duration-150 hover:brightness-110"
               style={{ background: 'linear-gradient(135deg, var(--sparkle), var(--accent))' }}
             >
-              <IconSparkle className="size-4.5" />
-              Add to Chrome — free
+              <IconMascot className="size-4.5" />
+              Add to Chrome, free
             </a>
           </div>
         </Reveal>

@@ -77,7 +77,7 @@ export async function parseUrl(url: string): Promise<ParsedSource> {
   if (text.text.length < 50) {
     throw new ApiErrorResponse(
       'INVALID_REQUEST',
-      'That page had almost no readable text — it may need JavaScript. Paste the text instead.',
+      'That page had almost no readable text. It may need JavaScript, so paste the text instead.',
     )
   }
 

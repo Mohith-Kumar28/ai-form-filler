@@ -1,6 +1,6 @@
 import { Link } from '@tanstack/react-router'
 import { Logo } from '@/components/Logo'
-import { IconSparkle } from '@/components/ui'
+import { IconMascot } from '@/components/ui'
 import { site } from '@/lib/site'
 
 /* Two short columns — eight links in one stack left the footer badly lopsided. */
@@ -42,7 +42,7 @@ export function Footer() {
               className="inline-flex w-fit items-center gap-1.5 rounded-full px-4 py-2 text-[13px] font-semibold text-white no-underline shadow-glow transition-[filter] duration-150 hover:brightness-110"
               style={{ background: 'linear-gradient(135deg, var(--sparkle), var(--accent))' }}
             >
-              <IconSparkle className="size-3.5" />
+              <IconMascot className="size-3.5" />
               Add to Chrome
             </a>
           </div>

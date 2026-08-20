@@ -17,6 +17,7 @@ import {
   IconDocument,
   IconGear,
   IconLock,
+  IconMascot,
   IconMore,
   IconSparkle,
 } from './icons.js'
@@ -150,7 +151,7 @@ export function ScreenFooter({ children }: { children: ReactNode }) {
 
 const TABS: { key: TabName; label: string; icon: (props: { className?: string }) => ReactNode }[] =
   [
-    { key: 'home', label: 'Fill', icon: IconSparkle },
+    { key: 'home', label: 'Fill', icon: IconMascot },
     { key: 'yourInfo', label: 'My info', icon: IconDocument },
     { key: 'account', label: 'Account', icon: IconGear },
   ]
@@ -919,7 +920,7 @@ export function UsageBar({
         {exhausted
           ? 'Upgrade to keep filling forms without waiting.'
           : warning
-            ? `Almost there — ${left} left before it resets.`
+            ? `Almost there. ${left} left before it resets.`
             : `Resets ${new Date(resetsAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`}
       </p>
     </div>

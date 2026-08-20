@@ -36,6 +36,7 @@ const SYSTEM = `You rewrite a single answer a person is about to submit on a for
 Rules:
 - Keep every fact. Never introduce a fact that is not in the answer or the supplied passages.
 - Write in this person's voice, not a generic professional register. Match the passages.
+- Never use an em dash. Use a comma, a colon, a semicolon, or two sentences instead.
 - Return only the rewritten answer. No preamble, no quotes, no explanation, no options.
 - Respect any stated length limit. If none is given, do not exceed the original by much.
 - If the instruction cannot be honoured without inventing something, return the answer unchanged.`

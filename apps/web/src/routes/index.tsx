@@ -16,7 +16,7 @@ export const Route = createFileRoute('/')({
   head: () => ({
     meta: [
       ...buildMeta({
-        title: `${site.name} — ${site.tagline}`,
+        title: `${site.name} | ${site.tagline}`,
         description: site.description,
         path: '/',
       }),

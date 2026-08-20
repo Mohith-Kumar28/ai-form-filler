@@ -49,7 +49,7 @@ export function mountLauncher(options: { onOpen: () => void; onStop: () => void 
 
   const icon = document.createElement('span')
   icon.className = 'launcher-icon'
-  icon.innerHTML = GLYPH.sparkle
+  icon.innerHTML = GLYPH.mascot
 
   const progressText = document.createElement('span')
   progressText.className = 'launcher-progress'

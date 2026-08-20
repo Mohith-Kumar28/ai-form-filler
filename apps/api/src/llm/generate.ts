@@ -88,7 +88,7 @@ export function translateProviderError(cause: unknown): ApiErrorResponse {
   if (/not found|\b404\b/i.test(combined)) {
     return new ApiErrorResponse(
       'UPSTREAM_ERROR',
-      'AI Gateway returned 404 — check AI_GATEWAY_URL account id and gateway name, and the model id in llm/models.ts.',
+      'AI Gateway returned 404. Check AI_GATEWAY_URL account id and gateway name, and the model id in llm/models.ts.',
     )
   }
 

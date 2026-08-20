@@ -104,7 +104,7 @@ export function Filling({
           </p>
         ) : (
           <p className="mt-5 text-[12.5px] leading-relaxed text-ink-dim">
-            Answers land on the page as they arrive. Nothing gets submitted — that stays yours.
+            Answers land on the page as they arrive. Nothing gets submitted; that stays yours.
           </p>
         )}
       </ScreenBody>

@@ -37,7 +37,7 @@ const GAP = 6
 
 const COPY: Record<LearningState, { text: string; glyph: keyof typeof GLYPH }> = {
   learning: { text: 'Learning this…', glyph: 'sparkle' },
-  learned: { text: "Got it — I'll remember", glyph: 'check' },
+  learned: { text: "Got it, I'll remember", glyph: 'check' },
   // Not "nothing to learn": what it means to the user is that the tool already agrees with them.
   known: { text: 'Already knew that', glyph: 'check' },
   failed: { text: "Couldn't save that", glyph: 'close' },

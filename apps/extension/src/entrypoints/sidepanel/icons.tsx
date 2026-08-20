@@ -44,6 +44,27 @@ export function IconSparkle(props: IconProps) {
   )
 }
 
+/**
+ * The mascot's face, reduced to the 16px stroke grid.
+ *
+ * `Mascot` in components.tsx is the gradient blob, for the moments where the product has
+ * personality to spend. This is the same face as a line icon, so the brand mark can sit
+ * inside a button or a title row next to the rest of the set without shouting.
+ *
+ * It is the *logo*, and only the logo. The sparkle still means "I guessed this answer", and
+ * the two must not blur together.
+ */
+export function IconMascot(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <circle cx="8" cy="8" r="6.25" />
+      <circle cx="5.9" cy="6.7" r="1" fill="currentColor" stroke="none" />
+      <circle cx="10.1" cy="6.7" r="1" fill="currentColor" stroke="none" />
+      <path d="M5.6 9.7c1.6 1.8 3.2 1.8 4.8 0" />
+    </Svg>
+  )
+}
+
 /** A cluster of sparkles — the done-celebration and empty-state cheer. */
 export function IconParty(props: IconProps) {
   return (

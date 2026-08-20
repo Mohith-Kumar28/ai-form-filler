@@ -103,7 +103,7 @@ describe('the cached prefix', () => {
   const hash = (value: string) => createHash('sha256').update(value).digest('hex').slice(0, 16)
 
   it('has not changed the system instructions', () => {
-    expect(hash(SYSTEM_INSTRUCTIONS)).toBe('8b47131cc4062ca3')
+    expect(hash(SYSTEM_INSTRUCTIONS)).toBe('8a78ddc2ddfef225')
   })
 
   it('has not changed the output tool schema', () => {

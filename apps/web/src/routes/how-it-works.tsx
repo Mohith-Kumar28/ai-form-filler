@@ -9,7 +9,7 @@ const description =
 
 export const Route = createFileRoute('/how-it-works')({
   head: () => ({
-    meta: buildMeta({ title: `${title} — ${site.name}`, description, path: '/how-it-works' }),
+    meta: buildMeta({ title: `${title} | ${site.name}`, description, path: '/how-it-works' }),
     links: [canonicalLink('/how-it-works')],
   }),
   component: HowItWorksPage,
@@ -42,8 +42,8 @@ function HowItWorksPage() {
                 </p>
                 <p>
                   Each source is parsed and compiled into a structured profile. Key identity fields
-                  — name, email, phone — are extracted deterministically so they answer without a
-                  model call. Everything else is stored in a searchable memory layer.
+                  such as name, email and phone are extracted deterministically, so they answer
+                  without a model call. Everything else is stored in a searchable memory layer.
                 </p>
               </>
             }
@@ -74,15 +74,15 @@ function HowItWorksPage() {
             content={
               <>
                 <p>
-                  Navigate to any form — a job application on Greenhouse, a Google Form survey, an
+                  Navigate to any form: a job application on Greenhouse, a Google Form survey, an
                   event registration page. Click the Fillaform icon. It reads every field on the
                   page, maps them to your knowledge graph, and fills them in.
                 </p>
                 <p>
                   Each answer carries a stamp. Unmarked answers were read directly from your
                   profile. Answers with a{' '}
-                  <strong className="text-accent">vermilion CONCLUDED stamp</strong> were inferred —
-                  you should review these before submitting.
+                  <strong className="text-accent">vermilion CONCLUDED stamp</strong> were inferred,
+                  so you should review these before submitting.
                 </p>
               </>
             }

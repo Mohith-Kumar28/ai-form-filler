@@ -38,7 +38,7 @@ export const PROFILE: Profile = {
     phone: '+44 7911 248 630',
     location: 'Bristol, United Kingdom',
     pronouns: 'she/her',
-    workAuthorization: 'British citizen — no sponsorship needed',
+    workAuthorization: 'British citizen, no sponsorship needed',
     links: {
       linkedin: 'https://www.linkedin.com/in/ifeomabalogun',
       github: 'https://github.com/ifeomab',
@@ -53,7 +53,7 @@ export const PROFILE: Profile = {
     {
       id: 'src_1',
       kind: 'document',
-      label: 'Résumé — 2026',
+      label: 'Résumé 2026',
       status: 'ready',
       mediaType: 'application/pdf',
       sizeBytes: 291_112,
@@ -117,7 +117,7 @@ export const PLAN: FillPlan = {
       fieldId: 'f_why',
       label: 'Why do you want to work at Alderman & Roe?',
       value:
-        'I spent four years at Kestrel Health rebuilding a claims pipeline that nobody wanted to touch, and the part I liked was the archaeology — working out why a system had ended up the way it had before changing it. Your engineering posts read like people who do that on purpose rather than under duress.',
+        'I spent four years at Kestrel Health rebuilding a claims pipeline that nobody wanted to touch, and the part I liked was the archaeology of working out why a system had ended up the way it had before changing it. Your engineering posts read like people who do that on purpose rather than under duress.',
       confidence: 0.58,
       tier: 3,
       inferred: true,

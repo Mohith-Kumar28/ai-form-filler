@@ -770,6 +770,10 @@ export function isOverlayHost(node: unknown): boolean {
 
 /** Inline SVG, matching the panel's authored set: 16px grid, 1.75px stroke, round joins. */
 export const GLYPH = {
+  /* The logo. The launcher and the field trigger wear this; the sparkle below stays
+     reserved for "I guessed this answer", so the two never blur together. */
+  mascot:
+    '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="6.25"/><circle cx="5.9" cy="6.7" r="1" fill="currentColor" stroke="none"/><circle cx="10.1" cy="6.7" r="1" fill="currentColor" stroke="none"/><path d="M5.6 9.7c1.6 1.8 3.2 1.8 4.8 0"/></svg>',
   sparkle:
     '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linejoin="round" aria-hidden="true"><path d="M8 2 9.3 6.7 14 8 9.3 9.3 8 14 6.7 9.3 2 8 6.7 6.7Z"/></svg>',
   pen: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m2.5 13.5.75-3 8-8 2.25 2.25-8 8z"/><path d="m9.75 4.25 2.25 2.25"/></svg>',

@@ -32,7 +32,7 @@ const ROWS: ComparisonRow[] = [
 
 export const Route = createFileRoute('/compare')({
   head: () => ({
-    meta: buildMeta({ title: `${title} — ${site.name}`, description, path: '/compare' }),
+    meta: buildMeta({ title: `${title} | ${site.name}`, description, path: '/compare' }),
     links: [canonicalLink('/compare')],
   }),
   component: ComparePage,

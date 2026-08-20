@@ -83,6 +83,21 @@ export default defineConfig({
       scopes: ['openid', 'email', 'profile'],
     },
 
+    /**
+     * The mascot's face, rasterised from the same geometry `Mascot` draws in the panel and
+     * `apps/web/public/favicon.svg` serves on the site. Chrome takes PNG only, so these are
+     * generated rather than referenced from the SVG.
+     *
+     * 16 and 32 are drawn from a bolder variant: the 40-unit face thins out below ~24px and
+     * the mouth disappears entirely if you simply downsample the large one.
+     */
+    icons: {
+      16: 'icon/16.png',
+      32: 'icon/32.png',
+      48: 'icon/48.png',
+      128: 'icon/128.png',
+    },
+
     side_panel: { default_path: 'sidepanel.html' },
     action: { default_title: 'Fillaform' },
   },

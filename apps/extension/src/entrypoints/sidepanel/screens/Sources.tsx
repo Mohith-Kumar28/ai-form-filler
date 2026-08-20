@@ -364,15 +364,6 @@ export function Sources({ profile }: { profile: Profile | undefined }) {
     <Screen>
       <ScreenHeader
         title="Your info"
-        usage={
-          account.data
-            ? {
-                used: account.data.quota.used,
-                limit: account.data.quota.limit,
-                plan: account.data.quota.plan,
-              }
-            : undefined
-        }
         right={
           <div className="flex items-center gap-1.5">
             {plan !== 'free' && <ProBadge plan={plan} />}

@@ -8,7 +8,7 @@ const description = 'The terms that govern your use of the Fillaform Chrome exte
 
 export const Route = createFileRoute('/terms')({
   head: () => ({
-    meta: buildMeta({ title: `${title} — ${site.name}`, description, path: '/terms' }),
+    meta: buildMeta({ title: `${title} | ${site.name}`, description, path: '/terms' }),
     links: [canonicalLink('/terms')],
   }),
   component: TermsPage,

@@ -16,7 +16,7 @@ const STEPS = [
     shape: 'squircle' as MascotShape,
     title: 'Open any form',
     description:
-      'Fillaform spots the fields and reads the questions — text boxes, dropdowns, radio buttons, checkboxes. A launcher appears on the right showing how many fields it found.',
+      'Fillaform spots the fields and reads the questions: text boxes, dropdowns, radio buttons, checkboxes. A launcher appears on the right showing how many fields it found.',
   },
   {
     n: '3',

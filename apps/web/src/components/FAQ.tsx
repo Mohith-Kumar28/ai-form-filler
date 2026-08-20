@@ -15,7 +15,7 @@ const FAQS = [
   },
   {
     q: 'What does “guessed” mean?',
-    a: 'Some answers come straight from details you gave it. Others it works out for itself — those get a small tag reading “I guessed” or “not sure”. Click the tag to read, edit or rewrite the answer.',
+    a: 'Some answers come straight from details you gave it. Others it works out for itself, and those get a small tag reading “I guessed” or “not sure”. Click the tag to read, edit or rewrite the answer.',
   },
   {
     q: 'What happens to my data?',
@@ -23,7 +23,7 @@ const FAQS = [
   },
   {
     q: 'Which sites does it work on?',
-    a: 'Greenhouse, Lever, Ashby and Google Forms have purpose-built support. Everything else — registrations, surveys, contact forms — is handled by a general fallback.',
+    a: 'Greenhouse, Lever, Ashby and Google Forms have purpose-built support. Everything else, including registrations, surveys and contact forms, is handled by a general fallback.',
   },
 ]
 

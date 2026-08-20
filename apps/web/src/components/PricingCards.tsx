@@ -1,5 +1,5 @@
 import { Reveal } from '@/components/Reveal'
-import { IconCheck, IconSparkle } from '@/components/ui'
+import { IconCheck, IconMascot } from '@/components/ui'
 import { cn } from '@/lib/cn'
 import { pricing } from '@/lib/site'
 
@@ -99,7 +99,7 @@ export function PricingCards() {
             >
               {plan.plan === 'free' ? (
                 <span className="inline-flex items-center gap-1.5">
-                  <IconSparkle className="size-4" />
+                  <IconMascot className="size-4" />
                   {plan.cta}
                 </span>
               ) : (

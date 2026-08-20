@@ -5,11 +5,11 @@ import { site } from '@/lib/site'
 
 const title = 'Privacy Policy'
 const description =
-  'How Fillaform handles your data — what we collect, how it is used, and how you can delete it.'
+  'How Fillaform handles your data: what we collect, how it is used, and how you can delete it.'
 
 export const Route = createFileRoute('/privacy')({
   head: () => ({
-    meta: buildMeta({ title: `${title} — ${site.name}`, description, path: '/privacy' }),
+    meta: buildMeta({ title: `${title} | ${site.name}`, description, path: '/privacy' }),
     links: [canonicalLink('/privacy')],
   }),
   component: PrivacyPage,
@@ -33,27 +33,27 @@ function PrivacyPage() {
             <Section title="What Fillaform is">
               <p>
                 Fillaform is a Chrome extension that fills web forms from your own knowledge base.
-                It ingests material you choose to provide — a resume, links, pasted notes — and uses
-                it to answer fields on web forms you visit, in your own writing voice.
+                It ingests material you choose to provide, such as a resume, links or pasted notes,
+                and uses it to answer fields on web forms you visit, in your own voice.
               </p>
             </Section>
 
             <Section title="What we collect">
               <p>
-                <strong className="text-ink">Your Google account</strong> — name and email, used to
+                <strong className="text-ink">Your Google account.</strong> Name and email, used to
                 identify you and manage your plan. We do not access your Google Drive, contacts, or
                 any other Google data.
               </p>
               <p>
-                <strong className="text-ink">Your profile</strong> — identity fields you enter
-                (name, email, phone, links) and custom facts.
+                <strong className="text-ink">Your profile.</strong> Identity fields you enter (name,
+                email, phone, links) and custom facts.
               </p>
               <p>
-                <strong className="text-ink">Your sources</strong> — the documents, links, text, and
+                <strong className="text-ink">Your sources.</strong> The documents, links, text, and
                 images you upload. These are stored so Fillaform can search them at fill time.
               </p>
               <p>
-                <strong className="text-ink">Fill logs</strong> — which forms you filled and basic
+                <strong className="text-ink">Fill logs.</strong> Which forms you filled and basic
                 usage counts, used for quota enforcement and cost accounting.
               </p>
             </Section>

@@ -9,7 +9,7 @@ export const site = {
   domain: 'https://fillaform.in',
   tagline: 'Fill any form in one click',
   description:
-    'Fillaform is a Chrome extension that fills any web form for you — job applications, Google Forms, registrations, surveys. Add your CV and a few notes once, then every form gets answered in your own words. It labels the answers it guessed, so you know what to check.',
+    'Fillaform is a Chrome extension that fills any web form for you: job applications, Google Forms, registrations, surveys. Add your CV and a few notes once, then every form gets answered in your own words. It labels the answers it guessed, so you know what to check.',
   /** Pinned extension ID. The Web Store URL goes live once the listing is published. */
   chromeExtensionId: 'bkjmijloddfiilopdckanmnpmiimpcho',
   chromeWebStoreUrl: 'https://chromewebstore.google.com/detail/bkjmijloddfiilopdckanmnpmiimpcho',

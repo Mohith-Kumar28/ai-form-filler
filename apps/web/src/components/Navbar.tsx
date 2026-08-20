@@ -1,7 +1,7 @@
 import { Link } from '@tanstack/react-router'
 import { useState } from 'react'
 import { Logo } from '@/components/Logo'
-import { IconSparkle } from '@/components/ui'
+import { IconMascot } from '@/components/ui'
 import { navLinks, site } from '@/lib/site'
 
 export function Navbar() {
@@ -35,7 +35,7 @@ export function Navbar() {
             className="inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-[13.5px] font-semibold text-white no-underline shadow-glow transition-[filter] duration-150 hover:brightness-110"
             style={{ background: 'linear-gradient(135deg, var(--sparkle), var(--accent))' }}
           >
-            <IconSparkle className="size-4" />
+            <IconMascot className="size-4" />
             <span className="hidden sm:inline">Add to Chrome</span>
             <span className="sm:hidden">Add</span>
           </a>

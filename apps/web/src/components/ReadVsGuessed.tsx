@@ -16,11 +16,11 @@ export function ReadVsGuessed() {
               </h2>
               <p className="mt-5 max-w-[48ch] text-[15px] leading-relaxed text-ink-muted">
                 Most autofill tools stop at your name and email. Fillaform also answers the written
-                questions — and every answer comes labelled with where it came from.
+                questions, and every answer comes labelled with where it came from.
               </p>
               <p className="mt-4 max-w-[48ch] text-[15px] leading-relaxed text-ink-muted">
                 Answers taken straight from your details are left alone. Anything it worked out for
-                itself gets a small tag you can click to read, edit, or rewrite. Then you submit —
+                itself gets a small tag you can click to read, edit, or rewrite. Then you submit it.
                 Fillaform never does.
               </p>
             </div>
@@ -48,12 +48,12 @@ export function ReadVsGuessed() {
                   <GuessedBadge />
                 </div>
                 <p className="mt-2 text-[15px] leading-relaxed text-ink">
-                  I spent four years rebuilding a claims pipeline nobody wanted to touch — the part
-                  I liked was the archaeology of working out why a system ended up the way it had.
+                  I spent four years rebuilding a claims pipeline nobody wanted to touch. The part I
+                  liked was the archaeology of working out why a system ended up the way it had.
                 </p>
                 <div className="mt-3 flex items-center gap-1.5 border-t border-border-muted pt-3 text-[12px] text-accent">
                   <IconSparkle className="size-3.5" />
-                  Fillaform worked this one out &mdash; worth a read
+                  Fillaform worked this one out, worth a read
                 </div>
               </div>
             </div>

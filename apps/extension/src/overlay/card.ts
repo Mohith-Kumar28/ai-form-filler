@@ -626,7 +626,7 @@ export function mountAnswerCard(spec: AnswerCardSpec): CardHandle {
     setNote('Rewriting… this takes a few seconds.')
     if (slowTimer !== null) clearTimeout(slowTimer)
     slowTimer = setTimeout(() => {
-      if (generation === mine) setNote("Still going — it's reading your notes.")
+      if (generation === mine) setNote("Still going, it's reading your notes.")
     }, SLOW_REWRITE_MS)
 
     void spec

@@ -77,7 +77,7 @@ export const rateLimit = createRateLimit({
 export const feedbackRateLimit = createRateLimit({
   bucket: 'fb',
   max: 30,
-  message: 'Too many updates at once. Your answers are safe — try again shortly.',
+  message: 'Too many updates at once. Your answers are safe, so try again shortly.',
 })
 
 /**

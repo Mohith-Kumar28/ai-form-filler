@@ -13,7 +13,7 @@ export const Route = createRootRoute({
       { name: 'viewport', content: 'width=device-width, initial-scale=1' },
       { name: 'color-scheme', content: 'light dark' },
       ...buildMeta({
-        title: `${site.name} — ${site.tagline}`,
+        title: `${site.name} | ${site.tagline}`,
         description: site.description,
         path: '/',
       }),

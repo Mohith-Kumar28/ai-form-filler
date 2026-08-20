@@ -45,7 +45,7 @@ export type StructuredSource = z.infer<typeof StructuredProfileSchema>
 const SYSTEM = `You pull contact and identity details out of a document a person provided about themselves.
 
 This is a narrow extraction job, not a summary. The only thing wanted is the handful of typed
-fields a form asks for by name — the details that must be exact and are answered without any
+fields a form asks for by name, the details that must be exact and are answered without any
 further reasoning.
 
 Rules:

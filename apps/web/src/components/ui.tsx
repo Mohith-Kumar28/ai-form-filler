@@ -21,6 +21,33 @@ export function IconSparkle({ className = 'size-4' }: { className?: string }) {
   )
 }
 
+/**
+ * The mascot's face on the icon grid.
+ *
+ * `Mascot` below is the gradient body, for the places the product gets to have a face. This
+ * is the same smile as a line icon, so the mark can sit inside a button beside the rest of
+ * the set. The sparkle stays what it has always been: "I guessed this answer."
+ */
+export function IconMascot({ className = 'size-4' }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 16 16"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.75"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      className={className}
+    >
+      <circle cx="8" cy="8" r="6.25" />
+      <circle cx="5.9" cy="6.7" r="1" fill="currentColor" stroke="none" />
+      <circle cx="10.1" cy="6.7" r="1" fill="currentColor" stroke="none" />
+      <path d="M5.6 9.7c1.6 1.8 3.2 1.8 4.8 0" />
+    </svg>
+  )
+}
+
 export function IconCheck({ className = 'size-4' }: { className?: string }) {
   return (
     <svg

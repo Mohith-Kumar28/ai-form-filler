@@ -38,13 +38,13 @@ export const REWRITE_TONES: readonly RewritePreset[] = [
     key: 'warmer',
     label: 'warmer',
     instruction:
-      'Make it warmer and more human. Keep it in my voice — friendly, not gushing, and no exclamation marks.',
+      'Make it warmer and more human. Keep it in my voice: friendly, not gushing, and no exclamation marks.',
   },
   {
     key: 'confident',
     label: 'confident',
     instruction:
-      'Make it more confident. State things directly and drop the hedging — no "I think", no "I feel like", no "somewhat".',
+      'Make it more confident. State things directly and drop the hedging: no "I think", no "I feel like", no "somewhat".',
   },
   {
     key: 'plain',
@@ -78,7 +78,7 @@ export const REWRITE_LENGTHS: readonly RewritePreset[] = [
     key: 'expand',
     label: 'expand',
     instruction:
-      'Expand it with specifics drawn from my own notes — concrete facts and examples, not adjectives. Do not invent anything I have not told you.',
+      'Expand it with specifics drawn from my own notes: concrete facts and examples, not adjectives. Do not invent anything I have not told you.',
   },
 ] as const
 

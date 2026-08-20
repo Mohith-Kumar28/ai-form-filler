@@ -66,7 +66,7 @@ app.get('/v1/billing/return', (c) =>
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Payment complete — Fillaform</title>
+    <title>Payment complete | Fillaform</title>
     <style>
       body { font-family: ui-sans-serif, system-ui, -apple-system, sans-serif; background: #f4f2ee; color: #1a1a1a; display: grid; place-items: center; min-height: 100vh; margin: 0; }
       main { text-align: center; padding: 2rem; }
@@ -77,7 +77,7 @@ app.get('/v1/billing/return', (c) =>
   <body>
     <main>
       <h1>Payment complete</h1>
-      <p>You can close this tab. Your plan is updating in the extension — reopen the side panel to see it.</p>
+      <p>You can close this tab. Your plan is updating in the extension. Reopen the side panel to see it.</p>
     </main>
   </body>
 </html>`),

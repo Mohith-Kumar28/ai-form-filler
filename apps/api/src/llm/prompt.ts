@@ -72,7 +72,7 @@ export type SubmitFillsInput = z.infer<typeof SubmitFillsSchema>
 export const SYSTEM_INSTRUCTIONS = `You fill in web forms on behalf of a specific person, using only the profile supplied below.
 
 Rules:
-- Facts — names, dates, employers, grades, contact details — must come from the profile. Never invent one. If a fact is missing, skip the field.
+- Facts such as names, dates, employers, grades and contact details must come from the profile. Never invent one. If a fact is missing, skip the field.
 - Judgement calls are different. When a field asks for a preference, an opinion, or a choice ("would you like updates?", "which role interests you?", "how did you hear about us?"), answer the way this person would, based on the retrieved passages and what they build and care about. Set inferred=true on those.
 - inferred=true marks a *judgement*, not merely an answer you had to look for. An answer supported by a passage is not inferred, even if the passage does not use the question's words. Reserve it for answers you could not point at a source for.
 - Prefer answering over skipping when the question is a judgement call. Prefer skipping over guessing when the question is a fact.
@@ -80,6 +80,7 @@ Rules:
 - For a field with options, the value must be exactly one of the offered option values. For multiple selections, separate values with a comma.
 - Respect the stated maximum length. A truncated answer is worse than a shorter complete one.
 - Confidence reflects how directly the profile supports the answer, not how well-written it is. An inference from adjacent facts is below 0.7.
+- Never use an em dash. Use a comma, a colon, a semicolon, or two sentences instead.
 - Do not add pleasantries, salutations, or sign-offs unless the field explicitly asks for a letter.
 - Answer every field you are given: either in "fills" or in "skipped".
 
@@ -217,7 +218,7 @@ export function buildUserMessage(input: UserMessageInput): string {
        */
       past.push(
         sameQuestion(chunk.past.question, field.label)
-          ? `For "${field.label}" — the same question — they answered:\n${chunk.past.answer}`
+          ? `For "${field.label}", the same question, they answered:\n${chunk.past.answer}`
           : `For "${field.label}", they answered "${chunk.past.question}" with:\n${chunk.past.answer}`,
       )
     }
@@ -232,7 +233,7 @@ export function buildUserMessage(input: UserMessageInput): string {
 
   if (past.length > 0) {
     parts.push(
-      `Answers this person has already given, in their own words. These outrank everything else here. Where the question is the same, reuse their answer: keep its substance, its specifics, and its phrasing, and change it only to fit what this form actually asks — a length limit, a different tense, a detail this question wants and that one did not. Do not replace it with a fresh general answer, and do not drop the specific things they chose to say. Where the question is merely similar, treat it as their voice and their material rather than as the answer:\n\n${past.join('\n\n')}`,
+      `Answers this person has already given, in their own words. These outrank everything else here. Where the question is the same, reuse their answer: keep its substance, its specifics, and its phrasing, and change it only to fit what this form actually asks: a length limit, a different tense, a detail this question wants and that one did not. Do not replace it with a fresh general answer, and do not drop the specific things they chose to say. Where the question is merely similar, treat it as their voice and their material rather than as the answer:\n\n${past.join('\n\n')}`,
     )
   }
 
@@ -260,7 +261,7 @@ export function buildUserMessage(input: UserMessageInput): string {
 
   if (avoided.length > 0) {
     parts.push(
-      `Answers this person has already rejected. Do not offer them again — answer differently, or leave the field for them:\n\n${avoided.join('\n')}`,
+      `Answers this person has already rejected. Do not offer them again. Answer differently, or leave the field for them:\n\n${avoided.join('\n')}`,
     )
   }
 

@@ -146,7 +146,7 @@ function UploadMode({ onDone }: { onDone: () => Promise<void> }) {
             {file ? file.name : 'Drop a file here, or choose one'}
           </p>
           <p className="mt-1 text-[12px] text-ink-dim">
-            {file ? formatBytes(file.size) : `PDF, Word, slides, images, audio — up to ${maxMB} MB`}
+            {file ? formatBytes(file.size) : `PDF, Word, slides, images, audio, up to ${maxMB} MB`}
           </p>
           <input
             type="file"
@@ -166,7 +166,7 @@ function UploadMode({ onDone }: { onDone: () => Promise<void> }) {
               aria-describedby={describedBy}
               value={label}
               onChange={(event) => setLabel(event.currentTarget.value)}
-              placeholder="Résumé — 2026"
+              placeholder="Résumé 2026"
             />
           )}
         </Field>
@@ -268,7 +268,7 @@ function TextMode({ onDone }: { onDone: () => Promise<void> }) {
       <ScreenBody className="flex flex-col gap-4 p-4">
         <Field
           label="Anything about you"
-          hint="No name needed — the first line becomes the label."
+          hint="No name needed. The first line becomes the label."
           error={short ? 'A little more than that, so there is something to read.' : undefined}
         >
           {({ id, describedBy }) => (

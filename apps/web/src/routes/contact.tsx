@@ -4,11 +4,12 @@ import { buildMeta, canonicalLink } from '@/lib/seo'
 import { site } from '@/lib/site'
 
 const title = 'Contact'
-const description = 'Get in touch with the Fillaform team — support, feedback, and partnerships.'
+const description =
+  'Get in touch with the Fillaform team about support, feedback, and partnerships.'
 
 export const Route = createFileRoute('/contact')({
   head: () => ({
-    meta: buildMeta({ title: `${title} — ${site.name}`, description, path: '/contact' }),
+    meta: buildMeta({ title: `${title} | ${site.name}`, description, path: '/contact' }),
     links: [canonicalLink('/contact')],
   }),
   component: ContactPage,

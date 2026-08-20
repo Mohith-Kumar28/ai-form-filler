@@ -106,8 +106,8 @@ export function Receipt({
               Nothing was written
             </h2>
             <p className="mt-1.5 max-w-[32ch] text-[13px] leading-relaxed text-ink-muted">
-              No field here could be answered. Add more about yourself in My info — that's what
-              changes it.
+              No field here could be answered. Add more about yourself in My info and that will
+              change it.
             </p>
           </div>
         </ScreenBody>
@@ -192,7 +192,7 @@ export function Receipt({
         {judged.length > 0 && (
           <div className="mx-4 mt-4">
             <p className="mb-2 text-[12px] font-semibold text-ink-dim">
-              These I worked out — open one to change it
+              These I worked out. Open one to change it
             </p>
             <div className="overflow-hidden rounded-2xl border border-border-muted">
               <RowGroup>

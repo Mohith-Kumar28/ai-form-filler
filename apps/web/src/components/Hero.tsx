@@ -1,6 +1,6 @@
 import { motion, useReducedMotion } from 'motion/react'
 import { useRef } from 'react'
-import { IconSparkle, Mascot, useMascotGaze } from '@/components/ui'
+import { IconMascot, IconSparkle, Mascot, useMascotGaze } from '@/components/ui'
 import { site } from '@/lib/site'
 
 export function Hero() {
@@ -79,8 +79,8 @@ export function Hero() {
           transition={{ duration: 0.6, delay: 0.16, ease: [0.2, 0, 0, 1] }}
           className="mx-auto mt-6 max-w-[52ch] text-[16px] leading-relaxed text-ink-muted md:text-[17px]"
         >
-          Add your CV and a few notes once. After that, Fillaform answers every form you open — job
-          applications, Google Forms, registrations, surveys — in your own words. It labels the
+          Add your CV and a few notes once. After that, Fillaform answers every form you open, in
+          your own words: job applications, Google Forms, registrations, surveys. It labels the
           answers it <span className="font-semibold text-accent">guessed</span>, so you know exactly
           what to check before you submit.
         </motion.p>
@@ -98,8 +98,8 @@ export function Hero() {
             className="inline-flex items-center gap-2 rounded-full px-6 py-3 text-[15px] font-semibold text-white no-underline shadow-glow transition-[filter] duration-150 hover:brightness-110"
             style={{ background: 'linear-gradient(135deg, var(--sparkle), var(--accent))' }}
           >
-            <IconSparkle className="size-4.5" />
-            Add to Chrome — free
+            <IconMascot className="size-4.5" />
+            Add to Chrome, free
           </a>
           <a
             href="#demo"

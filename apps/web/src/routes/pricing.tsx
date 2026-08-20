@@ -10,7 +10,7 @@ const description =
 
 export const Route = createFileRoute('/pricing')({
   head: () => ({
-    meta: buildMeta({ title: `${title} — ${site.name}`, description, path: '/pricing' }),
+    meta: buildMeta({ title: `${title} | ${site.name}`, description, path: '/pricing' }),
     links: [canonicalLink('/pricing')],
   }),
   component: PricingPage,
@@ -47,8 +47,8 @@ function PricingPage() {
               </p>
               <p>
                 <strong className="text-ink">What counts as a form?</strong> Each time you click
-                &ldquo;Fill&rdquo; and Fillaform processes a page, that is one form fill —
-                regardless of how many fields.
+                &ldquo;Fill&rdquo; and Fillaform processes a page, that is one form fill, regardless
+                of how many fields.
               </p>
               <p>
                 <strong className="text-ink">Do you store my data?</strong> Your sources (resume,
