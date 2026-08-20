@@ -313,7 +313,21 @@ export function createFeedbackCapture(origin: string, send: FeedbackSend): Feedb
 
   /** An answer worth teaching, or null if any of the guards says no. */
   const answerEntry = (proposal: ProposedValue, accepted: string): Entry | null => {
-    if (taughtCount >= LEARN_MAX_PER_PAGE) return null
+    /**
+     * A field taught once already is a *replacement*, and replacements are free.
+     *
+     * `LEARN_MAX_PER_PAGE` bounds how many distinct answers one page may write, so that an
+     * unusual form cannot dominate everything retrieved afterwards. A second edit to a field
+     * writes no new answer: it lands on the same question hash and the server PATCHes the
+     * document it already has. Charging it to the page ceiling let one field somebody was
+     * iterating on starve every other field on the form.
+     *
+     * This is also why a per-field cap would be the wrong shape for the same worry. Refusing a
+     * field's fourth edit throws away the *last* one — and the last edit is the truest thing
+     * the user ever tells us about that question.
+     */
+    const isReplacement = taught.has(proposal.fieldId)
+    if (!isReplacement && taughtCount >= LEARN_MAX_PER_PAGE) return null
 
     // The durable backstop. Detection refuses to fill these, but a page can relabel a field
     // after the fact, and a one-time code in a memory index outlives its own validity.
@@ -345,7 +359,7 @@ export function createFeedbackCapture(origin: string, send: FeedbackSend): Feedb
 
     taught.set(proposal.fieldId, canonical(accepted))
     taughtKeys.add(key)
-    taughtCount += 1
+    if (!isReplacement) taughtCount += 1
 
     return {
       label: proposal.label,
@@ -522,8 +536,25 @@ export function createFeedbackCapture(origin: string, send: FeedbackSend): Feedb
     // they are not made to compete with answers for the submit cap.
     report([...entries, ...rejections], 'submit')
 
-    // One final report per fill. Re-submitting the same form should not double-count answers.
-    armed = false
+    /**
+     * Deliberately still armed.
+     *
+     * This used to end with `armed = false`, on the reasoning that there should be one final
+     * report per fill and re-submitting a form should not double-count answers. The reasoning
+     * was fine; the placement was catastrophic. `collect` runs from `visibilitychange → hidden`
+     * as well as from submit — that is, **every time the user switches tab** — and once
+     * disarmed, every listener here returns immediately. So the first correction was learned,
+     * the user glanced at another tab, and nothing on that page was ever learned again: not a
+     * second edit to the same field, not a first edit to any other field. Both were reported as
+     * separate bugs ("it only learns the first edit", "it only learns one question") and both
+     * were this line.
+     *
+     * Nothing is double-counted without it, because dedup is not this flag's job and never
+     * was. It is enforced three times over: `taught` per field, `taughtKeys` across fields that
+     * ask the same thing, and — the one that actually matters — the server's answer digest,
+     * which survives a reload, a new session, and a second device. A repeat sweep with nothing
+     * new in it reports nothing.
+     */
   }
 
   /**

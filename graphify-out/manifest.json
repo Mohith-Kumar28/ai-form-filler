@@ -215,8 +215,8 @@
     "semantic_hash": ""
   },
   "apps/api/src/services/answer-bank.ts": {
-    "mtime": 1787214128.3766606,
-    "ast_hash": "010a591d1a0fb097ef3373ac2ce0bf59",
+    "mtime": 1787232686.6852918,
+    "ast_hash": "940eb5855a33bc92f4887f8ac03655c3",
     "semantic_hash": ""
   },
   "apps/api/src/services/confirmation.test.ts": {
@@ -575,13 +575,13 @@
     "semantic_hash": ""
   },
   "apps/extension/src/overlay/feedback.test.ts": {
-    "mtime": 1787230960.0864112,
-    "ast_hash": "fe0e6130fe44eb5852017467595d0c4d",
+    "mtime": 1787233597.298922,
+    "ast_hash": "1fdaca2dabb9cc729c24abdf41bd62aa",
     "semantic_hash": ""
   },
   "apps/extension/src/overlay/feedback.ts": {
-    "mtime": 1787230610.3199928,
-    "ast_hash": "2acae4ff909cad525afda76cd4f9ecba",
+    "mtime": 1787233541.591187,
+    "ast_hash": "d1e8097dd7b6c013d9f2a93748207089",
     "semantic_hash": ""
   },
   "apps/extension/src/overlay/host.ts": {
@@ -1015,13 +1015,13 @@
     "semantic_hash": ""
   },
   "apps/api/src/services/learned-store.ts": {
-    "mtime": 1787213617.8171563,
-    "ast_hash": "751e3f4355b849eb2b9fd3de63802495",
+    "mtime": 1787232478.579996,
+    "ast_hash": "a517b53b76cf61d345ecd97f1aa883ff",
     "semantic_hash": ""
   },
   "apps/api/src/services/storage-shape.test.ts": {
-    "mtime": 1787230960.050654,
-    "ast_hash": "a9fdeeae5036acc02ea5c1cf5d0988a3",
+    "mtime": 1787232720.736619,
+    "ast_hash": "7d8b3089107dd39a4f8f2e82aaf2cbce",
     "semantic_hash": ""
   },
   "apps/extension/src/entrypoints/sidepanel/screens/Receipt.tsx": {
@@ -1085,8 +1085,8 @@
     "semantic_hash": ""
   },
   "apps/extension/src/overlay/launcher.ts": {
-    "mtime": 1786903860.4023023,
-    "ast_hash": "faa1184886f8a9a66748ca7a02e5732e",
+    "mtime": 1787232648.1706178,
+    "ast_hash": "4dad672094b69002a2f1cdb05cd16e6c",
     "semantic_hash": ""
   },
   "apps/extension/src/overlay/markers.test.ts": {

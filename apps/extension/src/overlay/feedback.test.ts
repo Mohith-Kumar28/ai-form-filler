@@ -723,3 +723,114 @@ describe('a clear that follows a correction', () => {
     expect(sent[0]?.entries[0]?.rejected).toBe(true)
   })
 })
+
+/**
+ * The bug behind "it only learns the first edit" and "it only learns one question".
+ *
+ * Two reports, one line. `collect` ended with `armed = false` — meant as "one final report per
+ * fill" — and `collect` runs from `visibilitychange → hidden` as well as from submit. So
+ * switching tabs disarmed the capture permanently: the first correction was learned, and after
+ * that nothing on the page was, whichever field it happened in.
+ *
+ * Switching to another tab to check whether something was remembered is the single most likely
+ * thing a person does after correcting an answer, which is why this presented as "learning only
+ * works once".
+ */
+describe('learning survives the rest of the session', () => {
+  const hide = () => {
+    Object.defineProperty(document, 'visibilityState', {
+      configurable: true,
+      get: () => 'hidden',
+    })
+    document.dispatchEvent(new Event('visibilitychange'))
+  }
+
+  it('keeps learning after the user switches tab', () => {
+    const { feedback, sent } = capture()
+    const values: Record<string, string> = { f1: 'Ours.', f2: 'Ours too.' }
+
+    feedback.arm(
+      [
+        { fieldId: 'f1', label: 'Why us?', proposed: 'Ours.' },
+        { fieldId: 'f2', label: 'Notice period', proposed: 'Ours too.' },
+      ],
+      live((fieldId) => values[fieldId] ?? null),
+    )
+
+    // First correction, then a glance at another tab — which is what used to end learning.
+    values.f1 = 'Because of the compiler work.'
+    hide()
+    expect(sent).toHaveLength(1)
+
+    // A second edit to the *same* field.
+    values.f1 = 'Because of the compiler work, and the people.'
+    hide()
+
+    // And a first edit to a *different* field.
+    values.f2 = '60 days'
+    hide()
+
+    expect(sent).toHaveLength(3)
+    expect(sent[1]?.entries[0]?.accepted).toContain('and the people')
+    expect(sent[2]?.entries[0]?.label).toBe('Notice period')
+  })
+
+  it('does not re-report an answer that has not changed', () => {
+    // The property the disarm was protecting, which the dedup maps already guarantee: sweeping
+    // again with nothing new must send nothing.
+    const { feedback, sent } = capture()
+    let value = 'Ours.'
+    feedback.arm(
+      [{ fieldId: 'f1', label: 'Why us?', proposed: 'Ours.' }],
+      live(() => value),
+    )
+
+    value = 'Mine.'
+    hide()
+    hide()
+    hide()
+
+    expect(sent).toHaveLength(1)
+  })
+})
+
+/**
+ * What the page ceiling is actually for.
+ *
+ * `LEARN_MAX_PER_PAGE` bounds how many *distinct answers* one form may write, so an unusual page
+ * cannot dominate everything retrieved afterwards. Re-editing one field writes no new answer —
+ * same question hash, same document, one PATCH — so charging it to that ceiling let a single
+ * field somebody was iterating on starve every other field on the form.
+ */
+describe('re-editing one field does not consume the page budget', () => {
+  it('still learns other fields after many edits to one', () => {
+    const { feedback, sent } = capture()
+    const values: Record<string, string> = {}
+    const fields = Array.from({ length: 26 }, (_, index) => `f${index}`)
+
+    for (const fieldId of fields) values[fieldId] = 'Ours.'
+
+    feedback.arm(
+      fields.map((fieldId) => ({ fieldId, label: `Question ${fieldId}`, proposed: 'Ours.' })),
+      live((fieldId) => values[fieldId] ?? null),
+    )
+
+    // Thirty edits to one field. Each replaces the last; none is a new answer.
+    for (let round = 0; round < 30; round++) {
+      values.f0 = `Draft ${round}`
+      document.dispatchEvent(new Event('submit', { bubbles: true }))
+    }
+
+    // A different field, edited after all of that, is still learned.
+    values.f1 = 'A distinct answer.'
+    document.dispatchEvent(new Event('submit', { bubbles: true }))
+
+    const labels = sent.flatMap((payload) => payload.entries.map((entry) => entry.label))
+    expect(labels).toContain('Question f1')
+    // And the last draft of the iterated field is the one that survived.
+    const drafts = sent.flatMap((payload) =>
+      payload.entries.filter((entry) => entry.label === 'Question f0').map((e) => e.accepted),
+    )
+    expect(drafts.at(-1)).toBe('Draft 29')
+  })
+})
