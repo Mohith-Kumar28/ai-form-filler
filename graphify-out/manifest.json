@@ -50,8 +50,8 @@
     "semantic_hash": ""
   },
   "apps/api/scripts/push-secrets.mjs": {
-    "mtime": 1787286420.9795895,
-    "ast_hash": "b8540f523cbfdced8a4484f01e78e6ed",
+    "mtime": 1787320486.1855907,
+    "ast_hash": "0c1a76617a9891dac6c21ea00f8926cc",
     "semantic_hash": ""
   },
   "apps/api/src/auth/google.ts": {
@@ -580,8 +580,8 @@
     "semantic_hash": ""
   },
   "apps/extension/src/overlay/host.ts": {
-    "mtime": 1787302039.9773085,
-    "ast_hash": "ad9a9612cb616acf80c0ad17c997848d",
+    "mtime": 1787310803.899647,
+    "ast_hash": "3d79faa968aeedade3ec00026a8a9fa5",
     "semantic_hash": ""
   },
   "apps/extension/src/overlay/overlay.test.ts": {
@@ -615,8 +615,8 @@
     "semantic_hash": ""
   },
   "package.json": {
-    "mtime": 1786861250.079216,
-    "ast_hash": "50b14764f7850071928198f4cc538adb",
+    "mtime": 1787320586.8254247,
+    "ast_hash": "780fac319e9b95c420f419d1fdfe4bdd",
     "semantic_hash": ""
   },
   "packages/form-adapters/package.json": {
@@ -760,8 +760,8 @@
     "semantic_hash": ""
   },
   "scripts/secrets.mjs": {
-    "mtime": 1786725779.0796778,
-    "ast_hash": "8d14efba9caf6b3e85074741399b35ce",
+    "mtime": 1787320586.8250031,
+    "ast_hash": "11449c8d6a8d6f57a2ec2e7b5bb58e72",
     "semantic_hash": ""
   },
   "scripts/setup-check.mjs": {
@@ -1005,8 +1005,8 @@
     "semantic_hash": ""
   },
   "apps/api/src/services/billing.ts": {
-    "mtime": 1787285881.4480875,
-    "ast_hash": "5f0d0e57d9a4d9716c3cdeb757d8d5c9",
+    "mtime": 1787323661.5616484,
+    "ast_hash": "48a4220b4de51566695d0393d55da1ab",
     "semantic_hash": ""
   },
   "apps/api/src/services/learned-store.ts": {
@@ -1582,6 +1582,11 @@
   "apps/extension/src/overlay/card.test.ts": {
     "mtime": 1787297116.3027844,
     "ast_hash": "f1bdd633f1f9324b09def82f6da283e7",
+    "semantic_hash": ""
+  },
+  "scripts/dodo-live.mjs": {
+    "mtime": 1787323661.5665505,
+    "ast_hash": "d27e7bc85e720fbe07307164aecaba8a",
     "semantic_hash": ""
   }
 }

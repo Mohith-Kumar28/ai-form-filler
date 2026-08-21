@@ -36,6 +36,7 @@
     "cf:create": "pnpm --filter @aff/api run cf:create",
     "secrets:list": "node scripts/secrets.mjs",
     "secrets:push": "pnpm --filter @aff/api run secrets:push",
+    "dodo:live": "node scripts/dodo-live.mjs",
     "//5-database": "─────────────── database ───────────────",
     "db:generate": "pnpm --filter @aff/api run db:generate",
     "db:migrate": "pnpm --filter @aff/api run db:migrate:local",

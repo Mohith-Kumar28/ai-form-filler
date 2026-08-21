@@ -28,15 +28,43 @@ function planFromProductId(env: AppEnv['Bindings'], productId: string): 'pro' | 
   return 'pro'
 }
 
+/**
+ * Which Dodo to talk to — chosen, never defaulted.
+ *
+ * Test and live are two unrelated deployments: separate keys, products, collections, webhooks
+ * and customers, and no id from one resolves in the other. This used to read
+ * `=== 'test_mode' ? test : live`, so an unset or misspelt `DODO_ENVIRONMENT` silently
+ * selected live — the mode that moves real money — and said nothing about why. Naming both
+ * values turns that typo into a message identifying the bad value.
+ *
+ * A deployed Worker left on `test_mode` is the quieter failure and the more expensive one: it
+ * accepts checkouts all day, bills nobody, and looks entirely healthy from the outside. It is
+ * a warning rather than a throw because staging deliberately runs test-mode billing under
+ * `ENVIRONMENT=production`.
+ */
+function dodoBase(env: AppEnv['Bindings']): string {
+  if (env.ENVIRONMENT === 'production' && env.DODO_ENVIRONMENT === 'test_mode') {
+    console.warn('[billing] deployed Worker is on Dodo TEST mode — no payment will be collected')
+  }
+
+  switch (env.DODO_ENVIRONMENT) {
+    case 'live_mode':
+      return 'https://live.dodopayments.com'
+    case 'test_mode':
+      return 'https://test.dodopayments.com'
+    default:
+      throw new Error(
+        `DODO_ENVIRONMENT must be 'test_mode' or 'live_mode', got '${env.DODO_ENVIRONMENT}'`,
+      )
+  }
+}
+
 async function dodoFetch(
   env: AppEnv['Bindings'],
   path: string,
   init: RequestInit = {},
 ): Promise<Response> {
-  const base =
-    env.DODO_ENVIRONMENT === 'test_mode'
-      ? 'https://test.dodopayments.com'
-      : 'https://live.dodopayments.com'
+  const base = dodoBase(env)
 
   const res = await fetch(`${base}${path}`, {
     ...init,
@@ -55,7 +83,7 @@ async function dodoFetch(
   return res
 }
 
-const RETURN_URL = 'https://aff-api.mohithkumar808.workers.dev/v1/billing/return'
+const RETURN_URL = 'https://api.fillaform.in/v1/billing/return'
 
 /**
  * Creates a checkout session, in one of two shapes.
@@ -117,7 +145,7 @@ export async function createPortal(
   const res = await dodoFetch(env, `/customers/${dodoCustomerId}/customer-portal/session`, {
     method: 'POST',
     body: JSON.stringify({
-      return_url: 'https://aff-api.mohithkumar808.workers.dev/v1/billing/return',
+      return_url: 'https://api.fillaform.in/v1/billing/return',
     }),
   })
 

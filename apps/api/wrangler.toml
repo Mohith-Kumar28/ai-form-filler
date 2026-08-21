@@ -82,6 +82,25 @@ enabled = true
 [env.production]
 name = "aff-api"
 
+# api.fillaform.in is the only public address. Retiring the workers.dev host is deliberate:
+# one address to reason about, and the Worker's name stops being a fact anyone can depend on.
+#
+# Stated explicitly rather than left to the default, because declaring `routes` turns
+# workers.dev off silently — a deploy warning is the only notice. Anything still pinned to
+# the old host gets a 404, which is the intended outcome here, not an accident.
+#
+# Must sit here rather than after `[[env.production.routes]]`, or TOML reads it as a key of
+# the route table and wrangler rejects the config.
+workers_dev = false
+
+# api.fillaform.in — the address the extension and Dodo both talk to. Declared here rather
+# than left dashboard-only so the routing is visible in review and survives a rebuild, and
+# so the Worker's own name stops being a public fact anyone depends on.
+[[env.production.routes]]
+pattern = "api.fillaform.in"
+custom_domain = true
+
+
 [env.production.vars]
 ENVIRONMENT = "production"
 

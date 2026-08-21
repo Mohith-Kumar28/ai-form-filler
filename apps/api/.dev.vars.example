@@ -45,20 +45,40 @@ AI_GATEWAY_TOKEN=replace-me
 #   console.supermemory.ai -> API Keys -> create
 SUPERMEMORY_API_KEY=replace-me
 
-# ── Billing: Dodo Payments (phase 6) ─────────────────────────────────────────
+# ── Billing: Dodo Payments ──────────────────────────────────────────────────
+#
+# Test and live mode are two unrelated datasets. Separate API keys, products,
+# collections, webhooks, customers, transactions — and no id crosses over: a test
+# product id 404s at a live checkout, holding a real customer's card.
+#
+# So this file holds TEST values and nothing else, because `wrangler dev` reads it
+# and a local checkout click must never reach a real card. Live values live in
+# `.dev.vars.production` (gitignored), which only `pnpm secrets:push` reads and
+# which `pnpm dodo:live` writes for you.
+#
+#   pnpm dodo:live --dry-run    # show what live mode is missing
+#   pnpm dodo:live              # create the live catalogue + webhook
 #
 #   Dashboard → Developer → API → create an API key (write access for server-side).
-DODO_PAYMENTS_API_KEY=dp_test_xxxxxxxxxxxxxxxxxxxx
+#   Make sure the dashboard's mode toggle says Test Mode before you create this one.
+DODO_PAYMENTS_API_KEY=replace-me
 
 #   Dashboard → Developer → Webhooks → select your endpoint → copy the signing secret.
-DODO_WEBHOOK_SECRET=whsec_xxxxxxxxxxxxxxxxxxxx
+#   Verified with Standard Webhooks HMAC-SHA256 in routes/webhook.ts.
+DODO_WEBHOOK_SECRET=whsec_replace-me
 
-#   'test_mode' for local dev; 'live_mode' for production.
+#   'test_mode' or 'live_mode'. No default — an unrecognised value throws rather than
+#   guessing, because the wrong guess is the one that charges people.
 DODO_ENVIRONMENT=test_mode
 
-# JSON: plan → currency → Dodo product id.
-# Create products in the Dodo dashboard first (Pro USD, Pro INR, Ultra USD, Ultra INR),
-# then paste their ids here.
-# Example:
-# DODO_PRODUCT_IDS='{"pro":{"usd":"pdt_abc","inr":"pdt_xyz"},"ultra":{"usd":"pdt_def","inr":"pdt_uvw"}}'
+# JSON: plan → currency → Dodo product id. Used to price a trial checkout and to map a
+# webhook's product_id back to a plan, so a wrong id here silently files paying Ultra
+# customers as Pro.
+# DODO_PRODUCT_IDS='{"pro":{"usd":"pdt_...","inr":"pdt_..."},"ultra":{"usd":"pdt_...","inr":"pdt_..."}}'
 DODO_PRODUCT_IDS=
+
+# JSON: currency → Dodo product-collection id. This is the plan picker — Collection
+# Checkout renders Pro and Ultra side by side and the customer chooses. Every non-trial
+# upgrade goes through it, so if it is absent `POST /v1/billing/checkout` throws.
+# DODO_COLLECTION_IDS='{"usd":"pdc_...","inr":"pdc_..."}'
+DODO_COLLECTION_IDS=

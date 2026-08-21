@@ -10,7 +10,10 @@ apps/web/src/routeTree.gen.ts
 .react-start/
 
 # Secrets — never commit. Worker secrets live in `wrangler secret put`.
+# `.dev.vars.production` holds the LIVE Dodo key and signing secret.
 .dev.vars
+.dev.vars.*
+!.dev.vars.example
 .env
 .env.*
 !.env.example

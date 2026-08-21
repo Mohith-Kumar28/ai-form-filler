@@ -66,13 +66,21 @@ const SECRETS = [
     name: 'DODO_ENVIRONMENT',
     required: false,
     what: "'test_mode' for local dev; 'live_mode' for production.",
-    where: 'Set in .dev.vars or via wrangler secret put',
+    where: 'Set in .dev.vars, or .dev.vars.production for the deployed Worker',
+    note: 'No default. An unrecognised value throws, because the wrong guess is the one that charges people.',
   },
   {
     name: 'DODO_PRODUCT_IDS',
     required: false,
-    what: 'JSON map of plan → currency → Dodo product id.',
-    where: 'Create products in Dodo dashboard, then copy their ids here.',
+    what: 'JSON map of plan → currency → Dodo product id. Prices the trial, and maps a webhook back to a plan.',
+    where: 'pnpm dodo:live creates them in live mode and prints the JSON',
+  },
+  {
+    name: 'DODO_COLLECTION_IDS',
+    required: false,
+    what: 'JSON map of currency → product-collection id. The plan picker every non-trial upgrade goes through.',
+    where: 'pnpm dodo:live creates them in live mode and prints the JSON',
+    note: 'Absent, POST /v1/billing/checkout throws for anyone who is not starting a trial.',
   },
 ]
 
@@ -116,7 +124,12 @@ if (local === null) {
   )
 }
 
-console.log('Local development reads apps/api/.dev.vars (gitignored).')
-console.log('Deployed environments need each secret pushed:')
-console.log('  pnpm secrets:push                 # interactive, for production')
+console.log('Local development reads apps/api/.dev.vars (gitignored), which holds TEST-mode')
+console.log('Dodo values — wrangler dev reads the same file, and a local checkout click must')
+console.log('never reach a real card.')
+console.log()
+console.log('Deployed environments need each secret pushed. apps/api/.dev.vars.<env> layers on')
+console.log('top, and is where the LIVE Dodo key, webhook secret and product ids belong:')
+console.log('  pnpm dodo:live                    # create the live catalogue, write the overrides')
+console.log('  pnpm secrets:push                 # .dev.vars + .dev.vars.production')
 console.log('  wrangler secret put NAME --env staging\n')
