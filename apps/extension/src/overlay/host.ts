@@ -162,7 +162,8 @@ ${overlayVariables(':host')}
   /* Under the circle, then clear of it again. -19px is the circle's radius. */
   margin-left: -19px;
   padding: 0 12px 0 26px;
-  border-radius: 999px 0 0 999px;
+  /* Round where it meets the circle, square where it meets the window frame. */
+  border-radius: var(--aff-radius-full) 0 0 var(--aff-radius-full);
   /*
     A hairline, because surface-raised is oklch(99.3%) and most form pages are white.
 
@@ -337,7 +338,7 @@ ${overlayVariables(':host')}
   padding: 8px 6px;
   margin-right: 3px;
   border: 0;
-  border-radius: 999px;
+  border-radius: var(--aff-radius-full);
   background: var(--aff-surface-raised);
   cursor: grab;
   pointer-events: none;

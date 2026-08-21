@@ -265,8 +265,8 @@
     "semantic_hash": ""
   },
   "apps/extension/src/entrypoints/background.ts": {
-    "mtime": 1787300794.3971975,
-    "ast_hash": "724f55a75c631c7312ecf37e2c9a5007",
+    "mtime": 1787302557.1408207,
+    "ast_hash": "a932f984459b5d71960a32f8ca6b40d2",
     "semantic_hash": ""
   },
   "apps/extension/src/entrypoints/content.ts": {
@@ -605,8 +605,8 @@
     "semantic_hash": ""
   },
   "apps/extension/wxt.config.ts": {
-    "mtime": 1787298158.9694285,
-    "ast_hash": "e36ffb0290a5a4983394c5ca31e54cd8",
+    "mtime": 1787302543.7236564,
+    "ast_hash": "14f544efbca50cf2ec2c85bfce2f9e5e",
     "semantic_hash": ""
   },
   "biome.json": {
@@ -850,8 +850,8 @@
     "semantic_hash": ""
   },
   "apps/extension/gallery/stub-chrome.ts": {
-    "mtime": 1787301068.797044,
-    "ast_hash": "47055e0355faf2bf86e1916c85b0d9d0",
+    "mtime": 1787310718.347347,
+    "ast_hash": "2cd992d02fa69c1c5e7dc9945f5b58b2",
     "semantic_hash": ""
   },
   "apps/extension/gallery/vite.config.ts": {
@@ -1110,8 +1110,8 @@
     "semantic_hash": ""
   },
   "apps/web/src/components/ExtensionDemo.tsx": {
-    "mtime": 1787302245.4481602,
-    "ast_hash": "504baebb68eed8f8d6b5786aa8dc0b3c",
+    "mtime": 1787310702.3685095,
+    "ast_hash": "faa3b40ee438b7852d9223ee12701b37",
     "semantic_hash": ""
   },
   "apps/web/src/components/FAQ.tsx": {
@@ -1560,8 +1560,8 @@
     "semantic_hash": ""
   },
   "apps/extension/src/overlay/launcher.test.ts": {
-    "mtime": 1787300794.449436,
-    "ast_hash": "4196f073898e3112d3fb4e2a188e6920",
+    "mtime": 1787302573.2631116,
+    "ast_hash": "92e2101e2f06510078a3ad198d17b3fc",
     "semantic_hash": ""
   },
   "packages/shared/src/facts.ts": {

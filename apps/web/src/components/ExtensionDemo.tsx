@@ -113,12 +113,12 @@ const LOADING_MESSAGES = ['Reading the form…', 'Writing your answers…', 'Fil
  * The keyboard shortcut the extension suggests, written the way each platform writes it.
  *
  * Set after mount rather than at module scope: this page is server-rendered, and a Mac
- * visitor would otherwise get "Alt+Shift+F" in the HTML and "⌥⇧F" from the first client
+ * visitor would otherwise get "Alt+F" in the HTML and "⌥F" from the first client
  * render, which React reports as a hydration mismatch. The extension itself reads the real
  * binding out of `chrome.commands`, so the demo shows the default it ships with.
  */
-const SHORTCUT_DEFAULT = 'Alt+Shift+F'
-const SHORTCUT_MAC = '\u2325\u21e7F'
+const SHORTCUT_DEFAULT = 'Alt+F'
+const SHORTCUT_MAC = '\u2325F'
 
 /** The tab's two words. From `TAB_LABEL` in `markers.ts`. */
 const TAB_LABEL: Record<'inferred' | 'unsure', string> = {

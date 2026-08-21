@@ -27,7 +27,7 @@ const stub = {
     sendMessage: (request: { type?: string }) =>
       Promise.resolve(
         request?.type === 'overlay/shortcut'
-          ? { ok: true, value: { label: '\u2325\u21e7F' } }
+          ? { ok: true, value: { label: '\u2325F' } }
           : { ok: true, value: null },
       ),
     connect: () => ({
