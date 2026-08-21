@@ -1,3 +1,4 @@
+import { PLAN_UPLOAD_LIMITS } from '@aff/shared'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useGetAccount } from '../../../generated/endpoints/account/account.js'
@@ -22,11 +23,22 @@ import {
 import { IconAudio, IconDocument, IconLink, IconMic, IconText, IconUpload } from '../icons.js'
 import { useNavigation } from '../navigation.js'
 
-const UPLOAD_LIMITS = {
-  free: 15 * 1024 * 1024,
-  pro: 30 * 1024 * 1024,
-  ultra: 50 * 1024 * 1024,
-} as const
+/*
+ * `UPLOAD_LIMITS` was a verbatim copy of `PLAN_UPLOAD_LIMITS` from @aff/shared, which is also what
+ * the server enforces. A second copy of a limit is a limit that eventually disagrees with the one
+ * that matters, and the user finds out by having an upload refused after it uploaded.
+ */
+
+/**
+ * What the picker offers, from the same extension table the server maps media types with
+ * (`apps/api/src/profile/media.ts`). There was no `accept` at all, so the dialog offered every file
+ * on the machine and the only hint was a line of prose under it.
+ */
+const ACCEPT = [
+  '.pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.txt,.md,.csv,.rtf,.json,.html,.epub',
+  '.png,.jpg,.jpeg,.webp,.gif,.heic,.heif,.svg',
+  '.mp3,.m4a,.wav,.ogg,.webm,.aac,.flac,.mp4,.mov',
+].join(',')
 
 type Mode = 'upload' | 'link' | 'text' | 'voice'
 
@@ -96,8 +108,8 @@ function UploadMode({ onDone }: { onDone: () => Promise<void> }) {
   const [label, setLabel] = useState('')
   const [dragging, setDragging] = useState(false)
   const account = useGetAccount()
-  const plan = (account.data?.quota.plan ?? 'free') as keyof typeof UPLOAD_LIMITS
-  const maxBytes = UPLOAD_LIMITS[plan]
+  const plan = (account.data?.quota.plan ?? 'free') as keyof typeof PLAN_UPLOAD_LIMITS
+  const maxBytes = PLAN_UPLOAD_LIMITS[plan]
   const maxMB = Math.round(maxBytes / 1024 / 1024)
 
   const tooBig = file !== null && file.size > maxBytes
@@ -151,6 +163,7 @@ function UploadMode({ onDone }: { onDone: () => Promise<void> }) {
           <input
             type="file"
             aria-label="Choose a file"
+            accept={ACCEPT}
             onChange={(event) => accept(event.currentTarget.files?.[0] ?? null)}
             className="mt-3 w-full text-xs text-ink-muted file:mr-2 file:rounded-full file:border file:border-border file:bg-surface-raised file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-ink"
           />

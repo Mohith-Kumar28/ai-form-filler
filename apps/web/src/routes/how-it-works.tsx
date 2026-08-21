@@ -35,10 +35,15 @@ function HowItWorksPage() {
             content={
               <>
                 <p>
-                  Fillaform accepts four kinds of input: <strong>documents</strong> (resume PDF,
-                  transcripts), <strong>links</strong> (LinkedIn, GitHub, portfolio site),{' '}
-                  <strong>pasted text</strong> (notes, essays, bio), and <strong>images</strong>{' '}
-                  (screenshots, certificates).
+                  Fillaform takes <strong>documents</strong> (CV, transcripts, spreadsheets &mdash;
+                  PDF, Word, slides, Excel, CSV, plain text), <strong>links</strong> (LinkedIn,
+                  GitHub, your own site), <strong>pasted text</strong> (notes, essays, bio),{' '}
+                  <strong>images</strong> (screenshots, certificates) and{' '}
+                  <strong>voice notes</strong> &mdash; talk for a minute instead of typing.
+                </p>
+                <p>
+                  You can also add <strong>facts</strong> by hand: any field you want it to
+                  remember, like your notice period or your T-shirt size.
                 </p>
                 <p>
                   Each source is parsed and compiled into a structured profile. Key identity fields
@@ -79,10 +84,10 @@ function HowItWorksPage() {
                   page, maps them to your knowledge graph, and fills them in.
                 </p>
                 <p>
-                  Each answer carries a stamp. Unmarked answers were read directly from your
-                  profile. Answers with a{' '}
-                  <strong className="text-accent">vermilion CONCLUDED stamp</strong> were inferred,
-                  so you should review these before submitting.
+                  Unmarked answers were read directly from your profile. Anything Fillaform worked
+                  out for itself is tagged <strong className="text-accent">I guessed</strong> or{' '}
+                  <strong className="text-accent">not sure</strong>, so those are the ones to read
+                  before you submit. You can edit any of them, or ask for a rewrite.
                 </p>
               </>
             }

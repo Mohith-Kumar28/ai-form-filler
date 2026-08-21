@@ -3,6 +3,7 @@ import { getAccount } from '../generated/endpoints/account/account.js'
 import { improveAnswer, submitFeedback } from '../generated/endpoints/fill/fill.js'
 import { getProfile } from '../generated/endpoints/profile/profile.js'
 import { hasSession, signIn, signOut } from '../lib/auth.js'
+import { openTrial, openUpgrade } from '../lib/billing.js'
 import { LAST_FILL_KEY, registerFillPort } from '../lib/fill-port.js'
 import { toResult } from '../lib/messaging.js'
 
@@ -221,6 +222,15 @@ export default defineBackground(() => {
           } catch {
             return null
           }
+        }).then(sendResponse)
+        return true
+
+      case 'billing/checkout':
+        void toResult(async () => {
+          // `openTrial`/`openUpgrade` live in the panel's lib and call `chrome.tabs.create`, which
+          // the service worker can do too — and must, since the content script cannot.
+          await (request.trial ? openTrial() : openUpgrade())
+          return null
         }).then(sendResponse)
         return true
 

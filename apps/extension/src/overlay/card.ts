@@ -57,7 +57,13 @@ interface MenuCard extends BaseSpec {
   closeable?: boolean
 }
 
-export type CardSpec = MenuCard | AnswerCardSpec
+interface SuggestCard extends BaseSpec {
+  kind: 'suggest'
+  /** The value being offered. Shown verbatim; it is what will be written. */
+  value: string
+}
+
+export type CardSpec = MenuCard | AnswerCardSpec | SuggestCard
 
 function escapeHtml(value: string): string {
   return value.replace(
@@ -123,6 +129,10 @@ function mountCard(spec: CardSpec, content: HTMLElement): CardHandle {
   card.className = 'card'
   card.setAttribute('role', spec.kind === 'menu' ? 'menu' : 'dialog')
   if (spec.kind === 'menu') card.setAttribute('aria-label', 'Fill')
+  if (spec.kind === 'suggest') {
+    card.classList.add('card-suggest')
+    card.setAttribute('aria-label', 'Suggested answer')
+  }
 
   card.appendChild(content)
   root.appendChild(card)
@@ -132,7 +142,9 @@ function mountCard(spec: CardSpec, content: HTMLElement): CardHandle {
   card.style.top = '0px'
   card.style.left = '0px'
   const size = { width: card.offsetWidth, height: card.offsetHeight }
-  const placed = place(spec.anchor, size, spec.kind === 'answer' ? 'start' : 'end')
+  // A suggestion lines up with the left edge of the field it belongs to, like the answer card:
+  // two things in one vertical line read as one object. Menus stay flush with their trigger.
+  const placed = place(spec.anchor, size, spec.kind === 'menu' ? 'end' : 'start')
   card.style.top = `${placed.top}px`
   card.style.left = `${placed.left}px`
   card.style.setProperty('--origin-x', placed.originX)
@@ -153,6 +165,8 @@ function mountCard(spec: CardSpec, content: HTMLElement): CardHandle {
         [
           '.card-item:not([disabled])',
           '.card-close',
+          '.suggest-main',
+          '.suggest-close',
           '.answer-text',
           '.answer-filter',
           '.answer-option[tabindex="0"]',
@@ -193,7 +207,7 @@ function mountCard(spec: CardSpec, content: HTMLElement): CardHandle {
 
   const reposition = (anchor: Rect) => {
     const size = { width: card.offsetWidth, height: card.offsetHeight }
-    const next = place(anchor, size, spec.kind === 'answer' ? 'start' : 'end')
+    const next = place(anchor, size, spec.kind === 'menu' ? 'end' : 'start')
     card.style.top = `${next.top}px`
     card.style.left = `${next.left}px`
   }
@@ -267,6 +281,52 @@ export function mountMenuCard(spec: MenuCard): CardHandle {
     handle.element.querySelector<HTMLElement>('.card-item:not(:disabled)')?.focus()
   }
   return handle
+}
+
+/**
+ * The inline suggestion: a value we already hold, offered under the field it fits.
+ *
+ * Its own card rather than a `mountMenuCard` with one action, which is what it was. As a menu it
+ * inherited a header band that held nothing but a close cross, and a footer whose whole content was
+ * the words "Click to fill" — three stacked bands, a large empty rectangle, and no indication that
+ * a keyboard could accept it. One value and one gesture is one row.
+ *
+ * `autofocus` is deliberately absent: the person is typing in the field, and taking focus away to
+ * announce a suggestion would interrupt the thing the suggestion is trying to help with. The Enter
+ * key is wired on the field instead — see `mountAutofillSuggestion` — which is why the row shows a
+ * key rather than a button label.
+ */
+export function mountSuggestCard(spec: SuggestCard): CardHandle {
+  const row = document.createElement('div')
+  row.className = 'suggest'
+
+  const main = document.createElement('button')
+  main.type = 'button'
+  main.className = 'suggest-main'
+  main.dataset.id = 'fill'
+  main.title = spec.value
+  main.setAttribute('aria-label', `Fill with ${spec.value}`)
+  main.innerHTML = `${GLYPH.face}<span class="suggest-value">${escapeHtml(spec.value)}</span><span class="suggest-key">${GLYPH.enter}Enter</span>`
+  main.addEventListener('click', (event) => {
+    event.preventDefault()
+    event.stopPropagation()
+    spec.onSelect('fill')
+  })
+  row.appendChild(main)
+
+  const close = document.createElement('button')
+  close.type = 'button'
+  close.className = 'suggest-close'
+  close.setAttribute('aria-label', 'Dismiss suggestion')
+  close.innerHTML = GLYPH.close
+  close.addEventListener('click', (event) => {
+    event.preventDefault()
+    event.stopPropagation()
+    spec.onClose()
+  })
+  row.appendChild(close)
+
+  return mountCard(spec, row)
 }
 
 /**

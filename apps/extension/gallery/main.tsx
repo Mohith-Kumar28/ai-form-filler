@@ -2,6 +2,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { type ReactNode, StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import './gallery.css'
+import { UpgradeSheet } from '../src/entrypoints/sidepanel/components.js'
 import { NavigationProvider } from '../src/entrypoints/sidepanel/navigation.js'
 import { AddSource } from '../src/entrypoints/sidepanel/screens/AddSource.js'
 import { Facts } from '../src/entrypoints/sidepanel/screens/Facts.js'
@@ -17,6 +18,9 @@ import './stub-chrome.js'
 import {
   ACCOUNT,
   ACCOUNT_LOW_QUOTA,
+  ACCOUNT_NO_LONGFORM,
+  ACCOUNT_ON_HOLD,
+  ACCOUNT_ONBOARDING,
   EMPTY_PROFILE,
   MESSY_PROFILE,
   PLAN,
@@ -78,6 +82,36 @@ function Frame({
         <NavigationProvider>{children}</NavigationProvider>
       </div>
     </figure>
+  )
+}
+
+/**
+ * The sheet needs a positioned ancestor and a screen behind it.
+ *
+ * `UpgradeSheet` is `absolute inset-0` — in the panel it renders inside `Screen`, over whatever the
+ * user was looking at. Rendering it bare in a frame would collapse it, so this reproduces the
+ * arrangement it is designed for.
+ */
+function SheetHost({ mode }: { mode: 'trial' | 'compare' }) {
+  return (
+    <div className="relative h-full">
+      <Home
+        account={mode === 'trial' ? ACCOUNT_ONBOARDING : ACCOUNT_LOW_QUOTA}
+        profile={PROFILE}
+        page={PAGE_WITH_FORM}
+        hasLastFill={false}
+        onFill={() => undefined}
+      />
+      <UpgradeSheet
+        mode={mode}
+        onClose={() => undefined}
+        reason={
+          mode === 'trial'
+            ? 'Start the trial and it will answer this form from the 5 sources you added.'
+            : "You've used all 600 AI actions this month. They reset on the 1st."
+        }
+      />
+    </div>
   )
 }
 
@@ -182,6 +216,43 @@ function Gallery() {
 
           <Frame label="Account">
             <Profile account={ACCOUNT} />
+          </Frame>
+
+          {/*
+            The states that had no frame at all, which is why several of them were wrong.
+
+            An onboarding account is the one the panel must say nothing about money in — no meter,
+            no badge, no plan card — so it is worth being able to see that emptiness on purpose
+            rather than discovering it in the extension.
+          */}
+          <Frame label="Home" note="onboarding — nothing about money yet">
+            <Home
+              account={ACCOUNT_ONBOARDING}
+              profile={PROFILE}
+              page={PAGE_WITH_FORM}
+              hasLastFill={false}
+              onFill={() => undefined}
+            />
+          </Frame>
+
+          <Frame label="Account" note="onboarding — no billing section">
+            <Profile account={ACCOUNT_ONBOARDING} />
+          </Frame>
+
+          <Frame label="Account" note="out of long answers — the quiet second line">
+            <Profile account={ACCOUNT_NO_LONGFORM} />
+          </Frame>
+
+          <Frame label="Account" note="payment failed">
+            <Profile account={ACCOUNT_ON_HOLD} />
+          </Frame>
+
+          <Frame label="Upgrade sheet" note="trial, from a first fill attempt">
+            <SheetHost mode="trial" />
+          </Frame>
+
+          <Frame label="Upgrade sheet" note="compare, from a spent allowance">
+            <SheetHost mode="compare" />
           </Frame>
         </div>
       </div>

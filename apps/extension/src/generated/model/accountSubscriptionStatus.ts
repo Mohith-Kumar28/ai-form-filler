@@ -9,9 +9,11 @@ export type AccountSubscriptionStatus = typeof AccountSubscriptionStatus[keyof t
 
 
 export const AccountSubscriptionStatus = {
+  pending: 'pending',
   trial: 'trial',
   active: 'active',
   on_hold: 'on_hold',
   cancelled: 'cancelled',
+  failed: 'failed',
   expired: 'expired',
 } as const;

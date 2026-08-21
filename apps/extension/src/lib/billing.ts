@@ -18,6 +18,20 @@ export async function openUpgrade(): Promise<void> {
   openExternal(checkoutUrl)
 }
 
+/**
+ * Starts the 14-day Pro trial.
+ *
+ * A separate call rather than a flag on `openUpgrade` because they are different offers and the
+ * copy around them differs: this one is a single product with a trial attached, the other is a
+ * plan picker. The server decides eligibility — asking for a trial with a subscription already on
+ * file quietly gets the picker instead — so this can be called from anywhere without the caller
+ * having to reason about whether it is allowed.
+ */
+export async function openTrial(): Promise<void> {
+  const { checkoutUrl } = await createCheckout({ country: detectCountry(), trial: true })
+  openExternal(checkoutUrl)
+}
+
 /** Opens the Dodo Customer Portal for managing subscription (upgrade/downgrade/cancel). */
 export async function openManageSubscription(): Promise<void> {
   const { portalUrl } = await getPortal()

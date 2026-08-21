@@ -1,5 +1,5 @@
-import type { Fill, FillPlan, FillRequest, FillTier, Identity, Skip } from '@aff/shared'
-import { ApiErrorResponse } from '@aff/shared'
+import type { Fill, FillPlan, FillRequest, FillTier, Identity, Plan, Skip } from '@aff/shared'
+import { ApiErrorResponse, PLAN_SOLO_ESSAY_LIMITS } from '@aff/shared'
 import { and, eq, sql } from 'drizzle-orm'
 import { fillLog, profileDocs, profileSources } from '../db/schema.js'
 import type { Env } from '../env.js'
@@ -17,7 +17,76 @@ export interface FillContext {
   userId: string
   /** Carries the AI Gateway endpoint and token. */
   env: Env
+  plan: Plan
+  /** AI actions left this period. Enforced here, not merely reported — see `affordable`. */
   quotaRemaining: number
+  /** Long answers left this period. The tighter of the two ceilings on an essay-heavy form. */
+  longRemaining: number
+}
+
+/** One field the router decided needs a model, and which tier should answer it. */
+interface Unresolved {
+  fieldId: string
+  tier: FillTier
+}
+
+/**
+ * Trims the work to what this month's remaining allowance can pay for.
+ *
+ * `quotaRemaining` used to be carried into `runFill` and echoed straight back out, so the only
+ * enforcement anywhere was the all-or-nothing pre-flight check in `enforceQuota`. Somebody with
+ * eight actions left meeting a forty-field application either got the whole form for eight actions
+ * or a refusal — and it was the first of those.
+ *
+ * Fields are kept in **document order** rather than cheapest-first. Reordering would squeeze a few
+ * more answers out of a nearly-empty allowance and cost the user the ability to see where the tool
+ * stopped: a form answered down to question nineteen is legible, the same form with holes scattered
+ * through it is not.
+ *
+ * Tier 0 passes through free. In practice `runFill` only ever hands this the unresolved set, so a
+ * tier-0 classification never arrives — but the rule that a free lookup is not rationed belongs in
+ * the function that does the rationing, not in an invariant of one caller.
+ *
+ * Extracted from `runFill` so it can be tested without a database, a profile document or a
+ * provider — it is the part of a fill that decides what the user is charged for.
+ */
+export function budgetFills<T extends Unresolved>(
+  unresolved: readonly T[],
+  quotaRemaining: number,
+  longRemaining: number,
+): { affordable: T[]; unaffordable: Skip[] } {
+  const affordable: T[] = []
+  const unaffordable: Skip[] = []
+  let actionBudget = Math.max(0, quotaRemaining)
+  let longBudget = Math.max(0, longRemaining)
+
+  for (const classification of unresolved) {
+    // A lookup against the user's own saved information: no model call, no cost, never charged.
+    if (classification.tier === 0) {
+      affordable.push(classification)
+      continue
+    }
+
+    const isLong = classification.tier === 3
+    const outOfLong = isLong && longBudget <= 0
+
+    if (actionBudget <= 0 || outOfLong) {
+      unaffordable.push({
+        fieldId: classification.fieldId,
+        reason: 'quota_exhausted',
+        // Distinguishes the two ways to run out, because they need different remedies: one waits
+        // for the month, the other is specifically about essays and rewrites.
+        ...(outOfLong && actionBudget > 0 ? { detail: 'long answer' } : {}),
+      })
+      continue
+    }
+
+    affordable.push(classification)
+    actionBudget -= 1
+    if (isLong) longBudget -= 1
+  }
+
+  return { affordable, unaffordable }
 }
 
 /**
@@ -132,10 +201,25 @@ export async function runFill(
 
   const byId = new Map(candidates.map((f) => [f.id, f]))
 
+  const { affordable, unaffordable } = budgetFills(
+    tier0.unresolved,
+    ctx.quotaRemaining,
+    ctx.longRemaining,
+  )
+
+  if (unaffordable.length > 0) {
+    console.debug('[aff] fill trimmed to allowance', {
+      wanted: tier0.unresolved.length,
+      afforded: affordable.length,
+      quotaRemaining: ctx.quotaRemaining,
+      longRemaining: ctx.longRemaining,
+    })
+  }
+
   const batches: { tier: Exclude<FillTier, 0>; fieldIds: string[] }[] = []
 
   for (const tier of [1, 2] as const) {
-    const fieldIds = tier0.unresolved.filter((c) => c.tier === tier).map((c) => c.fieldId)
+    const fieldIds = affordable.filter((c) => c.tier === tier).map((c) => c.fieldId)
     if (fieldIds.length > 0) batches.push({ tier, fieldIds })
   }
 
@@ -151,16 +235,21 @@ export async function runFill(
    * Bounded, because tier 3 is the frontier model and a page of thirty textareas would
    * otherwise be thirty frontier calls on our own key. Past the cap the remainder is batched —
    * degraded, but not a surprise invoice.
+   *
+   * The bound is per plan, and it is the one gate where paying buys a *better* answer rather than
+   * more of the same. That follows from the paragraph above: batching is measurably worse writing,
+   * so a higher ceiling is a real difference and it costs us exactly what it is worth. It is not a
+   * capability withheld to create a reason to upgrade.
    */
-  const MAX_SOLO_ESSAYS = 6
-  const essays = tier0.unresolved.filter((c) => c.tier === 3).map((c) => c.fieldId)
+  const maxSoloEssays = PLAN_SOLO_ESSAY_LIMITS[ctx.plan]
+  const essays = affordable.filter((c) => c.tier === 3).map((c) => c.fieldId)
 
-  for (const fieldId of essays.slice(0, MAX_SOLO_ESSAYS)) {
+  for (const fieldId of essays.slice(0, maxSoloEssays)) {
     batches.push({ tier: 3, fieldIds: [fieldId] })
   }
-  const overflow = essays.slice(MAX_SOLO_ESSAYS)
+  const overflow = essays.slice(maxSoloEssays)
   if (overflow.length > 0) {
-    console.debug('[aff] essay batch overflow', { solo: MAX_SOLO_ESSAYS, batched: overflow.length })
+    console.debug('[aff] essay batch overflow', { solo: maxSoloEssays, batched: overflow.length })
     batches.push({ tier: 3, fieldIds: overflow })
   }
 
@@ -174,7 +263,7 @@ export async function runFill(
    * Gathered here rather than inside each batch so a question searched once is not searched
    * again by the tier that happens to own it.
    */
-  const unresolvedQuestions = tier0.unresolved.map((c) => ({
+  const unresolvedQuestions = affordable.map((c) => ({
     fieldId: c.fieldId,
     question: labels.get(c.fieldId) ?? '',
   }))
@@ -185,10 +274,11 @@ export async function runFill(
    * Both are keyed by the same questions and neither depends on the other, so waiting for one
    * before starting the other would add a round trip to every fill for no reason.
    *
-   * Only `tier0.unresolved` is asked about, which is the point rather than an optimisation: a
-   * value the user typed into their own profile is answered by tier 0 with no model call, and
-   * something they once cleared on somebody else's form must never override it. Their own
-   * stated fact wins.
+   * Only the fields we are actually going to answer are asked about, which is the point rather
+   * than an optimisation: a value the user typed into their own profile is answered by tier 0 with
+   * no model call, and something they once cleared on somebody else's form must never override it.
+   * Their own stated fact wins. Fields trimmed for want of allowance are excluded for the duller
+   * reason that searching for an answer we will not write is a request we pay for and discard.
    */
   const [context, avoid] = await Promise.all([
     batches.length > 0
@@ -244,7 +334,12 @@ export async function runFill(
     const kind = byId.get(fill.fieldId)?.kind
     return kind ? { ...fill, kind } : fill
   })
-  const skipped: Skip[] = [...alreadyFilled, ...tier0.skipped, ...results.flatMap((r) => r.skipped)]
+  const skipped: Skip[] = [
+    ...alreadyFilled,
+    ...tier0.skipped,
+    ...unaffordable,
+    ...results.flatMap((r) => r.skipped),
+  ]
 
   const usage = results.reduce(
     (acc, r) => ({
@@ -313,6 +408,46 @@ export async function writeFillLog(
     costMicroUsd: plan.usage.costMicroUsd,
     latencyMs: plan.usage.latencyMs,
     models: plan.usage.modelsUsed.join(','),
+    createdAt: Date.now(),
+  })
+}
+
+/**
+ * One row for one rewrite.
+ *
+ * Rewrites were the only inference path that wrote nothing here, so `scripts/costs.mjs` — the
+ * report whose whole purpose is deciding whether a plan is affordable — could not see the most
+ * expensive request the product makes. `adapter` is the sentinel `'rewrite'` so these rows are
+ * separable from form fills without a schema change.
+ */
+export async function writeRewriteLog(
+  db: Db,
+  userId: string,
+  input: {
+    origin: string
+    usage: { inputTokens: number; outputTokens: number }
+    costMicroUsd: number
+    latencyMs: number
+    model: string
+  },
+): Promise<void> {
+  await db.insert(fillLog).values({
+    id: `fl_${crypto.randomUUID()}`,
+    userId,
+    origin: input.origin,
+    adapter: 'rewrite',
+    fieldCount: 1,
+    tier0Count: 0,
+    tier1Count: 0,
+    tier2Count: 0,
+    tier3Count: 1,
+    inputTokens: input.usage.inputTokens,
+    outputTokens: input.usage.outputTokens,
+    cacheReadTokens: 0,
+    cacheWriteTokens: 0,
+    costMicroUsd: input.costMicroUsd,
+    latencyMs: input.latencyMs,
+    models: input.model,
     createdAt: Date.now(),
   })
 }

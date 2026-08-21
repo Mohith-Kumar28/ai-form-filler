@@ -10,7 +10,12 @@ import type {
 import { FILL_PORT, LEARN_MAX_OPTIONS, REVIEW_CONFIDENCE_THRESHOLD } from '@aff/shared/constants'
 import { sendMessage } from '../lib/messaging.js'
 import { type AnimatedFill, runFillAnimation } from '../overlay/animate.js'
-import { type CardHandle, mountAnswerCard, mountMenuCard } from '../overlay/card.js'
+import {
+  type CardHandle,
+  mountAnswerCard,
+  mountMenuCard,
+  mountSuggestCard,
+} from '../overlay/card.js'
 import { burstConfetti } from '../overlay/confetti.js'
 import { createFeedbackCapture, displayValueOf, feedbackEntryFor } from '../overlay/feedback.js'
 import { GLYPH, getOverlayHost, isOverlayEvent, isOverlayHost } from '../overlay/host.js'
@@ -220,7 +225,8 @@ export default defineContentScript({
     //   • every field gets a sparkle icon on its right edge — click it and the icon spins out
     //     while the AI writes, with no popup; hover for a moment to see the native tooltip.
     //   • a field we already know (an email, a typed fact) additionally gets an autofill
-    //     suggestion below it — the value, focused so Enter fills it and Escape closes it.
+    //     suggestion below it — one row showing the value and an Enter key. Focus stays in the
+    //     field, so Enter and Escape are handled on the field rather than on the card.
 
     let fieldTrigger: HTMLElement | null = null
     let fieldTriggerTarget: HTMLElement | null = null
@@ -366,18 +372,17 @@ export default defineContentScript({
       const rect = element.getBoundingClientRect()
       const anchor = { top: rect.top, left: rect.left, width: rect.width, height: rect.height }
 
-      card = mountMenuCard({
-        kind: 'menu',
+      const accept = () => {
+        closeCard()
+        dismissInputListeners()
+        void detection?.adapter.applyValue(detectedField, value)
+      }
+
+      card = mountSuggestCard({
+        kind: 'suggest',
         anchor,
-        actions: [{ id: 'fill', label: value, glyph: 'check' }],
-        note: { text: 'Click to fill' },
-        autofocus: false,
-        closeable: true,
-        onSelect: (id) => {
-          closeCard()
-          dismissInputListeners()
-          if (id === 'fill') void detection?.adapter.applyValue(detectedField, value)
-        },
+        value,
+        onSelect: accept,
         onClose: () => {
           suggestionDismissed = true
           closeCard()
@@ -414,6 +419,25 @@ export default defineContentScript({
           closeCard()
           dismissInputListeners()
           suggestionDismissed = true
+          return
+        }
+
+        /**
+         * Enter accepts the suggestion, and must not reach the form.
+         *
+         * The comment above this section has claimed since it was written that the suggestion is
+         * "focused so Enter fills it". It never was — the card mounts with focus left in the field,
+         * deliberately, so a suggestion does not interrupt typing. Which meant Enter went straight
+         * to the page: on a single-input form that is a submit, so the one key the card advertises
+         * would have sent an application with the field still blank.
+         *
+         * `preventDefault` before anything else, and only while a suggestion is actually on screen
+         * — this listener is torn down with the card, so Enter behaves normally the rest of the time.
+         */
+        if (event.key === 'Enter' && card) {
+          event.preventDefault()
+          event.stopPropagation()
+          accept()
         }
       }
 
@@ -482,7 +506,15 @@ export default defineContentScript({
     // beside it. One click opens the side panel and starts filling; while filling it expands
     // into a progress pill with a stop button.
 
-    function showUpgradePrompt() {
+    /**
+     * The offer, in the page, at the moment it was refused.
+     *
+     * Two things were wrong here. Its buttons were "Upgrade to Pro" and "Open panel", and both ran
+     * the same line of code — the upgrade took two further clicks that the label did not admit to.
+     * And it said "Monthly limit reached" to everyone, including somebody who has never had a plan
+     * and whose limit was therefore always zero: nothing was reached, they simply have not started.
+     */
+    function showUpgradePrompt(neverSubscribed: boolean) {
       closeCard()
       const anchor = launcher?.anchorRect() ?? firstFieldRect()
       if (!anchor) return
@@ -491,18 +523,26 @@ export default defineContentScript({
         kind: 'menu',
         anchor,
         actions: [
-          { id: 'upgrade', label: 'Upgrade to Pro', glyph: 'sparkle' },
+          {
+            id: 'checkout',
+            label: neverSubscribed ? 'Start 14-day free trial' : 'See plans',
+            glyph: 'sparkle',
+          },
           { id: 'panel', label: 'Open panel', glyph: 'sparkle' },
         ],
         note: {
-          text: 'Monthly limit reached. Upgrade to keep filling forms.',
+          text: neverSubscribed
+            ? 'Your answers are ready. Start the free trial and it will fill this form.'
+            : 'No AI actions left this month. Move up a plan to keep going.',
           bad: true,
         },
         onSelect: (id) => {
           closeCard()
-          if (id === 'upgrade') {
-            void chrome.runtime.sendMessage({ type: 'overlay/openPanel' }).catch(() => undefined)
-          } else if (id === 'panel') {
+          if (id === 'checkout') {
+            void chrome.runtime
+              .sendMessage({ type: 'billing/checkout', trial: neverSubscribed })
+              .catch(() => undefined)
+          } else {
             void chrome.runtime.sendMessage({ type: 'overlay/openPanel' }).catch(() => undefined)
           }
         },
@@ -525,7 +565,8 @@ export default defineContentScript({
       if (!result.ok || !result.value) return true
       if (result.value.exhausted) {
         launcher?.reset()
-        showUpgradePrompt()
+        // A limit of zero is an account that has never subscribed; anything else has run out.
+        showUpgradePrompt(result.value.limit === 0)
         return false
       }
       return true
@@ -969,7 +1010,7 @@ export default defineContentScript({
         code === 'UNAUTHENTICATED' || code === 'INVALID_TOKEN'
           ? { id: 'signin', label: 'Sign in', act: openPanel }
           : code === 'QUOTA_EXCEEDED' || code === 'LIMIT_EXCEEDED'
-            ? { id: 'upgrade', label: 'Upgrade', act: openPanel }
+            ? { id: 'upgrade', label: 'See plans', act: openPanel }
             : code === 'PROFILE_NOT_READY'
               ? { id: 'sources', label: 'Add a source', act: openPanel }
               : { id: 'retry', label: 'Try again', act: () => requestFill('form') }

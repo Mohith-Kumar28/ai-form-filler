@@ -1,5 +1,6 @@
 import {
   ApiErrorResponse,
+  MAX_TEXT_BYTES,
   PLAN_FACT_LIMITS,
   PLAN_SOURCE_LIMITS,
   PLAN_UPLOAD_LIMITS,
@@ -194,6 +195,20 @@ profileRoutes.openapi(addTextSourceRoute, async (c) => {
   }
 
   if (body.text) {
+    /**
+     * Measured in bytes, not characters, because the limit being respected is Supermemory's own
+     * 1 MB ceiling on text and that is a byte limit — a note of emoji or Devanagari is several
+     * times longer on the wire than its length suggests. Nothing checked this before, so an
+     * oversized paste failed downstream in memory with an error we did not write.
+     */
+    const bytes = new TextEncoder().encode(body.text).length
+    if (bytes > MAX_TEXT_BYTES) {
+      throw new ApiErrorResponse(
+        'INVALID_REQUEST',
+        `That note is ${(bytes / 1024 / 1024).toFixed(1)} MB. Notes are limited to 1 MB — attach it as a file instead.`,
+      )
+    }
+
     const parsed = parseFreeform(body.text)
     // Pasted text names itself: its first line is a better label than "Untitled note".
     const label = body.label?.trim() || firstLineOf(parsed.text)

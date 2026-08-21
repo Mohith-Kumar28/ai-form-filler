@@ -199,6 +199,18 @@ export function IconLock({ className }: { className?: string }) {
   )
 }
 
+/** A stack of sources: a document, a link and a waveform, which is what you feed it. */
+export function IconSources({ className }: { className?: string }) {
+  return (
+    <Glyph className={className}>
+      <path d="M6 3.5h7l4.5 4.5V15a1.5 1.5 0 0 1-1.5 1.5H6A1.5 1.5 0 0 1 4.5 15V5A1.5 1.5 0 0 1 6 3.5z" />
+      <path d="M12.75 3.75V8h4.25" />
+      <path d="M8 20.5h11" />
+      <path d="M8 20.5v-2M11 21.5v-4M14 20.5v-2M17 21.5v-4" />
+    </Glyph>
+  )
+}
+
 export function IconGift({ className }: { className?: string }) {
   return (
     <Glyph className={className}>

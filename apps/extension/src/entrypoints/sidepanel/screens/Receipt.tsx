@@ -36,7 +36,7 @@ const SKIP_REASON: Record<string, string> = {
   no_matching_knowledge: 'Nothing on file answers this',
   already_filled: 'You had already answered it',
   unsupported_kind: 'This kind of field cannot be filled',
-  quota_exhausted: 'Ran out of forms mid-way',
+  quota_exhausted: 'No AI actions left for this one',
   model_error: 'Could not be answered',
 }
 

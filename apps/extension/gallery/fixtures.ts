@@ -10,23 +10,63 @@ import type { Account, Profile } from '../src/generated/model/index.js'
  * this is real data about anyone; it is synthetic, and it never leaves this harness.
  */
 
+/**
+ * Mid-trial, which is the state most of the panel is designed around.
+ *
+ * The old fixture was `plan: 'free', limit: 50`, matching no plan that has ever existed — free was
+ * 5 at the time — so every screenshot of the meter showed an allowance the server would never
+ * report. Numbers here are the real `PLAN_LIMITS.pro`.
+ */
 export const ACCOUNT: Account = {
   id: 'usr_fixture',
   email: 'ifeoma.balogun@fastmail.com',
   name: 'Ifeoma Balogun',
   quota: {
-    plan: 'free',
-    used: 13,
-    limit: 50,
+    plan: 'pro',
+    used: 138,
+    limit: 600,
+    longUsed: 21,
+    longLimit: 150,
     resetsAt: '2026-09-01T00:00:00.000Z',
   },
   profileReady: true,
   profileVersion: 7,
+  subscription: {
+    plan: 'pro',
+    status: 'trial',
+    // Four days out from the fixture "today" of 2026-08-21.
+    trialEndsAt: Math.floor(Date.UTC(2026, 7, 25) / 1000),
+  },
 }
 
+/** Past 80% of the month's actions — the warning branch of the meter. */
 export const ACCOUNT_LOW_QUOTA: Account = {
   ...ACCOUNT,
-  quota: { ...ACCOUNT.quota, used: 46 },
+  quota: { ...ACCOUNT.quota, used: 552, longUsed: 96 },
+}
+
+/**
+ * Signed in, onboarded, never subscribed. The state the panel must say nothing about money in.
+ *
+ * A limit of zero is what makes filling the paywall: `enforceQuota` refuses the very first request,
+ * and Home turns that into the trial sheet rather than an error.
+ */
+export const ACCOUNT_ONBOARDING: Account = {
+  ...ACCOUNT,
+  quota: { ...ACCOUNT.quota, plan: 'free', used: 0, limit: 0, longUsed: 0, longLimit: 0 },
+  subscription: null,
+}
+
+/** Out of long answers with plenty of actions left — the meter's quiet secondary line. */
+export const ACCOUNT_NO_LONGFORM: Account = {
+  ...ACCOUNT,
+  quota: { ...ACCOUNT.quota, used: 240, longUsed: 150 },
+}
+
+/** A card that failed. Previously unrepresentable: the server never reported this status. */
+export const ACCOUNT_ON_HOLD: Account = {
+  ...ACCOUNT,
+  subscription: { plan: 'pro', status: 'on_hold' },
 }
 
 export const PROFILE: Profile = {

@@ -7,6 +7,14 @@ import { createCheckout, createPortal, getDodoCustomerId } from '../services/bil
 const CheckoutRequest = z
   .object({
     country: z.string().min(2).max(2).optional(),
+    /**
+     * Ask for the trial rather than a plan picker.
+     *
+     * A flag rather than a plan name because there is only one trial on offer — 14 days of Pro —
+     * and the client is not the right place to decide which product that is. `false` (or absent)
+     * gets Collection Checkout, where Dodo shows Pro and Ultra side by side.
+     */
+    trial: z.boolean().optional(),
   })
   .openapi('CheckoutRequest')
 
@@ -58,13 +66,23 @@ billingRoutes.use('/checkout', requireAuth)
 billingRoutes.use('/portal', requireAuth)
 
 billingRoutes.openapi(checkoutRoute, async (c) => {
-  const { country } = c.req.valid('json')
+  const { country, trial } = c.req.valid('json')
   const account = c.get('account')
+
+  /**
+   * A trial is offered once, and the server decides that — not the caller.
+   *
+   * Asking for `trial: true` with a subscription already on file would otherwise hand a second
+   * free fortnight to anyone who called the endpoint directly. Dodo's own "Prevent Trial Misuse"
+   * setting is the durable backstop across accounts; this is the cheap check for the same account.
+   */
+  const eligible = trial === true && account.subscription == null
 
   const checkoutUrl = await createCheckout(c.env, {
     userId: c.get('userId'),
     email: account.email,
     country: country ?? 'US',
+    trial: eligible,
   })
 
   return c.json({ checkoutUrl }, 200)

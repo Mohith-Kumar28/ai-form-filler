@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { Account, PLAN_LIMITS } from './account.js'
+import { Account, PLAN_LIMITS, PLAN_LONGFORM_LIMITS } from './account.js'
 import { ApiErrorResponse } from './api.js'
 import { FillPlan, FillRequest, REVIEW_CONFIDENCE_THRESHOLD } from './fill.js'
 import { FormSchema } from './form.js'
@@ -95,7 +95,9 @@ describe('Profile', () => {
 })
 
 describe('Account', () => {
-  it('accepts a free-tier account at the documented limit', () => {
+  it('accepts an account with no subscription, whose allowance is nothing', () => {
+    // `free` is not a free tier — it is the state of an account that has not subscribed. A limit of
+    // zero is what makes filling the paywall: `enforceQuota` refuses the very first request.
     const parsed = Account.parse({
       id: 'u_1',
       email: 'a@b.com',
@@ -103,22 +105,87 @@ describe('Account', () => {
         plan: 'free',
         used: 0,
         limit: PLAN_LIMITS.free,
+        longUsed: 0,
+        longLimit: PLAN_LONGFORM_LIMITS.free,
         resetsAt: new Date().toISOString(),
       },
       profileReady: false,
       profileVersion: 0,
     })
-    expect(parsed.quota.limit).toBe(5)
+    expect(parsed.quota.limit).toBe(0)
+    expect(parsed.subscription).toBeUndefined()
+  })
+
+  it('requires the long-answer meter rather than defaulting it', () => {
+    /*
+     * Deliberately not optional. An absent sub-meter would have to be read as either "no long
+     * answers left" or "no limit", and both are wrong — so the server is made to say which.
+     */
+    expect(() =>
+      Account.parse({
+        id: 'u_1',
+        email: 'a@b.com',
+        quota: { plan: 'pro', used: 0, limit: 600, resetsAt: new Date().toISOString() },
+        profileReady: false,
+        profileVersion: 0,
+      }),
+    ).toThrow()
+  })
+
+  it('carries a trial with its conversion date', () => {
+    // Dodo reports a trialing subscription as plain `active` and has no field for the trial, so
+    // this date is ours — recorded at checkout and echoed back through webhook metadata.
+    const trialEndsAt = Math.floor(Date.now() / 1000) + 14 * 86_400
+    const parsed = Account.parse({
+      id: 'u_1',
+      email: 'a@b.com',
+      quota: {
+        plan: 'pro',
+        used: 12,
+        limit: PLAN_LIMITS.pro,
+        longUsed: 2,
+        longLimit: PLAN_LONGFORM_LIMITS.pro,
+        resetsAt: new Date().toISOString(),
+      },
+      profileReady: true,
+      profileVersion: 1,
+      subscription: { plan: 'pro', status: 'trial', trialEndsAt },
+    })
+    expect(parsed.subscription?.status).toBe('trial')
+    expect(parsed.subscription?.trialEndsAt).toBe(trialEndsAt)
+  })
+
+  it('accepts the Dodo states that were previously missing', () => {
+    // `pending` and `failed` were absent from the enum, so an incomplete mandate was
+    // indistinguishable from a working subscription.
+    for (const status of ['pending', 'failed'] as const) {
+      const parsed = Account.parse({
+        id: 'u_1',
+        email: 'a@b.com',
+        quota: {
+          plan: 'free',
+          used: 0,
+          limit: 0,
+          longUsed: 0,
+          longLimit: 0,
+          resetsAt: new Date().toISOString(),
+        },
+        profileReady: true,
+        profileVersion: 1,
+        subscription: { plan: 'pro', status },
+      })
+      expect(parsed.subscription?.status).toBe(status)
+    }
   })
 })
 
 describe('ApiErrorResponse', () => {
   it('maps quota exhaustion to 402 so the client can show the upgrade prompt', () => {
-    const err = new ApiErrorResponse('QUOTA_EXCEEDED', 'Out of forms', {
-      quota: { used: 50, limit: 50, resetsAt: '2026-09-01T00:00:00.000Z' },
+    const err = new ApiErrorResponse('QUOTA_EXCEEDED', 'Out of AI actions', {
+      quota: { used: 600, limit: 600, resetsAt: '2026-09-01T00:00:00.000Z' },
     })
     expect(err.status).toBe(402)
-    expect(err.toJSON().quota?.used).toBe(50)
+    expect(err.toJSON().quota?.used).toBe(600)
   })
 
   it('maps rate limiting to 429 and carries a retry hint', () => {

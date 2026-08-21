@@ -731,19 +731,25 @@ function AnswerCard({
             )}
           />
         ) : (
-          <div
-            role={multiple ? 'group' : 'radiogroup'}
-            aria-label={field.label}
-            className="flex flex-wrap gap-1.5"
-          >
+          /*
+           * Toggle buttons, not radios.
+           *
+           * This carried `role={multiple ? 'checkbox' : 'radio'}` with `aria-checked`, which is
+           * right at runtime and unverifiable statically — and chasing it with literal roles only
+           * moves the complaint along, because a checkbox role properly wants a real
+           * `<input type="checkbox">`. `aria-pressed` is supported on a bare `<button>`, needs no
+           * role on the button or its container, and announces exactly what these are: a row of
+           * chips you press. Real radios would be the answer in a real form; this is the demo on
+           * the marketing page, mirroring the overlay.
+           */
+          <fieldset aria-label={field.label} className="flex min-w-0 flex-wrap gap-1.5">
             {(field.options ?? []).map((option) => {
               const on = chosen.has(option)
               return (
                 <button
                   key={option}
                   type="button"
-                  role={multiple ? 'checkbox' : 'radio'}
-                  aria-checked={on}
+                  aria-pressed={on}
                   onClick={() => toggleOption(option)}
                   className={cn(
                     'rounded-full border px-2.5 py-1 text-[11px] font-medium transition-colors',
@@ -756,7 +762,7 @@ function AnswerCard({
                 </button>
               )
             })}
-          </div>
+          </fieldset>
         )}
       </div>
 
@@ -852,7 +858,13 @@ function ChipRow({
   onPick: () => void
 }) {
   return (
-    <div role="group" aria-label={label} className="flex flex-wrap gap-1">
+    /*
+     * `<fieldset>` rather than `<div role="group">`: same semantics, carried by the element
+     * instead of an attribute. Tailwind's preflight already zeroes a fieldset's UA margin,
+     * padding and border, so this renders identically; `min-w-0` overrides the one UA style it
+     * does not reset, `min-width: min-content`, which would otherwise stop the row shrinking.
+     */
+    <fieldset aria-label={label} className="flex min-w-0 flex-wrap gap-1">
       {chips.map((chip) => (
         <button
           key={chip}
@@ -864,6 +876,6 @@ function ChipRow({
           {chip}
         </button>
       ))}
-    </div>
+    </fieldset>
   )
 }

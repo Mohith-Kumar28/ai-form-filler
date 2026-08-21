@@ -1,9 +1,8 @@
+import { TRIAL_DAYS } from '@aff/shared'
 import { eq } from 'drizzle-orm'
 import { drizzle } from 'drizzle-orm/d1'
 import { subscriptions, users } from '../db/schema.js'
 import type { AppEnv } from '../env.js'
-
-const ON_HOLD_GRACE_MS = 3 * 24 * 60 * 60 * 1000
 
 interface DodoProductIds {
   pro: { usd: string; inr: string }
@@ -56,26 +55,55 @@ async function dodoFetch(
   return res
 }
 
+const RETURN_URL = 'https://aff-api.mohithkumar808.workers.dev/v1/billing/return'
+
 /**
- * Creates a Collection Checkout session. Dodo renders all plans in the collection
- * side-by-side — the customer picks which one they want. No `product_cart` is
- * passed; the collection's own products are displayed instead.
+ * Creates a checkout session, in one of two shapes.
+ *
+ * **Trial** — a single-product cart holding Pro, plus `subscription_data.trial_period_days`. It is
+ * a cart rather than the collection because Dodo documents `subscription_data` alongside
+ * `product_cart` and says nothing about combining it with `product_collection_id`; a trial that
+ * silently failed to apply would charge somebody on day one. Pro specifically, because a trial of
+ * the cheaper plan is the offer, and anyone who wants Ultra can change plan afterwards.
+ *
+ * **Direct** — Collection Checkout, unchanged: Dodo renders every plan in the collection
+ * side-by-side and the customer picks. No `product_cart` is passed; the collection supplies it.
+ *
+ * The trial's end date travels in `metadata`, which Dodo echoes back on the webhook. That is the
+ * only reason we can tell a trialing subscription from a paid one: Dodo reports both as `active`
+ * and documents no field that distinguishes them — its own suggested workaround is to list the
+ * subscription's payments and look for a single zero-amount row. Metadata is exact, arrives with
+ * the event, and costs no extra request.
  */
 export async function createCheckout(
   env: AppEnv['Bindings'],
-  params: { userId: string; email: string; country: string },
+  params: { userId: string; email: string; country: string; trial?: boolean },
 ): Promise<string> {
-  const collectionId = getCollectionId(env, params.country)
+  const metadata: Record<string, string> = { userId: params.userId }
+
+  const body: Record<string, unknown> = {
+    customer: { email: params.email },
+    return_url: RETURN_URL,
+  }
+
+  if (params.trial) {
+    const currency = params.country === 'IN' ? 'inr' : 'usd'
+    const productId = getProducts(env).pro[currency]
+
+    metadata.trialEndsAt = String(Math.floor(Date.now() / 1000) + TRIAL_DAYS * 86_400)
+
+    body.product_cart = [{ product_id: productId, quantity: 1 }]
+    body.subscription_data = { trial_period_days: TRIAL_DAYS }
+  } else {
+    body.product_collection_id = getCollectionId(env, params.country)
+    body.product_cart = []
+  }
+
+  body.metadata = metadata
 
   const res = await dodoFetch(env, '/checkouts', {
     method: 'POST',
-    body: JSON.stringify({
-      product_collection_id: collectionId,
-      product_cart: [],
-      customer: { email: params.email },
-      metadata: { userId: params.userId },
-      return_url: 'https://aff-api.mohithkumar808.workers.dev/v1/billing/return',
-    }),
+    body: JSON.stringify(body),
   })
 
   const session = (await res.json()) as { checkout_url: string }
@@ -156,34 +184,37 @@ export async function applyWebhook(
         ? Math.floor(new Date(event.data.current_period_end).getTime() / 1000)
         : undefined
 
-      const status = resolvedPlan === 'ultra' ? 'active' : 'trial'
+      /**
+       * Trialing or paid, decided by what we asked for rather than by what we can guess.
+       *
+       * This line used to read `resolvedPlan === 'ultra' ? 'active' : 'trial'` — so every Pro
+       * subscriber was recorded as being on a trial forever, whether or not one had been offered,
+       * and every Ultra subscriber as never having had one. It was harmless while a free tier sat
+       * underneath and nothing read the distinction; it is load-bearing now.
+       *
+       * `metadata.trialEndsAt` is set by `createCheckout` when it asks Dodo for a trial, and Dodo
+       * echoes metadata back on the event. A stale date — a webhook replayed long afterwards — is
+       * treated as no trial, which fails towards charging rather than towards free access.
+       */
+      const trialEndsAt = Number(metadata.trialEndsAt) || 0
+      const trialing = trialEndsAt > Math.floor(Date.now() / 1000)
+      const status = trialing ? 'trial' : 'active'
+
+      const row = {
+        dodoCustomerId: customerId,
+        dodoSubscriptionId: event.data.subscription_id,
+        plan: resolvedPlan,
+        status,
+        currentPeriodEnd: periodEnd,
+        trialEndsAt: trialing ? trialEndsAt : null,
+      } as const
 
       await db
         .insert(subscriptions)
-        .values({
-          userId,
-          dodoCustomerId: customerId,
-          dodoSubscriptionId: event.data.subscription_id,
-          plan: resolvedPlan,
-          status,
-          currentPeriodEnd: periodEnd,
-        })
-        .onConflictDoUpdate({
-          target: subscriptions.userId,
-          set: {
-            dodoCustomerId: customerId,
-            dodoSubscriptionId: event.data.subscription_id,
-            plan: resolvedPlan,
-            status,
-            currentPeriodEnd: periodEnd,
-          },
-        })
+        .values({ userId, ...row })
+        .onConflictDoUpdate({ target: subscriptions.userId, set: { ...row } })
 
-      if (resolvedPlan === 'ultra') {
-        await db.update(users).set({ plan: 'ultra' }).where(eq(users.id, userId))
-      } else {
-        await db.update(users).set({ plan: 'pro' }).where(eq(users.id, userId))
-      }
+      await db.update(users).set({ plan: resolvedPlan }).where(eq(users.id, userId))
 
       break
     }
@@ -203,9 +234,22 @@ export async function applyWebhook(
         ? planFromProductId(env, event.data.product_id)
         : stored[0]?.plan || 'pro'
 
+      /**
+       * A renewal is also how a trial ends.
+       *
+       * Dodo charges automatically on the trial's last day and sends this event, so clearing
+       * `trialEndsAt` here is what converts the row from trialing to paying. Leaving it set would
+       * mean `effectivePlan` kept measuring a live subscription against a date in the past.
+       */
       await db
         .update(subscriptions)
-        .set({ status: 'active', plan, currentPeriodEnd: periodEnd, onHoldAt: null })
+        .set({
+          status: 'active',
+          plan,
+          currentPeriodEnd: periodEnd,
+          onHoldAt: null,
+          trialEndsAt: null,
+        })
         .where(eq(subscriptions.dodoCustomerId, customerId))
 
       await db.update(users).set({ plan }).where(eq(users.id, userId))
@@ -257,8 +301,12 @@ export async function applyWebhook(
       await db
         .update(subscriptions)
         .set({
-          status: eventType === 'subscription.expired' ? 'expired' : 'cancelled',
+          // `failed` is its own state now rather than being folded into `cancelled`. A mandate that
+          // never completed and a subscription somebody chose to end are different facts, and with
+          // no free tier underneath the difference is worth being able to explain to the user.
+          status: eventType === 'subscription.expired' ? 'expired' : 'failed',
           onHoldAt: null,
+          trialEndsAt: null,
         })
         .where(eq(subscriptions.dodoCustomerId, customerId))
 
@@ -271,46 +319,13 @@ export async function applyWebhook(
   return true
 }
 
-export async function getUserSubscription(
-  env: AppEnv['Bindings'],
-  userId: string,
-): Promise<{
-  plan: 'pro' | 'ultra'
-  status: 'trial' | 'active' | 'on_hold' | 'cancelled' | 'expired'
-  currentPeriodEnd?: number
-} | null> {
-  const db = drizzle(env.DB)
-
-  const rows = await db
-    .select()
-    .from(subscriptions)
-    .where(eq(subscriptions.userId, userId))
-    .limit(1)
-
-  const row = rows[0]
-  if (!row) return null
-
-  if (row.status === 'on_hold' && row.onHoldAt) {
-    const elapsed = Date.now() - row.onHoldAt * 1000
-    if (elapsed > ON_HOLD_GRACE_MS) {
-      await db.update(users).set({ plan: 'free' }).where(eq(users.id, userId))
-      return null
-    }
-  }
-
-  if (row.status === 'cancelled' && row.currentPeriodEnd) {
-    if (Date.now() > row.currentPeriodEnd * 1000) {
-      await db.update(users).set({ plan: 'free' }).where(eq(users.id, userId))
-      return null
-    }
-  }
-
-  return {
-    plan: row.plan,
-    status: row.status,
-    ...(row.currentPeriodEnd ? { currentPeriodEnd: row.currentPeriodEnd } : {}),
-  }
-}
+/**
+ * `getUserSubscription` lived here and had no callers.
+ *
+ * It was the only place that reconciled a lapsed subscription against the clock, and because
+ * nothing invoked it that reconciliation never ran. It is now `effectivePlan` in
+ * `services/account.ts`, on the read path that every authed request already goes through.
+ */
 
 export async function getDodoCustomerId(
   env: AppEnv['Bindings'],

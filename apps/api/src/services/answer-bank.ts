@@ -3,6 +3,7 @@ import {
   type FieldSchema,
   type Identity,
   NEVER_LEARN,
+  type Plan,
   readIntent,
 } from '@aff/shared'
 import type { Env } from '../env.js'
@@ -273,6 +274,8 @@ export async function recordFeedback(
   db: Db,
   env: Env,
   userId: string,
+  /** Decides the day's learning budget — see `learningBudget`. */
+  plan: Plan,
   payload: FeedbackRequest,
 ): Promise<number> {
   const now = Math.floor(Date.now() / 1000)
@@ -376,7 +379,7 @@ export async function recordFeedback(
     return mayReplaceStored(item.entry, pointer?.memoryId != null)
   })
 
-  const allowed = await learningBudget(env, userId, fresh.length)
+  const allowed = await learningBudget(env, userId, plan, fresh.length)
   const budgeted = new Set(fresh.slice(0, allowed).map((item) => item.questionHash))
 
   const written = await Promise.all(

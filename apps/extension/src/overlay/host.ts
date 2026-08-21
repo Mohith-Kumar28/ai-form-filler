@@ -36,6 +36,7 @@ ${overlayVariables(':host')}
     one element. The tap floor is a floor, not a suggestion: this card appears over a form the
     person is mid-way through, and a 22px target is a misclick into the page behind it.
   */
+  --aff-text-2xs: 11px;
   --aff-text-xs: 12px;
   --aff-text-sm: 13.5px;
   --aff-text-base: 15px;
@@ -396,6 +397,99 @@ ${overlayVariables(':host')}
 }
 
 .card-note-bad { color: var(--aff-danger); }
+
+/* ── The inline suggestion ────────────────────────────────────────────────
+   One row, not three.
+
+   This was a generic menu card, which gave it a header band holding nothing but a close cross,
+   a row, and a grey "Click to fill" footer — three stacked bands and a large empty rectangle to
+   say one short word. A suggestion is one value and one gesture, so it is one row: who is
+   speaking, what they propose, and the key that accepts it.                                  */
+.card-suggest { min-width: 0; }
+
+.suggest {
+  display: flex;
+  align-items: stretch;
+}
+
+.suggest-main {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  align-items: center;
+  gap: 9px;
+  padding: 8px 8px 8px 11px;
+  border: 0;
+  background: transparent;
+  color: var(--aff-ink);
+  font: inherit;
+  font-size: var(--aff-text-base);
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 120ms var(--aff-ease);
+}
+
+.suggest-main:hover { background: var(--aff-surface-muted); }
+.suggest-main:focus-visible { outline: 2px solid var(--aff-accent); outline-offset: -2px; }
+
+.suggest-main svg { width: 15px; height: 15px; flex: none; color: var(--aff-ink-dim); }
+
+.suggest-value {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-weight: 600;
+}
+
+/* The keyboard hint, which is also the button. Pressing Enter and clicking this do the same
+   thing, so it is drawn as a key rather than as a second action. */
+.suggest-key {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  flex: none;
+  padding: 2px 6px 2px 5px;
+  border: 1px solid var(--aff-border);
+  border-radius: 6px;
+  background: var(--aff-surface-muted);
+  color: var(--aff-ink-muted);
+  font-size: var(--aff-text-2xs);
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  transition:
+    border-color 120ms var(--aff-ease),
+    color 120ms var(--aff-ease);
+}
+
+.suggest-main:hover .suggest-key {
+  border-color: var(--aff-accent);
+  color: var(--aff-accent);
+}
+
+.suggest-main:hover .suggest-key svg { color: var(--aff-accent); }
+.suggest-key svg { width: 11px !important; height: 11px !important; }
+
+.suggest-close {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  border: 0;
+  border-left: 1px solid var(--aff-border-muted);
+  background: transparent;
+  color: var(--aff-ink-dim);
+  cursor: pointer;
+  transition:
+    background-color 120ms var(--aff-ease),
+    color 120ms var(--aff-ease);
+}
+
+.suggest-close:hover { background: var(--aff-surface-muted); color: var(--aff-ink); }
+.suggest-close:focus-visible { outline: 2px solid var(--aff-accent); outline-offset: -2px; }
+.suggest-close svg { width: 13px; height: 13px; }
 
 .card-close {
   display: flex;
@@ -909,4 +1003,15 @@ export const GLYPH = {
   mute: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="6"/><path d="m4 12 8-8"/></svg>',
   close:
     '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8"/></svg>',
+  /* The face, mouth closed.
+
+     The suggestion card wore a tick, which is the wrong word: a tick says "this is correct",
+     and the card is *offering* a value the user has not looked at yet. The mascot says who is
+     speaking instead. It is deliberately the straight-mouthed one — the smile belongs to a
+     finished fill, and a face grinning at you before you have read the answer is the interface
+     being pleased with itself. */
+  face: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="6.25"/><circle cx="5.9" cy="6.9" r="1" fill="currentColor" stroke="none"/><circle cx="10.1" cy="6.9" r="1" fill="currentColor" stroke="none"/><path d="M5.9 10.4h4.2"/></svg>',
+  /* The return arrow, for the keyboard hint. */
+  enter:
+    '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13 3.5v4A2 2 0 0 1 11 9.5H3.5"/><path d="M6 7 3.5 9.5 6 12"/></svg>',
 } as const

@@ -10,8 +10,11 @@ import type { SourceKind } from '@aff/shared'
  * longer implement.
  */
 
-/** 15 MB. Above this an upload is a video or a scan set, and the round trip stops being free. */
-export const MAX_UPLOAD_BYTES = 15 * 1024 * 1024
+/*
+ * `MAX_UPLOAD_BYTES` lived here, at a flat 15 MB, and nothing imported it: the upload route reads
+ * `PLAN_UPLOAD_LIMITS` instead. Two constants for one rule is one constant too many, and the dead
+ * one is the one that looks authoritative from inside this file.
+ */
 
 /**
  * Extension to media type, for the many browsers and platforms that send an empty or wrong

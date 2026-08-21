@@ -64,6 +64,14 @@
                 "type": "integer",
                 "minimum": 0
               },
+              "longUsed": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "longLimit": {
+                "type": "integer",
+                "minimum": 0
+              },
               "resetsAt": {
                 "type": "string",
                 "format": "date-time"
@@ -73,6 +81,8 @@
               "plan",
               "used",
               "limit",
+              "longUsed",
+              "longLimit",
               "resetsAt"
             ]
           },
@@ -99,14 +109,20 @@
               "status": {
                 "type": "string",
                 "enum": [
+                  "pending",
                   "trial",
                   "active",
                   "on_hold",
                   "cancelled",
+                  "failed",
                   "expired"
                 ]
               },
               "currentPeriodEnd": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "trialEndsAt": {
                 "type": "integer",
                 "minimum": 0
               }
@@ -861,6 +877,9 @@
             "type": "string",
             "minLength": 2,
             "maxLength": 2
+          },
+          "trial": {
+            "type": "boolean"
           }
         }
       },
@@ -1874,6 +1893,10 @@
                   "maxLength": {
                     "type": "integer",
                     "exclusiveMinimum": 0
+                  },
+                  "origin": {
+                    "type": "string",
+                    "description": "Page the rewrite happened on, for cost accounting only."
                   }
                 },
                 "required": [

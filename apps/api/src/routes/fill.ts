@@ -1,9 +1,16 @@
+import { ApiErrorResponse, isPresetInstruction } from '@aff/shared'
 import { createRoute, OpenAPIHono, z } from '@hono/zod-openapi'
 import { drizzle } from 'drizzle-orm/d1'
 import type { AppEnv } from '../env.js'
 import { improveAnswer } from '../llm/improve.js'
 import { requireAuth } from '../middleware/auth.js'
-import { consumeQuota, enforceQuota, feedbackRateLimit, rateLimit } from '../middleware/quota.js'
+import {
+  consumeQuota,
+  enforceLongformQuota,
+  enforceQuota,
+  feedbackRateLimit,
+  rateLimit,
+} from '../middleware/quota.js'
 import {
   bearerAuth,
   errorResponses,
@@ -12,7 +19,7 @@ import {
   FillRequest,
 } from '../openapi/schemas.js'
 import { recordFeedback } from '../services/answer-bank.js'
-import { runFill, writeFillLog } from '../services/fill.js'
+import { runFill, writeFillLog, writeRewriteLog } from '../services/fill.js'
 
 export const fillRoutes = new OpenAPIHono<AppEnv>()
 
@@ -57,7 +64,9 @@ fillRoutes.openapi(fillRoute, async (c) => {
       db,
       userId,
       env: c.env,
+      plan: account.quota.plan,
       quotaRemaining: account.quota.limit - account.quota.used,
+      longRemaining: account.quota.longLimit - account.quota.longUsed,
     },
     request,
   )
@@ -74,16 +83,25 @@ fillRoutes.openapi(fillRoute, async (c) => {
   await writeFillLog(db, userId, request, plan, tierCounts)
 
   /**
-   * A single field is free.
+   * Charged per answer the model wrote, and nothing else.
    *
-   * The allowance is denominated in *forms*, so charging one of a free plan's fifty to fill
-   * one focused input would make the page seal's cheapest action its most expensive one and
-   * teach people not to use it. Field-scoped requests still pass the rate limiter and the
-   * pre-flight `enforceQuota` check, so an exhausted account cannot fill anything either way.
+   * Tier 0 is excluded because it is a lookup against the user's own saved information: no model
+   * call, no cost to us, and charging for it would mean billing somebody for typing their own
+   * name. In the data behind these plan sizes that was a third of all fields, so the exclusion is
+   * worth about half again as much allowance as the headline number suggests.
+   *
+   * Tier 3 is counted twice over — once as an action and once against the long-answer ceiling —
+   * because it costs roughly a hundred times a short answer and is the only thing that can make a
+   * plan unaffordable.
+   *
+   * This replaces a rule that charged one *form* per request and therefore had to exempt
+   * `scope: 'field'` entirely, on the reasoning that spending one of fifty forms on a single input
+   * would teach people not to use the feature. That reasoning was sound and the unit was the
+   * problem: a single field now costs exactly one field.
    */
-  const didWork = plan.fills.length > 0 || plan.usage.costMicroUsd > 0
-  const chargeable = didWork && request.scope !== 'field'
-  const used = chargeable ? await consumeQuota(c.env, userId) : account.quota.used
+  const actions = plan.fills.filter((fill) => fill.tier !== 0).length
+  const longActions = plan.fills.filter((fill) => fill.tier === 3).length
+  const used = await consumeQuota(c.env, userId, actions, longActions)
 
   return c.json({ ...plan, quotaRemaining: Math.max(0, account.quota.limit - used) }, 200)
 })
@@ -120,16 +138,29 @@ const feedbackRoute = createRoute({
 
 fillRoutes.openapi(feedbackRoute, async (c) => {
   const payload = c.req.valid('json')
-  const recorded = await recordFeedback(drizzle(c.env.DB), c.env, c.get('userId'), payload)
+  const { quota } = c.get('account')
+  const recorded = await recordFeedback(
+    drizzle(c.env.DB),
+    c.env,
+    c.get('userId'),
+    quota.plan,
+    payload,
+  )
   return c.json({ recorded }, 200)
 })
 
 /**
- * Rewrite one answer.
+ * Rewrite one answer. One AI action, and one long answer.
  *
- * Rate-limited like a fill but **not** quota-counted. Quota is denominated in forms, and
- * charging a form for polishing one sentence would make the user choose between improving an
- * answer and filling another page — which is exactly the wrong thing to make them weigh.
+ * This used to be free. The reasoning was that the allowance was denominated in *forms*, so
+ * charging a whole form for polishing one sentence would force a choice between improving an
+ * answer and filling another page. That was true, and it made the most expensive request in the
+ * product the only unmetered one: `improveAnswer` runs on the tier-3 frontier model with an extra
+ * memory search, about a hundred times the cost of a short answer.
+ *
+ * Metering it per action removes the dilemma the old comment was worried about — a rewrite now
+ * costs the same as one field, which is what it is — and it counts against the long-answer ceiling
+ * because that is the ceiling its cost belongs to.
  */
 const improveRoute = createRoute({
   method: 'post',
@@ -138,7 +169,7 @@ const improveRoute = createRoute({
   summary: 'Rewrite a single answer to an instruction',
   operationId: 'improveAnswer',
   security: bearerAuth,
-  middleware: [rateLimit] as const,
+  middleware: [rateLimit, enforceQuota, enforceLongformQuota] as const,
   request: {
     body: {
       content: {
@@ -151,6 +182,10 @@ const improveRoute = createRoute({
               .min(1)
               .openapi({ description: "A preset instruction or the user's own words." }),
             maxLength: z.number().int().positive().optional(),
+            origin: z
+              .string()
+              .optional()
+              .openapi({ description: 'Page the rewrite happened on, for cost accounting only.' }),
           }),
         },
       },
@@ -168,13 +203,43 @@ const improveRoute = createRoute({
 
 fillRoutes.openapi(improveRoute, async (c) => {
   const body = c.req.valid('json')
-  const value = await improveAnswer({
+  const userId = c.get('userId')
+  const { quota } = c.get('account')
+
+  /**
+   * Typing your own instruction is the paid half of this feature.
+   *
+   * The presets stay available to anyone with allowance, because they are what makes the feature
+   * discoverable and they are the same cost to run. What paying buys is asking for something we did
+   * not think of — which is also the version people reach for on the answers that matter most.
+   */
+  if (quota.plan === 'free' && !isPresetInstruction(body.instruction)) {
+    throw new ApiErrorResponse(
+      'LIMIT_EXCEEDED',
+      'Your own instructions are part of Pro. The preset rewrites are available now.',
+    )
+  }
+
+  const startedAt = Date.now()
+  const result = await improveAnswer({
     env: c.env,
-    userId: c.get('userId'),
+    userId,
     label: body.label,
     value: body.value,
     instruction: body.instruction,
     ...(body.maxLength ? { maxLength: body.maxLength } : {}),
   })
-  return c.json({ value }, 200)
+
+  // Logged before charging, and charged only for work done — the same order, and for the same
+  // reason, as the form fill above.
+  await writeRewriteLog(drizzle(c.env.DB), userId, {
+    origin: body.origin ?? '',
+    usage: result.usage,
+    costMicroUsd: result.costMicroUsd,
+    latencyMs: Date.now() - startedAt,
+    model: result.model,
+  })
+  await consumeQuota(c.env, userId, 1, 1)
+
+  return c.json({ value: result.value }, 200)
 })

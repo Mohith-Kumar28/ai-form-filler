@@ -12,5 +12,9 @@ export type AccountQuota = {
   used: number;
   /** @minimum 0 */
   limit: number;
+  /** @minimum 0 */
+  longUsed: number;
+  /** @minimum 0 */
+  longLimit: number;
   resetsAt: string;
 };

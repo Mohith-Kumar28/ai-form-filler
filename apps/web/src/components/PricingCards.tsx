@@ -1,11 +1,11 @@
 import { Reveal } from '@/components/Reveal'
 import { IconCheck, IconMascot } from '@/components/ui'
 import { cn } from '@/lib/cn'
-import { pricing } from '@/lib/site'
+import { pricing, site } from '@/lib/site'
 
 export function PricingCards() {
   return (
-    <div className="grid gap-5 md:grid-cols-3">
+    <div className="mx-auto grid max-w-3xl gap-5 md:grid-cols-2">
       {pricing.map((plan, idx) => (
         <Reveal key={plan.plan} delay={idx * 0.1} className="h-full">
           <div
@@ -54,8 +54,18 @@ export function PricingCards() {
                 plan.highlighted ? 'text-white/90' : 'text-ink-dim',
               )}
             >
-              {plan.forms} forms / month
+              {plan.actions.toLocaleString('en-US')} AI actions / month
             </p>
+            {plan.trialDays > 0 && (
+              <p
+                className={cn(
+                  'mt-1 text-[12.5px]',
+                  plan.highlighted ? 'text-white/80' : 'text-ink-dim',
+                )}
+              >
+                Free for the first {plan.trialDays} days
+              </p>
+            )}
             <p
               className={cn(
                 'mt-3 text-[13.5px] leading-relaxed',
@@ -83,8 +93,14 @@ export function PricingCards() {
               ))}
             </ul>
 
+            {/*
+              Both cards point at the Web Store, because that is where checkout actually starts:
+              the trial is taken inside the extension, against a signed-in account. Sending someone
+              to a payment page before they have installed anything sells them a subscription to
+              something they cannot yet run.
+            */}
             <a
-              href={plan.plan === 'free' ? '#demo' : '/pricing'}
+              href={site.chromeWebStoreUrl}
               className={cn(
                 'mt-7 flex min-h-11 items-center justify-center rounded-full px-4 text-center text-[14px] font-semibold no-underline transition-all duration-150',
                 plan.highlighted
@@ -97,14 +113,10 @@ export function PricingCards() {
                   : { background: 'linear-gradient(135deg, var(--sparkle), var(--accent))' }
               }
             >
-              {plan.plan === 'free' ? (
-                <span className="inline-flex items-center gap-1.5">
-                  <IconMascot className="size-4" />
-                  {plan.cta}
-                </span>
-              ) : (
-                plan.cta
-              )}
+              <span className="inline-flex items-center gap-1.5">
+                <IconMascot className="size-4" />
+                {plan.cta}
+              </span>
             </a>
           </div>
         </Reveal>

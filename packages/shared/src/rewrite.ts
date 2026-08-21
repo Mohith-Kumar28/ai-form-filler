@@ -95,3 +95,20 @@ export function instructionFor(key: string): string {
   const preset = [...REWRITE_TONES, ...REWRITE_LENGTHS].find((entry) => entry.key === key)
   return preset ? preset.instruction : key
 }
+
+/**
+ * Whether an instruction is one of ours, word for word.
+ *
+ * The gate on custom instructions needs this, and it has to live beside the sentences for the same
+ * reason they live beside the labels: a copy of the vocabulary anywhere else is a copy that goes
+ * stale, and the failure mode is silently charging a paid feature to somebody who pressed a chip.
+ *
+ * Compared against the full sentence rather than the key because the sentence is what the client
+ * sends — see this file's own header for why that is.
+ */
+export function isPresetInstruction(instruction: string): boolean {
+  const trimmed = instruction.trim()
+  return [...REWRITE_TONES, ...REWRITE_LENGTHS].some(
+    (preset) => preset.instruction === trimmed || preset.key === trimmed,
+  )
+}

@@ -87,6 +87,14 @@ export type Request =
   | { type: 'fill/improve'; label: string; value: string; instruction: string }
   | { type: 'sidepanel/open'; tabId: number }
   | { type: 'account/quota' }
+  /**
+   * Start checkout from the page, without a detour through the side panel.
+   *
+   * The in-page prompt used to offer "Upgrade to Pro" and "Open panel" as two buttons that ran
+   * byte-identical code — both opened the panel — so the offer took two more clicks to accept than
+   * it appeared to. The service worker owns the call because only it holds the session token.
+   */
+  | { type: 'billing/checkout'; trial: boolean }
   | { type: 'settings/get' }
   | { type: 'settings/set'; settings: Settings }
 

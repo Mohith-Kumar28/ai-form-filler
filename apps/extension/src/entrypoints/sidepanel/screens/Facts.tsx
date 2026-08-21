@@ -10,7 +10,7 @@ import {
   usePatchProfile,
 } from '../../../generated/endpoints/profile/profile.js'
 import type { Profile } from '../../../generated/model/index.js'
-import { openUpgrade } from '../../../lib/billing.js'
+import { openTrial, openUpgrade } from '../../../lib/billing.js'
 import type { CatalogField, FactSection, ReconciledProfile } from '../../../lib/fact-catalog.js'
 import {
   customFactCount,
@@ -21,6 +21,7 @@ import {
   sectionProgress,
   toPatch,
 } from '../../../lib/fact-catalog.js'
+import { usePaywallSeen } from '../../../lib/paywall.js'
 import {
   AddFactForm,
   Button,
@@ -60,6 +61,7 @@ export function Facts({ profile }: { profile: Profile | undefined }) {
   const queryClient = useQueryClient()
   const account = useGetAccount()
   const plan = (account.data?.quota.plan ?? 'free') as keyof typeof PLAN_FACT_LIMITS
+  const { markSeen } = usePaywallSeen()
   const factLimit = PLAN_FACT_LIMITS[plan]
 
   const [draft, setDraft] = useState<ReconciledProfile>(EMPTY)
@@ -350,17 +352,23 @@ export function Facts({ profile }: { profile: Profile | undefined }) {
               <p className="text-sm font-semibold text-ink">
                 {usedFacts} of {factLimit} extra fields used
               </p>
-              {plan === 'free' && (
-                <Button
-                  variant="primary"
-                  size="sm"
-                  className="mt-2.5"
-                  onClick={() => void openUpgrade()}
-                >
-                  <IconCrown className="size-3.5" />
-                  Upgrade for more
-                </Button>
-              )}
+              <p className="mt-1 text-xs leading-snug text-ink-muted">
+                {plan === 'free'
+                  ? `The free trial raises this to ${PLAN_FACT_LIMITS.pro}.`
+                  : 'Remove one to add another, or move up a plan.'}
+              </p>
+              <Button
+                variant="primary"
+                size="sm"
+                className="mt-2.5"
+                onClick={() => {
+                  markSeen()
+                  void (plan === 'free' ? openTrial() : openUpgrade())
+                }}
+              >
+                <IconCrown className="size-3.5" />
+                {plan === 'free' ? 'Start free trial' : 'Compare plans'}
+              </Button>
             </div>
           ) : (
             <AddFactForm

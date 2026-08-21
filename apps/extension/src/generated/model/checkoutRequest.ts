@@ -11,4 +11,5 @@ export interface CheckoutRequest {
      * @maxLength 2
      */
   country?: string;
+  trial?: boolean;
 }

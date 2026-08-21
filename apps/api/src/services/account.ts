@@ -1,4 +1,10 @@
-import { type Account, PLAN_LIMITS, type Plan, type QuotaState } from '@aff/shared'
+import {
+  type Account,
+  PLAN_LIMITS,
+  PLAN_LONGFORM_LIMITS,
+  type Plan,
+  type QuotaState,
+} from '@aff/shared'
 import { and, eq, sql } from 'drizzle-orm'
 import type { DrizzleD1Database } from 'drizzle-orm/d1'
 import type { GoogleIdentity } from '../auth/google.js'
@@ -53,16 +59,93 @@ export async function getOrCreateUser(db: Db, identity: GoogleIdentity): Promise
 export async function loadQuota(db: Db, userId: string, plan: Plan): Promise<QuotaState> {
   const period = currentPeriod()
   const rows = await db
-    .select({ used: quotaUsage.used })
+    .select({ used: quotaUsage.used, longUsed: quotaUsage.longUsed })
     .from(quotaUsage)
     .where(and(eq(quotaUsage.userId, userId), eq(quotaUsage.period, period)))
     .limit(1)
 
+  const row = rows[0]
   return {
     plan,
-    used: rows[0]?.used ?? 0,
+    used: row?.used ?? 0,
     limit: PLAN_LIMITS[plan],
+    longUsed: row?.longUsed ?? 0,
+    longLimit: PLAN_LONGFORM_LIMITS[plan],
     resetsAt: periodResetsAt(),
+  }
+}
+
+/** How long after a failed renewal an account keeps working, in seconds. Mirrors Dodo's retries. */
+const ON_HOLD_GRACE_S = 3 * 24 * 60 * 60
+
+/**
+ * How long past a trial's end we keep trusting it.
+ *
+ * Dodo charges automatically when a trial ends and sends `subscription.renewed`, which flips the
+ * row to `active`. If that never arrives the mandate failed, and without a window here the account
+ * would keep its allowance indefinitely on a subscription nobody is paying for. Two days is enough
+ * to absorb webhook retries and clock skew without being a free fortnight.
+ */
+const TRIAL_LAPSE_GRACE_S = 2 * 24 * 60 * 60
+
+type SubscriptionRow = {
+  plan: Plan & ('pro' | 'ultra')
+  status: 'pending' | 'trial' | 'active' | 'on_hold' | 'cancelled' | 'failed' | 'expired'
+  onHoldAt: number | null
+  currentPeriodEnd: number | null
+  trialEndsAt: number | null
+}
+
+/**
+ * What the account is actually entitled to right now.
+ *
+ * `users.plan` is a cache written by whichever webhook last arrived, so on its own it is a claim
+ * about the past. The reconciliation used to live in `getUserSubscription`, which `loadAccount`
+ * never called — so a lapsed subscription kept full access until a webhook happened to show up.
+ * That was survivable when a free tier sat underneath it. Now that filling *is* the subscription,
+ * it is the difference between a paid product and a free one, so the check runs on the read path
+ * where it can be relied on.
+ *
+ * Pure and separately testable on purpose; every branch here is a way somebody stops paying.
+ */
+export function effectivePlan(
+  cachedPlan: Plan,
+  sub: SubscriptionRow | undefined,
+  now = Date.now(),
+): Plan {
+  if (!sub) return 'free'
+
+  /**
+   * Every timestamp on this table is in **seconds**, because that is what `applyWebhook` writes
+   * (`Math.floor(Date.now() / 1000)`). The function this replaced compared them against a
+   * millisecond `Date.now()` after multiplying by 1000 in some branches — the conversion is done
+   * once, here, so no branch can forget it.
+   */
+  const nowSeconds = Math.floor(now / 1000)
+
+  switch (sub.status) {
+    case 'active':
+      return sub.plan
+    case 'trial':
+      // No end date means we failed to record one; treat it as live rather than punish the user.
+      if (sub.trialEndsAt === null) return sub.plan
+      return nowSeconds <= sub.trialEndsAt + TRIAL_LAPSE_GRACE_S ? sub.plan : 'free'
+    case 'on_hold':
+      // A card that failed is usually a card that gets replaced. Keep working for the window.
+      if (sub.onHoldAt === null) return sub.plan
+      return nowSeconds <= sub.onHoldAt + ON_HOLD_GRACE_S ? sub.plan : 'free'
+    case 'cancelled':
+      // Cancelled but paid for: the period already bought is still theirs.
+      if (sub.currentPeriodEnd === null) return 'free'
+      return nowSeconds <= sub.currentPeriodEnd ? sub.plan : 'free'
+    case 'pending':
+    case 'failed':
+    case 'expired':
+      // Never started, or finished. `pending` and `failed` were previously absent from the enum,
+      // which made an incomplete mandate indistinguishable from a working subscription.
+      return 'free'
+    default:
+      return cachedPlan === 'free' ? 'free' : cachedPlan
   }
 }
 
@@ -82,8 +165,7 @@ export async function loadAccount(db: Db, userId: string): Promise<Account | nul
   const user = rows[0]
   if (!user) return null
 
-  const [quota, docRows, sourceRows, subRows] = await Promise.all([
-    loadQuota(db, userId, user.plan),
+  const [docRows, sourceRows, subRows] = await Promise.all([
     db
       .select({ version: profileDocs.version })
       .from(profileDocs)
@@ -97,7 +179,9 @@ export async function loadAccount(db: Db, userId: string): Promise<Account | nul
       .select({
         plan: subscriptions.plan,
         status: subscriptions.status,
+        onHoldAt: subscriptions.onHoldAt,
         currentPeriodEnd: subscriptions.currentPeriodEnd,
+        trialEndsAt: subscriptions.trialEndsAt,
       })
       .from(subscriptions)
       .where(eq(subscriptions.userId, userId))
@@ -108,14 +192,32 @@ export async function loadAccount(db: Db, userId: string): Promise<Account | nul
   const readySources = sourceRows[0]?.count ?? 0
   const sub = subRows[0]
 
-  const subscription =
-    sub && (sub.status === 'active' || sub.status === 'trial' || sub.status === 'on_hold')
-      ? {
-          plan: sub.plan,
-          status: sub.status,
-          ...(sub.currentPeriodEnd ? { currentPeriodEnd: sub.currentPeriodEnd } : {}),
-        }
-      : null
+  /**
+   * The subscription is resolved *before* the quota, not alongside it.
+   *
+   * These four queries used to run in one `Promise.all`, which meant `loadQuota` was handed
+   * `users.plan` — a cache written by whichever webhook arrived last. A lapsed trial therefore kept
+   * a full allowance until something happened to correct the row. The subscription decides the
+   * plan, so it has to be read first; the other two are independent and still parallel.
+   */
+  const plan = effectivePlan(user.plan, sub)
+  const quota = await loadQuota(db, userId, plan)
+
+  /**
+   * Reported whenever a row exists, in whatever state.
+   *
+   * It used to be nulled unless the status was `active`, `trial` or `on_hold`, which hid exactly
+   * the states the user needs to see: a cancelled subscription still running out its paid period,
+   * and a mandate that failed. The panel cannot explain what it is not told.
+   */
+  const subscription = sub
+    ? {
+        plan: sub.plan,
+        status: sub.status,
+        ...(sub.currentPeriodEnd ? { currentPeriodEnd: sub.currentPeriodEnd } : {}),
+        ...(sub.trialEndsAt ? { trialEndsAt: sub.trialEndsAt } : {}),
+      }
+    : null
 
   return {
     id: user.id,

@@ -38,8 +38,11 @@ export interface Env {
    */
   SUPERMEMORY_API_KEY: string
 
-  STRIPE_SECRET_KEY?: string
-  STRIPE_WEBHOOK_SECRET?: string
+  /*
+   * `STRIPE_SECRET_KEY` and `STRIPE_WEBHOOK_SECRET` were declared here and read by nothing —
+   * migration 0001 dropped the Stripe columns and Dodo has owned billing since. A declared
+   * credential nobody uses still has to be explained to whoever pushes secrets next.
+   */
 
   DODO_PAYMENTS_API_KEY: string
   DODO_WEBHOOK_SECRET: string

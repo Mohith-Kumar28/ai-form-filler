@@ -3,7 +3,7 @@ import { generateText } from 'ai'
 import type { Env } from '../env.js'
 import { searchMemory } from '../services/supermemory.js'
 import { translateProviderError } from './generate.js'
-import { MODELS } from './models.js'
+import { costMicroUsd, MODELS, type TokenUsage } from './models.js'
 import { resolveModel } from './provider.js'
 
 /**
@@ -52,7 +52,23 @@ export interface ImproveInput {
   maxLength?: number
 }
 
-export async function improveAnswer(input: ImproveInput): Promise<string> {
+export interface ImproveResult {
+  value: string
+  usage: TokenUsage
+  costMicroUsd: number
+  /** The provider's own id for the model that answered, for the cost log. */
+  model: string
+}
+
+/**
+ * Returns the usage alongside the answer.
+ *
+ * It used to return a bare string, which is why every rewrite this product has ever performed is
+ * absent from `fill_log` and therefore from `pnpm db:costs`. Rewrites run on the tier-3 model with
+ * an extra retrieval — the most expensive request we make — so the one report that decides whether
+ * the plans are affordable was blind to the largest line on it.
+ */
+export async function improveAnswer(input: ImproveInput): Promise<ImproveResult> {
   const original = input.value.trim()
   if (original === '') {
     throw new ApiErrorResponse('INVALID_REQUEST', 'There is nothing to improve yet')
@@ -89,6 +105,20 @@ export async function improveAnswer(input: ImproveInput): Promise<string> {
 
   const improved = result.text.trim()
 
-  // A model that returns nothing usable must not silently blank the user's answer.
-  return improved === '' ? original : improved
+  // Tier 3 is a Google model and `supportsCaching` is false for it, so the cache counters the
+  // batch path reads out of `providerMetadata` are structurally zero here.
+  const usage: TokenUsage = {
+    inputTokens: result.usage.inputTokens ?? 0,
+    outputTokens: result.usage.outputTokens ?? 0,
+    cacheReadTokens: 0,
+    cacheWriteTokens: 0,
+  }
+
+  return {
+    // A model that returns nothing usable must not silently blank the user's answer.
+    value: improved === '' ? original : improved,
+    usage,
+    costMicroUsd: costMicroUsd(spec, usage),
+    model: spec.modelId,
+  }
 }

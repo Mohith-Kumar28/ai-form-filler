@@ -18,54 +18,55 @@ export const site = {
   ogImage: '/og-default.png',
 } as const
 
+/**
+ * The plans, and the only place the site states a number.
+ *
+ * There is no free tier. Access starts with a 14-day trial of Pro, taken through Dodo's checkout,
+ * which then converts at $5 a month. That is a deliberate trade: the nearest competitor gives
+ * mechanical autofill away and charges $39.99/mo for the AI-written answers that are this product's
+ * whole point, so the wedge here is price rather than a free allowance.
+ *
+ * The unit is an **AI action**: one field an AI answered, or one rewrite. Fields answered from the
+ * user's own saved information cost nothing and are not counted — about a third of the fields on a
+ * real application. These numbers must match `PLAN_LIMITS` and friends in `@aff/shared`; the site
+ * cannot import from the workspace, so they are restated here and nowhere else on the site.
+ */
 export const pricing = [
-  {
-    plan: 'free',
-    name: 'Free',
-    price: 0,
-    cadence: 'forever',
-    forms: 5,
-    description: 'Enough to try it on real forms. No card needed.',
-    features: [
-      '5 forms per month',
-      'Works on Greenhouse, Lever, Ashby, Google Forms and the rest',
-      'CV, links and notes as sources',
-      'Guessed answers labelled for review',
-    ],
-    cta: 'Add to Chrome',
-    highlighted: false,
-  },
   {
     plan: 'pro',
     name: 'Pro',
-    price: 12,
+    price: 5,
     cadence: 'per month',
-    forms: 50,
+    actions: 600,
+    trialDays: 14,
     description: 'For an active job search, or a busy month of forms.',
     features: [
-      '50 forms per month',
-      'Everything in Free',
-      'Long written answers in your own words',
-      'Faster processing',
-      'Cancel anytime',
+      '600 AI actions a month',
+      '150 long written answers and rewrites',
+      'Fields it already knows never count',
+      '30 sources, 100 saved facts, 30 MB files',
+      'Cancel any time',
     ],
-    cta: 'Upgrade to Pro',
+    cta: 'Start 14-day free trial',
     highlighted: true,
   },
   {
     plan: 'ultra',
     name: 'Ultra',
-    price: 30,
+    price: 15,
     cadence: 'per month',
-    forms: 300,
+    actions: 2500,
+    trialDays: 0,
     description: 'For recruiters, agencies, and anyone filling forms daily.',
     features: [
-      '300 forms per month',
-      'Everything in Pro',
-      'Long written answers in your own words',
-      'First access to new site support',
+      '2,500 AI actions a month',
+      '500 long written answers and rewrites',
+      'More essays get the frontier model to themselves',
+      '100 sources, 400 saved facts, 50 MB files',
+      'Learns your voice roughly three times faster',
+      'Cancel any time',
     ],
-    cta: 'Upgrade to Ultra',
+    cta: 'Choose Ultra',
     highlighted: false,
   },
 ] as const

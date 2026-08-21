@@ -12,33 +12,119 @@
 /** Below this, a fill is marked for review rather than accepted silently. */
 export const REVIEW_CONFIDENCE_THRESHOLD = 0.7
 
-/** Forms per calendar month, per plan. */
+/* ── Plans and allowances ──────────────────────────────────────────────────
+
+   `free` is not a free tier. It is the state of an account that has signed in
+   and has no subscription — during onboarding, or after a trial lapsed. The
+   name is kept because `plan === 'free'` already means "not paying" at every
+   call site, and renaming it would touch the D1 enum, the wire contract and
+   every branch in the panel to say the same thing.                          */
+
+/**
+ * AI actions per calendar month, per plan.
+ *
+ * One action is **one field an AI answered, or one rewrite**. Fields resolved from saved info —
+ * tier 0, a lookup with no model call — are free and never counted, because they cost us nothing.
+ * In the `fill_log` data behind these numbers that was 32% of all classified fields, so a month's
+ * allowance stretches roughly half again as far as the number suggests.
+ *
+ * This replaced a per-*form* allowance, which priced a three-field Google Form and a thirty-four
+ * field Workday application the same and had to exempt single fields and rewrites entirely to stay
+ * defensible — see the comment this deleted in `routes/fill.ts`. Rewrites were therefore unmetered
+ * on the most expensive model we run.
+ *
+ * `free` is 0 on purpose: filling is the paywall. Everything before it — sources, facts, the whole
+ * of onboarding — is open, and the panel shows no plan, price or meter until the first fill is
+ * attempted.
+ */
 export const PLAN_LIMITS = {
-  free: 5,
-  pro: 50,
-  ultra: 300,
+  free: 0,
+  pro: 600,
+  ultra: 2500,
 } as const
 
-/** Maximum sources (documents, links, notes) a user can store, per plan. */
+/**
+ * Long answers per calendar month, per plan. A cost guardrail, not a feature.
+ *
+ * Measured from `fill_log`: a tier-3 long answer costs ~$0.013 and every other kind of field costs
+ * ~$0.0001 or nothing at all. So one number decides whether a plan is affordable, and a user who
+ * spent a whole $5 allowance on essays would cost $7.80 — more than they paid.
+ *
+ * Set near a quarter of `PLAN_LIMITS`, which bounds that worst case to roughly a third of revenue
+ * while never binding in practice: essays were 3–9% of fields in the same data. It is deliberately
+ * quiet in the interface for that reason — see `UsageBar`, which only shows it past 60%.
+ */
+export const PLAN_LONGFORM_LIMITS = {
+  free: 0,
+  pro: 150,
+  ultra: 500,
+} as const
+
+/**
+ * Long answers that get a model call to themselves, per plan.
+ *
+ * Above this the remainder is batched into one call, which is cheaper and measurably worse — see
+ * `MAX_SOLO_ESSAYS`' former home in `services/fill.ts` for why sharing a call flattens five essays
+ * into the same paragraph shape. That makes this the one gate where paying buys a better answer
+ * rather than more of the same, and it costs us exactly what it is worth.
+ */
+export const PLAN_SOLO_ESSAY_LIMITS = {
+  free: 0,
+  pro: 6,
+  ultra: 12,
+} as const
+
+/**
+ * New answers the product may learn per day, per plan.
+ *
+ * Was a single plan-blind ceiling. Learning is what makes the writing voice compound, so how fast
+ * it happens is a real difference between tiers rather than an invented one. Being over budget is
+ * still never an error — the entry is dropped and logged, see `learningBudget`.
+ */
+export const PLAN_LEARNING_BUDGETS = {
+  free: 0,
+  pro: 300,
+  ultra: 800,
+} as const
+
+/**
+ * Maximum sources (documents, links, notes) a user can store, per plan.
+ *
+ * `free` is **not** 0. Onboarding has to finish before the paywall is worth showing, so an account
+ * with no subscription can add its resume, a few links and some notes. Five is enough for anyone
+ * onboarding honestly and low enough to bound the cost of someone who is not: one source is a
+ * Supermemory write plus one tier-2 structuring call, about half a cent.
+ */
 export const PLAN_SOURCE_LIMITS = {
   free: 5,
-  pro: 25,
+  pro: 30,
   ultra: 100,
 } as const
 
-/** Maximum custom facts a user can store, per plan. */
+/** Maximum custom facts a user can store, per plan. `free` covers onboarding, as above. */
 export const PLAN_FACT_LIMITS = {
-  free: 10,
-  pro: 50,
-  ultra: 200,
+  free: 25,
+  pro: 100,
+  ultra: 400,
 } as const
 
-/** Maximum upload file size in bytes, per plan. */
+/**
+ * Maximum upload file size in bytes, per plan.
+ *
+ * Ultra stops at 50 MB because that is Supermemory's own documented per-file ceiling, and memory
+ * owns ingestion of every format. Raising it here would only move the failure downstream.
+ */
 export const PLAN_UPLOAD_LIMITS = {
   free: 15 * 1024 * 1024,
   pro: 30 * 1024 * 1024,
   ultra: 50 * 1024 * 1024,
 } as const
+
+/** Longest pasted note we accept. Supermemory caps text at 1 MB; nothing enforced this before. */
+export const MAX_TEXT_BYTES = 1024 * 1024
+
+/** Length of the Pro trial, in days. Passed to Dodo per checkout session, not set on the product. */
+export const TRIAL_DAYS = 14
 
 export const FILL_PORT = 'aff:fill' as const
 

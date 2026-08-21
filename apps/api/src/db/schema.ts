@@ -120,7 +120,15 @@ export const quotaUsage = sqliteTable(
       .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),
     period: text('period').notNull(),
+    /** AI actions spent. One answered field, or one rewrite. Tier-0 lookups are never counted. */
     used: integer('used').notNull().default(0),
+    /**
+     * Long answers spent, a subset of `used`.
+     *
+     * Its own column because it is its own ceiling: one long answer costs about a hundred times a
+     * short one, so the plan that can afford 600 fields cannot afford 600 essays.
+     */
+    longUsed: integer('long_used').notNull().default(0),
   },
   (t) => [primaryKey({ columns: [t.userId, t.period] })],
 )
@@ -134,11 +142,20 @@ export const subscriptions = sqliteTable(
     dodoCustomerId: text('dodo_customer_id').notNull(),
     dodoSubscriptionId: text('dodo_subscription_id'),
     plan: text('plan', { enum: ['pro', 'ultra'] }).notNull(),
+    /**
+     * Dodo's lifecycle, plus our own `trial`.
+     *
+     * `pending` and `failed` are Dodo states that were missing here, so a mandate that never
+     * completed was indistinguishable from a working subscription. `trial` is ours alone: Dodo
+     * reports a trialing subscription as plain `active` and documents no field that says otherwise.
+     */
     status: text('status', {
-      enum: ['trial', 'active', 'on_hold', 'cancelled', 'expired'],
+      enum: ['pending', 'trial', 'active', 'on_hold', 'cancelled', 'failed', 'expired'],
     }).notNull(),
     onHoldAt: integer('on_hold_at'),
     currentPeriodEnd: integer('current_period_end'),
+    /** When the trial converts to a charge. Written when the trial checkout is created. */
+    trialEndsAt: integer('trial_ends_at'),
   },
   (t) => [uniqueIndex('subscriptions_dodo_customer_idx').on(t.dodoCustomerId)],
 )

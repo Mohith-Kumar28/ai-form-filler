@@ -17,4 +17,6 @@ export type ImproveAnswerBody = {
   instruction: string;
   /** @exclusiveMinimum 0 */
   maxLength?: number;
+  /** Page the rewrite happened on, for cost accounting only. */
+  origin?: string;
 };

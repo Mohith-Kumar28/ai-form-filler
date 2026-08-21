@@ -59,7 +59,7 @@ export function Hero() {
           className="mx-auto inline-flex items-center gap-2 rounded-full border border-border-muted bg-surface-raised px-4 py-1.5 text-[12.5px] font-medium text-ink-muted"
         >
           <IconSparkle className="size-3.5 text-accent" />
-          Chrome extension · free to start
+          Chrome extension · 14-day free trial
         </motion.div>
 
         <motion.h1
@@ -99,7 +99,7 @@ export function Hero() {
             style={{ background: 'linear-gradient(135deg, var(--sparkle), var(--accent))' }}
           >
             <IconMascot className="size-4.5" />
-            Add to Chrome, free
+            Add to Chrome
           </a>
           <a
             href="#demo"
@@ -124,9 +124,9 @@ export function Hero() {
               className={reduce ? '' : 'animate-breathe hover-wobble'}
             />
           </div>
-          <span>5 forms a month, free</span>
+          <span>Free for 14 days</span>
           <span aria-hidden>·</span>
-          <span>No card</span>
+          <span>Cancel any time</span>
           <span aria-hidden>·</span>
           <span>Nothing is submitted without you</span>
         </motion.div>

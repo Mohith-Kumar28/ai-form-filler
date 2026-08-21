@@ -4,25 +4,44 @@
 
 ## What Fillaform does
 
-- Ingests your resume, links, and pasted notes into a searchable knowledge graph.
+- Ingests your CV, links, pasted notes and voice memos into a searchable knowledge base. PDF, DOC/DOCX, PPT, XLS/XLSX, CSV, TXT, MD, images and audio.
 - Fills any web form — text, dropdowns, radio buttons, checkboxes, and textareas.
 - Answers written questions ("Why do you want to work here?") from your own CV and notes.
+- Rewrites any answer in place: preset tones (warmer, confident, plainer, more formal) and lengths (shorter, expand). Typing your own instruction is a Pro feature.
+- Learns from the answers you settle on, so the writing voice gets closer to yours the more you use it.
+- Lets you add your own facts — any field you want it to remember, like notice period or T-shirt size.
 - Leaves answers read from your details unmarked, and tags inferred answers so you review only those.
-- Supports Google Forms, Greenhouse, Lever, Ashby, and a generic fallback for everything else.
+- Never submits a form. You press submit.
+- Supports Google Forms, Greenhouse, Lever, Ashby, Workable, SmartRecruiters, Typeform and a generic fallback for everything else.
 
 ## Key pages
 
 - [Home](https://fillaform.in/) — overview and an interactive demo.
 - [How it works](https://fillaform.in/how-it-works) — the three-step flow.
 - [Features](https://fillaform.in/features) — the full feature list.
-- [Pricing](https://fillaform.in/pricing) — Free (5 forms/mo), Pro (50 forms/mo, $12), Ultra (300 forms/mo, $30).
+- [Pricing](https://fillaform.in/pricing) — Pro $5/mo (600 AI actions), Ultra $15/mo (2,500). 14-day free trial of Pro.
 - [Compare](https://fillaform.in/compare) — Fillaform vs. other autofillers.
 
 ## Plans
 
-- **Free** — $0/mo, 5 forms per month.
-- **Pro** — $12/mo, 50 forms per month.
-- **Ultra** — $30/mo, 300 forms per month.
+There is no free plan. New accounts start a **14-day free trial of Pro**: a card is required to
+begin it, nothing is charged until day 15, and cancelling before then costs nothing. One trial per
+person.
+
+Usage is metered in **AI actions**. One AI action is one field the AI answered, or one rewrite.
+Fields answered from information you have already saved — your name, email, phone, links — are
+resolved without a model call, cost nothing, and are not counted. On a typical job application that
+is about a third of the fields.
+
+- **Pro** — $5/mo. 600 AI actions per month, of which 150 may be long written answers or rewrites. 30 sources, 100 saved facts, files up to 30 MB.
+- **Ultra** — $15/mo. 2,500 AI actions per month, of which 500 may be long written answers or rewrites. 100 sources, 400 saved facts, files up to 50 MB. More long answers get the frontier model to themselves, and it learns your writing voice roughly three times faster.
+
+Long answers have their own monthly ceiling because a generated paragraph costs about a hundred
+times what filling a dropdown does. Running out of allowance mid-form does not fail the fill: it
+answers what it can afford and reports the rest as skipped.
+
+Billing is monthly through Dodo Payments. Cancel any time; access continues to the end of the
+period you have paid for.
 
 ## Privacy
 

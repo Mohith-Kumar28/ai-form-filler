@@ -1,4 +1,4 @@
-import { mountAnswerCard, mountMenuCard } from '../src/overlay/card.js'
+import { mountAnswerCard, mountMenuCard, mountSuggestCard } from '../src/overlay/card.js'
 import { mountLauncher } from '../src/overlay/launcher.js'
 import { mountFieldMark } from '../src/overlay/markers.js'
 import { positionScheduler } from '../src/overlay/scheduler.js'
@@ -19,6 +19,8 @@ import './stub-chrome.js'
  *               that is the only signal available on a site we do not control.
  *   `?state=…`  which answer-card state to mount: idle, dirty, rewriting, error, choose, many.
  *               Defaults to idle.
+ *   `?only=suggest` mounts only the inline suggestion, which is otherwise underneath the
+ *               launcher's menu.
  *   `?only=marks` mounts the field marks and nothing else. The cards are anchored to the very
  *               fields the judged marks sit on, so with everything up at once the provenance
  *               tabs are underneath a popover and cannot be reviewed at all.
@@ -34,6 +36,31 @@ const rectOf = (element: HTMLElement) => {
 
 const only = params.get('only')
 const marksOnly = only === 'marks'
+const suggestOnly = only === 'suggest'
+
+/**
+ * The inline suggestion, on the one empty field.
+ *
+ * Its own `only` mode because it anchors under `phone`, where the launcher's menu also lands, and
+ * the whole point of this card is how little space it takes — impossible to judge with a four-item
+ * menu drawn over it.
+ */
+if (suggestOnly) {
+  mountSuggestCard({
+    kind: 'suggest',
+    anchor: rectOf(field('auth')),
+    value: 'No, I have the right to work in the UK',
+    onSelect: () => undefined,
+    onClose: () => undefined,
+  })
+  mountSuggestCard({
+    kind: 'suggest',
+    anchor: rectOf(field('phone')),
+    value: 'Mohith',
+    onSelect: () => undefined,
+    onClose: () => undefined,
+  })
+}
 
 const launcher = mountLauncher({
   onOpen: () => undefined,
@@ -42,7 +69,7 @@ const launcher = mountLauncher({
 launcher.setFieldCount(12)
 
 // The launcher's menu, anchored near a field.
-if (!marksOnly)
+if (!marksOnly && !suggestOnly)
   mountMenuCard({
     kind: 'menu',
     anchor: rectOf(field('auth')),
@@ -93,8 +120,8 @@ const LONG_ANSWER =
 
 const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
 
-if (marksOnly) {
-  // Nothing else. The marks are the subject.
+if (marksOnly || suggestOnly) {
+  // Nothing else. The marks, or the suggestion, are the subject.
 } else if (state === 'choose' || state === 'many') {
   const options =
     state === 'many'

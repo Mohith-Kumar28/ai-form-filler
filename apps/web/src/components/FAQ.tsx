@@ -2,8 +2,8 @@ import { Reveal } from '@/components/Reveal'
 
 const FAQS = [
   {
-    q: 'Is Fillaform really free?',
-    a: 'Yes. The free plan fills 5 forms every month, with no card and no time limit. Upgrade to Pro or Ultra only if you need more.',
+    q: 'Is there a free trial?',
+    a: 'Yes — 14 days of Pro, in full. Sign in, add your CV and a few notes, and it will fill real applications. You add a card when the trial starts, nothing is charged until day 15, and cancelling before then costs nothing.',
   },
   {
     q: 'Does it submit forms on its own?',

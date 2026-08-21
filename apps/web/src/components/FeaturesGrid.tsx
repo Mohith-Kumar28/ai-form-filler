@@ -1,6 +1,16 @@
 import type { ComponentType } from 'react'
 import { Reveal } from '@/components/Reveal'
-import { IconBuilding, IconGift, IconGlobe, IconLock, IconMarks, IconQuote } from '@/components/ui'
+import {
+  IconBuilding,
+  IconGift,
+  IconGlobe,
+  IconLock,
+  IconMarks,
+  IconPen,
+  IconQuote,
+  IconSources,
+  IconSparkle,
+} from '@/components/ui'
 
 const FEATURES: {
   title: string
@@ -32,15 +42,33 @@ const FEATURES: {
     Icon: IconBuilding,
   },
   {
+    title: 'Rewrite it without starting over',
+    description:
+      'Not quite right? Ask for it warmer, more confident, plainer, more formal, shorter or longer — on the answer you already have, not a fresh one. On Pro you can just type what to change.',
+    Icon: IconPen,
+  },
+  {
+    title: 'It gets better as you use it',
+    description:
+      'Every answer you settle on teaches it how you write. The tenth application reads more like you than the first, and you never have to correct the same thing twice.',
+    Icon: IconSparkle,
+  },
+  {
+    title: 'Feed it however you like',
+    description:
+      'A CV, a spreadsheet, a link, a screenshot — or talk for a minute and let it listen. Add your own facts by hand for the things no document mentions, like your notice period.',
+    Icon: IconSources,
+  },
+  {
     title: 'Nothing is sent without you',
     description:
       'Fillaform fills the fields and stops. You review and press submit yourself. Delete any of your details, or all of them, whenever you like.',
     Icon: IconLock,
   },
   {
-    title: 'Free to start',
+    title: 'Two weeks of Pro, free',
     description:
-      'Five forms a month, free, with no card and no time limit. Upgrade only if you need more.',
+      'The whole thing, on real applications, before you decide. A card starts the trial, nothing is charged until day 15, and cancelling before then costs nothing. Then $5 a month.',
     Icon: IconGift,
   },
 ]

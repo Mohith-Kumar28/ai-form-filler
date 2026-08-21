@@ -1,4 +1,4 @@
-import { site } from './site'
+import { pricing, site } from './site'
 
 export type MetaTag = {
   title?: string
@@ -53,7 +53,20 @@ export function jsonLd(json: Record<string, unknown>) {
   } as const
 }
 
+/**
+ * Structured data for the extension itself, on every page.
+ *
+ * The offer is derived from `pricing` rather than written out, because this schema said
+ * `price: '0'` — which Google is entitled to surface as a "Free" rich result. That was true while
+ * there was a free tier and became a false claim to search users the moment there wasn't. Deriving
+ * it means the claim cannot outlive the plan it describes.
+ *
+ * `AggregateOffer` rather than `Offer`: there are two plans at different prices, and stating one of
+ * them as *the* price is the same class of mistake in a smaller size.
+ */
 export function softwareAppSchema() {
+  const prices = pricing.map((plan) => plan.price)
+
   return jsonLd({
     '@context': 'https://schema.org',
     '@type': 'SoftwareApplication',
@@ -61,9 +74,11 @@ export function softwareAppSchema() {
     applicationCategory: 'BrowserApplication',
     operatingSystem: 'Chrome',
     offers: {
-      '@type': 'Offer',
-      price: '0',
+      '@type': 'AggregateOffer',
+      lowPrice: String(Math.min(...prices)),
+      highPrice: String(Math.max(...prices)),
       priceCurrency: 'USD',
+      offerCount: prices.length,
     },
     description: site.description,
     url: site.domain,

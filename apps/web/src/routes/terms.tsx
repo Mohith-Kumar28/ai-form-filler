@@ -39,8 +39,13 @@ function TermsPage() {
             <section>
               <h2 className="mb-3 text-lg font-semibold text-ink">Plans and billing</h2>
               <p>
-                The Free plan includes 5 form fills per calendar month. Paid plans add more fills
-                and are billed monthly through Dodo Payments. You can cancel at any time; access
+                New accounts may start a 14-day free trial of the Pro plan. A payment method is
+                required to begin the trial; nothing is charged during it, and the first payment is
+                taken when it ends unless you cancel first. Only one trial is available per person.
+                Plans are metered in AI actions per calendar month &mdash; one field answered by the
+                AI, or one rewrite &mdash; and each plan also carries a separate monthly limit on
+                long written answers. Fields answered from information you have already saved do not
+                count. Billing is monthly through Dodo Payments. You can cancel at any time; access
                 continues until the end of the current billing period.
               </p>
             </section>

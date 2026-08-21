@@ -1,4 +1,11 @@
 import {
+  PLAN_FACT_LIMITS,
+  PLAN_LIMITS,
+  PLAN_LONGFORM_LIMITS,
+  PLAN_SOURCE_LIMITS,
+  PLAN_UPLOAD_LIMITS,
+} from '@aff/shared'
+import {
   type ButtonHTMLAttributes,
   type InputHTMLAttributes,
   type ReactNode,
@@ -8,7 +15,8 @@ import {
   useRef,
   useState,
 } from 'react'
-import { openUpgrade } from '../../lib/billing.js'
+import { openTrial, openUpgrade } from '../../lib/billing.js'
+import { formatCount, formatResetDate, plural } from '../../lib/format.js'
 import {
   IconAlert,
   IconBack,
@@ -21,7 +29,6 @@ import {
   IconEye,
   IconEyeOff,
   IconGear,
-  IconLock,
   IconMascot,
   IconMore,
   IconSearch,
@@ -849,43 +856,62 @@ export function Toggle({
 
 /* ── Usage bar ────────────────────────────────────────────────────────────── */
 
+/**
+ * The month's allowance, said once, in one component.
+ *
+ * There were two of these: this one, imported by nothing, and a private `Quota` inside
+ * `Profile.tsx` with byte-identical markup and arithmetic. Two copies of a meter is how a meter
+ * ends up disagreeing with itself, so `Profile` now uses this and its copy is gone.
+ *
+ * The long-answer line is deliberately quiet. It is a cost guardrail rather than a feature, sized
+ * so that realistic use never reaches it — showing a second bar to everybody would put a number on
+ * screen that means nothing to almost anyone and invite them to budget against it. It appears at
+ * 60%, which is late enough to be news and early enough to act on.
+ */
 export function UsageBar({
   used,
   limit,
+  longUsed,
+  longLimit,
   plan,
   resetsAt,
+  className = '',
 }: {
   used: number
   limit: number
+  longUsed: number
+  longLimit: number
   plan: string
   resetsAt: string
+  className?: string
 }) {
   const pct = limit > 0 ? Math.min(100, (used / limit) * 100) : 0
   const left = Math.max(0, limit - used)
   const exhausted = used >= limit
   const warning = pct >= 80 && !exhausted
 
+  const longLeft = Math.max(0, longLimit - longUsed)
+  const longPct = longLimit > 0 ? (longUsed / longLimit) * 100 : 0
+  const showLong = longLimit > 0 && longPct >= 60
+
   return (
-    <div className="mx-4 mb-3 mt-3 rounded-2xl border border-border-muted bg-surface-raised px-gutter py-3">
-      <div className="flex items-center justify-between">
-        <span className="text-sm font-semibold text-ink-muted">
-          {exhausted ? 'Monthly limit reached' : `${left} of ${limit} left`}
-        </span>
-        {plan === 'free' && (
-          <button
-            type="button"
-            onClick={() => void openUpgrade()}
-            className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-2xs font-bold text-white transition-[filter] hover:brightness-110 active:brightness-95"
-            style={{
-              background: 'linear-gradient(135deg, var(--color-sparkle), var(--color-accent))',
-            }}
-          >
-            <IconCrown className="size-3" />
-            Upgrade
-          </button>
-        )}
-      </div>
-      <div className="mt-2 h-2 overflow-hidden rounded-full bg-surface-muted">
+    <div
+      className={`rounded-2xl border border-border-muted bg-surface-raised p-4 ${className}`.trim()}
+    >
+      <p className="font-display text-xl font-bold tracking-[-0.02em] text-ink">
+        <span className={exhausted ? 'text-danger' : ''}>{left}</span>
+        <span className="text-ink-dim"> of {limit}</span>
+      </p>
+      <p className="mt-0.5 text-sm text-ink-muted">{plural(limit, 'AI action')} left this month</p>
+
+      <div
+        className="mt-3 h-2 overflow-hidden rounded-full bg-surface-muted"
+        role="progressbar"
+        aria-valuenow={used}
+        aria-valuemin={0}
+        aria-valuemax={limit}
+        aria-label="AI actions used this month"
+      >
         <div
           className={`h-full rounded-full transition-[width] duration-500 ${
             exhausted ? 'bg-danger' : warning ? 'bg-warning' : ''
@@ -900,20 +926,95 @@ export function UsageBar({
           }}
         />
       </div>
-      <p className="mt-1.5 text-2xs text-ink-dim">
+
+      <p className="mt-2 text-xs text-ink-dim">
         {exhausted
-          ? 'Upgrade to keep filling forms without waiting.'
+          ? `Resets ${formatResetDate(resetsAt)}. Move up a plan to keep going now.`
           : warning
-            ? `Almost there. ${left} left before it resets.`
-            : `Resets ${new Date(resetsAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`}
+            ? `Almost there. Resets ${formatResetDate(resetsAt)}.`
+            : `Resets ${formatResetDate(resetsAt)}`}
       </p>
+
+      {showLong && (
+        <p className="mt-2 border-t border-border-muted pt-2 text-xs text-ink-dim">
+          {longLeft === 0 ? (
+            <span className="text-warning">
+              No long answers left. Short answers still work as normal.
+            </span>
+          ) : (
+            <>
+              {longLeft} of {longLimit} long answers left — essays and rewrites
+            </>
+          )}
+        </p>
+      )}
+
+      {plan === 'free' && (
+        <Button variant="primary" block className="mt-3.5" onClick={() => void openTrial()}>
+          <IconCrown className="size-3.5" />
+          Start free trial
+        </Button>
+      )}
     </div>
   )
 }
 
 /* ── Upgrade sheet ────────────────────────────────────────────────────────── */
 
-export function UpgradeSheet({ onClose, reason }: { onClose: () => void; reason?: string }) {
+/** What a plan gets you, derived from the constants so the sheet cannot drift from the server. */
+function planRows(plan: 'pro' | 'ultra'): string[] {
+  const mb = Math.round(PLAN_UPLOAD_LIMITS[plan] / 1024 / 1024)
+  return [
+    `${formatCount(PLAN_LIMITS[plan])} AI actions a month`,
+    `${PLAN_LONGFORM_LIMITS[plan]} long answers and rewrites`,
+    `${PLAN_SOURCE_LIMITS[plan]} sources, ${PLAN_FACT_LIMITS[plan]} facts`,
+    `Files up to ${mb} MB`,
+  ]
+}
+
+function PerkList({ rows, onDark }: { rows: string[]; onDark?: boolean }) {
+  return (
+    <ul className="mt-3 space-y-2">
+      {rows.map((row) => (
+        <li key={row} className="flex items-start gap-2.5">
+          <span
+            className={`mt-px flex size-4 shrink-0 items-center justify-center rounded-full ${
+              onDark ? 'bg-white/25 text-white' : 'bg-positive-muted text-positive'
+            }`}
+          >
+            <IconCheck className="size-2.5" />
+          </span>
+          <span className={`text-sm leading-snug ${onDark ? 'text-white' : 'text-ink-muted'}`}>
+            {row}
+          </span>
+        </li>
+      ))}
+    </ul>
+  )
+}
+
+/**
+ * The one place the product asks for money.
+ *
+ * Two modes, because the two audiences need different things said. `trial` is for somebody who has
+ * just pressed Fill for the first time: they have already uploaded a résumé and typed their facts,
+ * so the job is to say what happens next in plain terms — fourteen days, then $5, cancel whenever.
+ * `compare` is for somebody already paying who wants more room, and shows Pro against Ultra.
+ *
+ * The perk list used to be four hardcoded strings, and they were wrong: it promised "Unlimited form
+ * fills every month" against a metered plan and quoted a 30 MB upload limit to everyone regardless
+ * of plan. It is now derived from the same constants the server enforces, so the sheet cannot
+ * promise something the API will refuse.
+ */
+export function UpgradeSheet({
+  onClose,
+  mode = 'trial',
+  reason,
+}: {
+  onClose: () => void
+  mode?: 'trial' | 'compare'
+  reason?: string
+}) {
   const panel = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -926,6 +1027,41 @@ export function UpgradeSheet({ onClose, reason }: { onClose: () => void; reason?
     document.addEventListener('keydown', onKey, true)
     return () => document.removeEventListener('keydown', onKey, true)
   }, [onClose])
+
+  /**
+   * Focus is trapped, which it was not before.
+   *
+   * A modal that lets Tab walk out into the screen behind it is a modal only for people using a
+   * mouse. `ConfirmSheet` already does this; the copy is deliberate rather than shared because
+   * pulling out a hook for two call sites would hide the one line that matters — the wrap-around.
+   */
+  useEffect(() => {
+    const node = panel.current
+    if (!node) return
+    const focusable = () => [
+      ...node.querySelectorAll<HTMLElement>('button, [href], [tabindex]:not([tabindex="-1"])'),
+    ]
+    focusable()[0]?.focus()
+
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key !== 'Tab') return
+      const items = focusable()
+      const first = items[0]
+      const last = items[items.length - 1]
+      if (!first || !last) return
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault()
+        last.focus()
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault()
+        first.focus()
+      }
+    }
+    node.addEventListener('keydown', onKey)
+    return () => node.removeEventListener('keydown', onKey)
+  }, [])
+
+  const trial = mode === 'trial'
 
   return (
     <div className="absolute inset-0 z-20 flex flex-col justify-end">
@@ -940,57 +1076,54 @@ export function UpgradeSheet({ onClose, reason }: { onClose: () => void; reason?
         ref={panel}
         role="dialog"
         aria-modal="true"
-        aria-label="Upgrade to Pro"
-        className="pop relative rounded-t-2xl border-t border-border bg-surface-raised px-5 pb-5 pt-5 shadow-[0_-8px_24px_-12px_var(--color-shadow-strong)]"
+        aria-label={trial ? 'Start your free trial' : 'Compare plans'}
+        className="pop relative max-h-full overflow-y-auto rounded-t-2xl border-t border-border bg-surface-raised px-5 pb-5 pt-5 shadow-[0_-8px_24px_-12px_var(--color-shadow-strong)]"
       >
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2.5">
           <span
-            className="flex size-9 items-center justify-center rounded-full"
-            style={{
-              background: 'linear-gradient(135deg, var(--color-sparkle), var(--color-accent))',
-            }}
+            className="flex size-9 shrink-0 items-center justify-center rounded-full"
+            style={{ background: SUNSET_GRADIENT }}
           >
             <IconCrown className="size-4 text-white" />
           </span>
-          <div>
-            <h2 className="font-display text-lg font-bold text-ink">Unlock unlimited fills</h2>
-            <p className="text-xs text-ink-muted">Upgrade to Pro</p>
+          <div className="min-w-0">
+            <h2 className="font-display text-lg font-bold tracking-[-0.02em] text-ink">
+              {trial ? 'Try it free for 14 days' : 'More room to work'}
+            </h2>
+            <p className="text-xs text-ink-muted">
+              {trial ? 'Then $5 a month. Cancel any time.' : 'Pro is $5, Ultra is $15 a month.'}
+            </p>
           </div>
         </div>
 
         {reason && <p className="mt-3 text-sm leading-relaxed text-ink-muted">{reason}</p>}
 
-        <div className="mt-4 space-y-2.5">
-          {[
-            'Unlimited form fills every month',
-            'Priority AI models for better answers',
-            'Larger file uploads up to 30 MB',
-            'More sources in your profile',
-          ].map((perk) => (
-            <div key={perk} className="flex items-center gap-2.5">
-              <span
-                className="flex size-5 shrink-0 items-center justify-center rounded-full"
-                style={{
-                  background: SUNSET_GRADIENT,
-                }}
-              >
-                <svg
-                  viewBox="0 0 16 16"
-                  fill="none"
-                  stroke="white"
-                  strokeWidth={2}
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  className="size-3"
-                  aria-hidden="true"
-                >
-                  <path d="M3.5 8.5 6.5 11.5 12.5 5" />
-                </svg>
-              </span>
-              <span className="text-sm text-ink">{perk}</span>
+        {trial ? (
+          <>
+            <div className="mt-4 rounded-2xl border border-border-muted bg-surface p-3.5">
+              <p className="text-sm font-semibold text-ink">Everything in Pro, for 14 days</p>
+              <PerkList rows={planRows('pro')} />
             </div>
-          ))}
-        </div>
+            <p className="mt-3 text-xs leading-snug text-ink-dim">
+              Answers written from your own sources, in your words. Fields it already knows from
+              your saved info never count against the total.
+            </p>
+          </>
+        ) : (
+          <div className="mt-4 space-y-2.5">
+            <div
+              className="rounded-2xl border border-transparent p-3.5 text-white"
+              style={{ background: SUNSET_GRADIENT }}
+            >
+              <p className="text-sm font-bold">Ultra · $15 / month</p>
+              <PerkList rows={planRows('ultra')} onDark />
+            </div>
+            <div className="rounded-2xl border border-border-muted bg-surface p-3.5">
+              <p className="text-sm font-semibold text-ink">Pro · $5 / month</p>
+              <PerkList rows={planRows('pro')} />
+            </div>
+          </div>
+        )}
 
         <div className="mt-5 flex gap-2">
           <button
@@ -998,20 +1131,18 @@ export function UpgradeSheet({ onClose, reason }: { onClose: () => void; reason?
             onClick={onClose}
             className="flex-1 rounded-full border border-border px-gutter py-2.5 text-sm font-semibold text-ink transition-colors hover:bg-surface-muted"
           >
-            Maybe later
+            Not now
           </button>
           <button
             type="button"
             onClick={() => {
-              void openUpgrade()
+              void (trial ? openTrial() : openUpgrade())
               onClose()
             }}
             className="flex-1 rounded-full px-gutter py-2.5 text-sm font-bold text-white transition-[filter] hover:brightness-110 active:brightness-95"
-            style={{
-              background: 'linear-gradient(135deg, var(--color-sparkle), var(--color-accent))',
-            }}
+            style={{ background: SUNSET_GRADIENT }}
           >
-            Upgrade now
+            {trial ? 'Start free trial' : 'Change plan'}
           </button>
         </div>
       </div>
@@ -1019,38 +1150,12 @@ export function UpgradeSheet({ onClose, reason }: { onClose: () => void; reason?
   )
 }
 
-/* ── Locked feature row ───────────────────────────────────────────────────── */
-
-export function LockedFeature({
-  icon,
-  title,
-  detail,
-  onClick,
-}: {
-  icon?: ReactNode
-  title: string
-  detail?: string
-  onClick?: () => void
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="flex min-h-row w-full items-center gap-3 px-gutter py-3 text-left transition-colors hover:bg-surface-muted"
-    >
-      {icon && (
-        <span className="flex size-4 shrink-0 items-center justify-center text-ink-dim">
-          {icon}
-        </span>
-      )}
-      <span className="min-w-0 flex-1">
-        <span className="block truncate text-base text-ink-dim">{title}</span>
-        {detail && <span className="mt-0.5 block truncate text-xs text-ink-dim">{detail}</span>}
-      </span>
-      <IconLock className="size-3.5 shrink-0 text-ink-dim" />
-    </button>
-  )
-}
+/*
+ * `LockedFeature` lived here — a row greyed out with a padlock on the end — and nothing ever
+ * imported it. The product does not lock rows: it hides money entirely until somebody tries to
+ * fill a form, and then asks once, properly, in `UpgradeSheet`. A padlock decorating a feature
+ * list is the version of that conversation that persuades nobody.
+ */
 
 /* ── Sections ─────────────────────────────────────────────────────────────── */
 

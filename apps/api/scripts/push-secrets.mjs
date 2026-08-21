@@ -15,8 +15,8 @@ import { existsSync, readFileSync } from 'node:fs'
 const ENV = process.argv[2] ?? 'production'
 const DEV_VARS = new URL('../.dev.vars', import.meta.url)
 
-/** Stripe secrets are phase 6; skip them silently while they are still blank. */
-const OPTIONAL = new Set(['STRIPE_SECRET_KEY', 'STRIPE_WEBHOOK_SECRET'])
+/** Names that may be blank in `.dev.vars` without failing the push. Empty since Stripe went. */
+const OPTIONAL = new Set([])
 
 if (!existsSync(DEV_VARS)) {
   console.error('apps/api/.dev.vars not found. Copy .dev.vars.example and fill it in first.')

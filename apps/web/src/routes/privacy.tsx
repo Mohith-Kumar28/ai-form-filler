@@ -53,8 +53,9 @@ function PrivacyPage() {
                 images you upload. These are stored so Fillaform can search them at fill time.
               </p>
               <p>
-                <strong className="text-ink">Fill logs.</strong> Which forms you filled and basic
-                usage counts, used for quota enforcement and cost accounting.
+                <strong className="text-ink">Fill logs.</strong> Which forms you filled, and how
+                many AI actions each one used, for enforcing your monthly allowance and for cost
+                accounting.
               </p>
             </Section>
 

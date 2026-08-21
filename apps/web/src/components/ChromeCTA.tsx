@@ -38,8 +38,8 @@ export function ChromeCTA() {
             the <span className="sunset-text">same answers</span>.
           </h2>
           <p className="mx-auto mt-5 max-w-[46ch] text-[15px] leading-relaxed text-ink-muted">
-            Add it to Chrome, give it your details once, and let it handle the rest. Five forms a
-            month are free, and there is no card to enter.
+            Add it to Chrome, give it your details once, and let it handle the rest. The first two
+            weeks are free.
           </p>
           <div className="mt-9 flex justify-center">
             <a
@@ -50,7 +50,7 @@ export function ChromeCTA() {
               style={{ background: 'linear-gradient(135deg, var(--sparkle), var(--accent))' }}
             >
               <IconMascot className="size-4.5" />
-              Add to Chrome, free
+              Add to Chrome
             </a>
           </div>
         </Reveal>

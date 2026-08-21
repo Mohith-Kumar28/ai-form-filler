@@ -87,7 +87,18 @@ export function mediaTypeFor(file: { type: string; name: string }): string | nul
   return byExtension[extension] ?? null
 }
 
-/** A scanned document reads fine well below this; above it, the upload is likely a book. */
+/**
+ * The most we will hand a model in one call.
+ *
+ * Deliberately *not* `PLAN_UPLOAD_LIMITS`, which is a storage ceiling and goes to 50 MB on Ultra.
+ * The two limits answer different questions: what a plan may keep, and what is worth reading for
+ * identity fields. A scanned document reads fine well below this; above it the upload is likely a
+ * book, and the useful contact details are not worth a call that size.
+ *
+ * Exceeding it is not a failed upload. The caller swallows this error — see the comment on
+ * `structureSource`'s call site in `routes/profile.ts` — so the file is still stored and still
+ * indexed for retrieval; only the tier-0 extraction is skipped.
+ */
 const MAX_FILE_BYTES = 20 * 1024 * 1024
 
 /**

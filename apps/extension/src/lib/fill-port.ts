@@ -97,7 +97,14 @@ export async function runFillFlow(
     const plan = (await fillForm({
       form,
       overwriteExisting: options.overwriteExisting,
-      // Denominated in forms, so one input must not cost one of fifty. See `enforceQuota`.
+      /*
+       * Scope is about what to detect, not what to charge.
+       *
+       * It used to carry a billing meaning too — the server exempted `field` from the quota
+       * entirely, because the allowance was denominated in whole forms and spending one of fifty on
+       * a single input would have been absurd. Now that a field costs a field, the exemption is
+       * gone and this is purely a statement about which elements to look at.
+       */
       scope: options.onlyFieldId ? 'field' : 'form',
     })) as FillPlan
 

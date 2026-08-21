@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import type { Account, Profile } from '../../../generated/model/index.js'
 import { plural } from '../../../lib/format.js'
+import { usePaywallSeen } from '../../../lib/paywall.js'
 import type { ActivePage } from '../../../lib/use-active-page.js'
 import {
   Button,
@@ -72,6 +73,19 @@ export function Home({
   const left = Math.max(0, limit - used)
   const exhausted = used >= limit
   const [showUpgrade, setShowUpgrade] = useState(false)
+  const { seen: paywallSeen, markSeen } = usePaywallSeen()
+
+  /**
+   * Whether this screen is allowed to mention money at all.
+   *
+   * It is not, until the person has tried to fill something. They arrive here having installed an
+   * extension, and the honest order is: let them put their résumé in, let them see what it knows,
+   * and ask for a card at the moment they ask it to do the work. A subtitle reading "0 of 0 AI
+   * actions left" before any of that is a price tag on a product they have not seen run.
+   *
+   * A paying account is a different matter — its meter is useful information, so it is always on.
+   */
+  const showMeter = account.subscription != null || paywallSeen
 
   const canFill = page.status === 'ready' && page.fieldCount > 0
 
@@ -80,8 +94,16 @@ export function Home({
     ? 'Add something about yourself first: a résumé, a link, whatever.'
     : null
 
+  /**
+   * The paywall, at the only moment it earns the interruption.
+   *
+   * `exhausted` covers both cases with one branch, which is the point of giving an account with no
+   * subscription a limit of zero: the person who has never paid and the person who has run out
+   * this month meet the same wall, and the sheet chooses its own words from the plan.
+   */
   const handleFill = () => {
     if (exhausted) {
+      markSeen()
       setShowUpgrade(true)
       return
     }
@@ -97,8 +119,12 @@ export function Home({
             <span>Fillaform</span>
           </span>
         }
-        subtitle={`${left} of ${limit} ${plural(limit, 'form')} left this month`}
-        right={plan !== 'free' ? <ProBadge plan={plan} /> : undefined}
+        subtitle={
+          showMeter
+            ? `${left} of ${limit} ${plural(limit, 'AI action')} left this month`
+            : undefined
+        }
+        right={showMeter && plan !== 'free' ? <ProBadge plan={plan} /> : undefined}
       />
 
       <ScreenBody className="flex flex-col">
@@ -114,22 +140,33 @@ export function Home({
               disabled={!canFill || blockedReason !== null}
             >
               <IconMascot className="size-4" />
-              {exhausted ? 'Upgrade to fill' : 'Fill this form'}
+              {/*
+                The button says what it does, not what it costs.
+
+                It used to read "Upgrade to fill" the moment the allowance ran out, which turns the
+                one action on the screen into an advertisement. Pressing Fill still opens the sheet
+                — see `handleFill` — so nothing is hidden; the label simply does not pre-empt it.
+              */}
+              Fill this form
             </Button>
 
             {blockedReason ? (
               <p className="mt-2 text-xs leading-snug text-ink-muted">{blockedReason}</p>
-            ) : exhausted ? (
+            ) : exhausted && showMeter ? (
               <p className="mt-2 text-xs leading-snug text-ink-muted">
-                You've used all {limit} forms this month.{' '}
+                {limit === 0
+                  ? 'Start your free trial to fill this form.'
+                  : `You've used all ${limit} AI actions this month.`}{' '}
                 <button
                   type="button"
-                  onClick={() => setShowUpgrade(true)}
+                  onClick={() => {
+                    markSeen()
+                    setShowUpgrade(true)
+                  }}
                   className="font-semibold text-accent underline-offset-2 hover:underline"
                 >
-                  Upgrade to Pro
-                </button>{' '}
-                to keep going.
+                  {limit === 0 ? 'Start free trial' : 'See plans'}
+                </button>
               </p>
             ) : (
               <p className="mt-2 text-xs leading-snug text-ink-dim">
@@ -159,10 +196,14 @@ export function Home({
       {showUpgrade && (
         <UpgradeSheet
           onClose={() => setShowUpgrade(false)}
+          mode={limit === 0 ? 'trial' : 'compare'}
           reason={
-            exhausted
-              ? `You've used all ${limit} free forms this month. Upgrade to Pro for unlimited fills and never hit a wall again.`
-              : undefined
+            limit === 0
+              ? // Names what they have already built, because that is the reason to say yes.
+                readyCount > 0
+                ? `Start the trial and it will answer this form from the ${readyCount} ${plural(readyCount, 'source')} you added.`
+                : undefined
+              : `You've used all ${limit} AI actions this month. They reset on the 1st.`
           }
         />
       )}

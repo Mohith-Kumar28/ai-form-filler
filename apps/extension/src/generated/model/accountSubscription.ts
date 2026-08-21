@@ -15,4 +15,6 @@ export type AccountSubscription = {
   status: AccountSubscriptionStatus;
   /** @minimum 0 */
   currentPeriodEnd?: number;
+  /** @minimum 0 */
+  trialEndsAt?: number;
 } | null;

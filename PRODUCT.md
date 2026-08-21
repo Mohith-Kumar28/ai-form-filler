@@ -29,7 +29,7 @@ A 400px Chrome side panel, docked beside the form. It is never the main event �
 The panel is a control surface and a receipt.
 
 Four jobs:
-1. **Sign in** and show plan/quota (50 forms/month free)
+1. **Sign in.** Say nothing about money yet — see below.
 2. **Feed it** — upload a PDF, paste a link, paste text
 3. **Check what it knows** — identity fields that answer questions with no model call
 4. **Fill, and account for it** — what was filled, what was a judgement call, what was skipped
@@ -57,5 +57,22 @@ is an untuned developer shell and is explicitly **anti-reference**, not authorit
 
 ## What must not change
 
-Product truth: the tier system (0–3), the quota model, the source kinds, the inferred flag,
-the four jobs above. Function and copy meaning stay; their expression is open.
+Product truth: the tier system (0–3), the source kinds, the inferred flag, the four jobs above.
+Function and copy meaning stay; their expression is open.
+
+## How it is paid for
+
+There is no free tier. Access is a **14-day trial of Pro** through Dodo's checkout, converting at
+$5/month; Ultra is $15.
+
+The unit is an **AI action**: one field an AI answered, or one rewrite. A field resolved from the
+user's own saved information — tier 0, no model call — is free and uncounted, which is about a third
+of the fields on a real application. Each plan also carries a separate, quieter ceiling on long
+answers, because a tier-3 paragraph costs roughly a hundred times a dropdown and is the only thing
+that can make a plan unaffordable.
+
+**The panel says nothing about money until the user tries to fill something.** No meter, no badge,
+no plan card, no price. They sign in, add a résumé and a few notes, check what it knows — and the
+offer arrives when they press Fill, having already done the work. Asking for more room (a sixth
+source, a twenty-sixth fact) is the same kind of moment and asks the same way. Once someone has met
+the paywall it stays visible, so anyone who said "not now" can still find their way back.

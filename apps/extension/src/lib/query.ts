@@ -36,6 +36,9 @@ export const queryClient = new QueryClient({
           code === 'UNAUTHENTICATED' ||
           code === 'INVALID_TOKEN' ||
           code === 'QUOTA_EXCEEDED' ||
+          // Both are 402s and both are terminal until the user acts. `LIMIT_EXCEEDED` was missing,
+          // so hitting a source or fact ceiling cost three identical refusals instead of one.
+          code === 'LIMIT_EXCEEDED' ||
           code === 'INVALID_REQUEST'
         ) {
           return false
