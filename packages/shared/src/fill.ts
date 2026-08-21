@@ -103,12 +103,14 @@ export const FillRequest = z.object({
   /**
    * What the caller is asking for, which decides whether this spends quota.
    *
-   * The allowance is denominated in *forms* — fifty a month on the free plan — so filling one
-   * focused input from the page seal must not cost the same as filling a thirty-field
-   * application. Field-scoped fills are still rate limited; they are simply not counted.
+   * This is about *what to detect*, not what to charge. It used to carry a billing meaning too:
+   * the allowance was denominated in whole forms, so a field-scoped fill had to be exempted
+   * entirely — spending one of fifty forms on a single input would have taught people not to use
+   * the feature. The allowance is now denominated in answers, so a field costs a field and the
+   * exemption is gone.
    *
    * Defaulted rather than required so an older extension build keeps working against a newer
-   * Worker, and keeps being charged the way it always was.
+   * Worker.
    */
   scope: z.enum(['form', 'field']).default('form'),
 })

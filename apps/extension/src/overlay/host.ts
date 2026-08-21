@@ -79,6 +79,19 @@ ${overlayVariables(':host')}
   gap: 0;
 }
 
+/*
+  data-near is the enlarged hover zone, and it is set from JS rather than by CSS.
+
+  The obvious fix — padding the wrap so :hover covers more ground — does nothing here. :host
+  is pointer-events: none and only .launcher and .launcher-grab opt back in, so the wrap is
+  never itself a hit target: it matches :hover only because a child that *is* one is hovered.
+  Padding it adds inert area, not hover area. Making the padding hittable would work and would
+  also mean a 30px collar around the launcher that silently eats the page's own clicks.
+
+  So proximity is measured instead — see NEAR_PAD in launcher.ts — and costs the page no
+  pointer-events at all. :hover stays as the fallback that works before the first pointermove.
+*/
+
 .launcher-body {
   position: relative;
   display: flex;
@@ -102,8 +115,14 @@ ${overlayVariables(':host')}
   pointer-events: auto;
   user-select: none;
   box-shadow: 0 6px 18px -6px var(--aff-shadow-strong);
-  transition: scale 140ms var(--aff-spring);
+  transition: scale 140ms var(--aff-spring), box-shadow 140ms var(--aff-ease);
   animation: pop-in 200ms var(--aff-spring) both;
+}
+/* Hover says "this is a button" before the click does. Rise, brighten, deepen the shadow. */
+.launcher-wrap:hover .launcher,
+.launcher-wrap[data-near="true"] .launcher {
+  scale: 1.08;
+  box-shadow: 0 10px 24px -6px var(--aff-shadow-strong);
 }
 .launcher:active { scale: 0.97; }
 .launcher-icon { display: flex; flex: none; }
@@ -116,12 +135,25 @@ ${overlayVariables(':host')}
   white-space: nowrap;
 }
 
-/* The badge under the icon: the field count when idle, what it is doing while it works. */
+/*
+  The badge under the icon: the field count when idle, what it is doing while it works.
+
+  Right-aligned to the circle, always, rather than centred under it.
+
+  Centring it put half the badge past the right edge of the window, because the launcher is
+  pinned 16px from that edge and the badge is wider than the 38px circle it hangs from — "5
+  fields" is about 70px, so 16px of it had nowhere to go. There was a data-wide escape hatch
+  for text longer than eleven characters, which caught "Reading the form…" and missed every
+  field count, so the common case was the broken one.
+
+  Pinning the right edges together is the rule that cannot overflow at any length: the badge
+  grows leftward into the page, where there is always room. It reads as deliberate because the
+  launcher is itself a right-edge object.
+*/
 .launcher-count {
   position: absolute;
   top: calc(100% + 4px);
-  left: 50%;
-  translate: -50% 0;
+  right: 0;
   max-width: 46vw;
   padding: 1px 7px;
   border-radius: 999px;
@@ -133,20 +165,6 @@ ${overlayVariables(':host')}
   white-space: nowrap;
   pointer-events: none;
   box-shadow: 0 1px 4px -1px var(--aff-shadow);
-}
-
-/*
-  Anything longer than "12 fields" grows leftward, not outward.
-
-  The launcher is pinned a few pixels off the right edge and the badge is centred under it, so
-  "Reading the form…" put half of itself past the edge of the window and was simply cut off.
-  Pinning the badge's right edge to the circle's right edge sends the text into the page, where
-  there is room for it.
-*/
-.launcher-count[data-wide="true"] {
-  left: auto;
-  right: 0;
-  translate: 0 0;
 }
 
 /* The thinking dot beside that text. The pulse is what says "still working", not the words. */
@@ -204,38 +222,99 @@ ${overlayVariables(':host')}
 .launcher-wrap[data-filling="true"] .launcher-count { display: none; }
 .launcher-wrap[data-filling="true"] .launcher-stop { display: flex; }
 
-/* Thinking pulse, while the pill is not yet showing progress. */
-.launcher--loading {
-  animation: launcher-think 1.2s ease-in-out infinite;
+/*
+  Thinking: the face turns.
+
+  This was a scale pulse on the whole button — a 1.14 breath, twice a second, which at 38px is
+  the launcher growing and shrinking in place. Two things were wrong with it. It reads as an
+  attention-grab rather than as work in progress, and it collided with the hover scale, so a
+  cursor resting on a thinking launcher fought the animation for the same property.
+
+  Rotation belongs to the icon, leaving 'scale' free for hover and :active. One turn per
+  1.4s is slow enough to read as deliberate rather than as a spinner in distress.
+*/
+.launcher--loading .launcher-icon {
+  animation: launcher-spin 1.4s linear infinite;
 }
 
-@keyframes launcher-think {
+@keyframes launcher-spin {
+  to { rotate: 360deg; }
+}
+
+/*
+  "There is a form here" — played once, on detection.
+
+  The launcher mounts in the corner of a page the user is reading, and a static circle in the
+  periphery is exactly the thing peripheral vision is built to ignore. Three beats and it stops:
+  long enough to catch the eye, short enough not to become the page's heartbeat. animation
+  rather than hover-style state so it cannot repeat while the same form is on screen — the
+  class is added once and removed when the animation ends.
+*/
+.launcher--attention {
+  animation: launcher-attention 900ms var(--aff-spring) 3;
+}
+
+@keyframes launcher-attention {
+  0%, 100% { scale: 1; rotate: 0deg; }
+  15% { scale: 1.18; rotate: -9deg; }
+  30% { scale: 1.12; rotate: 7deg; }
+  45% { scale: 1.16; rotate: -4deg; }
+  60% { scale: 1; rotate: 0deg; }
+}
+
+/* The badge comes with it, so the eye lands on "5 fields" rather than on a bouncing circle. */
+.launcher--attention ~ .launcher-count {
+  animation: attention-badge 900ms var(--aff-ease) 3;
+}
+
+@keyframes attention-badge {
   0%, 100% { scale: 1; }
-  50% { scale: 1.14; }
+  20% { scale: 1.1; }
+  50% { scale: 1; }
 }
 
-/* The drag handle — a little column of dots that appears only on hover. It stays in the flow
-   so the wrap's own box includes it, and the hover area extends left for free. */
+/*
+  The drag handle — the six-dot grabber, shown on hover.
+
+  Two columns of three, which is the conventional glyph for "pick this up and move it" and
+  which three dots in a line is not: a single column of three is a kebab menu everywhere else
+  in software, so the handle was announcing a menu and then not opening one.
+
+  It stays in the flow so the wrap's own box includes it, and the wrap's padding extends the
+  hover area further left again.
+*/
 .launcher-grab {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
+  display: grid;
+  grid-template-columns: repeat(2, 3px);
   gap: 3px;
-  padding: 9px 5px 9px 7px;
-  margin-right: 2px;
+  justify-content: center;
+  align-content: center;
+  padding: 8px 6px;
+  margin-right: 3px;
   border: 0;
   border-radius: 999px;
   background: var(--aff-surface-raised);
   cursor: grab;
   pointer-events: none;
   opacity: 0;
+  scale: 0.9;
   box-shadow: 0 2px 8px -2px var(--aff-shadow);
-  /* Lingers on the way out, so a cursor that clips a corner on its way over recovers instead
-     of having the handle disappear mid-reach. Appears immediately — see the rule below. */
-  transition: opacity 140ms var(--aff-ease) 260ms;
+  /*
+    Lingers for most of a second after the cursor leaves.
+
+    It was 260ms, which is about as long as it takes to notice the handle and start moving
+    towards it — so reaching for it from outside the wrap was a race the cursor usually lost,
+    and dragging the launcher meant a fast, accurate stab at a 15px target. The wrap's hover
+    cushion is the other half of this fix; together they turn a flick into an ordinary reach.
+  */
+  transition:
+    opacity 160ms var(--aff-ease) 700ms,
+    scale 160ms var(--aff-spring) 700ms;
 }
-.launcher-wrap:hover .launcher-grab {
+.launcher-wrap:hover .launcher-grab,
+.launcher-wrap[data-near="true"] .launcher-grab {
   opacity: 1;
+  scale: 1;
   pointer-events: auto;
   transition-delay: 0s;
 }
@@ -243,16 +322,22 @@ ${overlayVariables(':host')}
 .launcher-grab:active,
 .launcher-wrap[data-dragging="true"] .launcher-grab {
   opacity: 1;
+  scale: 1;
   pointer-events: auto;
   transition-delay: 0s;
 }
-.launcher-grab:active { cursor: grabbing; }
+/* :active alone loses the cursor the moment the pointer leaves the button's own box, which
+   during a drag is immediately. data-dragging on the wrap is what holds it. */
+.launcher-grab:active,
+.launcher-wrap[data-dragging="true"] .launcher-grab { cursor: grabbing; }
 .launcher-grab span {
   width: 3px;
   height: 3px;
   border-radius: 50%;
   background: var(--aff-ink-dim);
 }
+.launcher-wrap:hover .launcher-grab span,
+.launcher-wrap[data-near="true"] .launcher-grab span { background: var(--aff-ink-muted); }
 
 /* ── The field trigger ─────────────────────────────────────────────────────
    A small sparkle icon beside a focused field. Clicking it opens the field's
@@ -931,9 +1016,13 @@ ${overlayVariables(':host')}
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .launcher, .card, .mark, .answer-tab, .field-trigger, .learn-chip {
+  .launcher, .launcher-icon, .launcher-count, .card, .mark, .answer-tab, .field-trigger,
+  .learn-chip {
     animation: none !important;
   }
+  /* The hover lift is motion too, and it is the one that fires without being asked for. */
+  .launcher-wrap:hover .launcher,
+  .launcher-wrap[data-near="true"] .launcher { scale: 1; }
   .learn-chip { transition: none !important; }
   .mark[data-state="stated"],
   .mark[data-state="failed"] { opacity: 0; }

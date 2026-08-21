@@ -57,10 +57,46 @@ export const FieldSchema = z.object({
    */
   section: z.string().optional(),
 
-  /** Already-populated value. Non-empty means we skip unless the user forces a refill. */
+  /**
+   * Already-populated value. A real one means we skip unless the user forces a refill —
+   * but see `hasAnswer`, which is the thing to ask rather than testing this directly.
+   */
   currentValue: z.string().optional(),
 })
 export type FieldSchema = z.infer<typeof FieldSchema>
+
+/**
+ * A `tel` value that is only a dial code: `+91`, `+1 `, `+44 ()`, or a bare `+`.
+ *
+ * International phone widgets — `react-phone-number-input`, `intl-tel-input`, and every
+ * component library that wraps them — seed the input with the dial code of the country their
+ * selector is showing. That prefix is furniture the page put there, not something the user
+ * typed, and it is present before anybody has touched the field.
+ */
+const DIAL_CODE_ONLY = /^\+[\s()\-.]*\d{0,4}[\s()\-.]*$/
+
+/**
+ * Whether a field already holds a real answer, as opposed to furniture.
+ *
+ * Ask this rather than testing `currentValue` for emptiness. A phone input showing `+91` is
+ * the case that forced it: `currentValue` was `"+91"`, so the field counted as filled, and
+ * everything downstream did the polite thing and left it alone. The fill skipped it as
+ * `already_filled`, and the content script's field assist took the same branch — which is why
+ * the inline sparkle never appeared on it either. One prefix, two symptoms, and from the
+ * outside it looked like phone fields were not being detected at all.
+ *
+ * Deliberately narrow. Only `tel`, and only a `+` with at most four digits after it: the
+ * longest dial code in use is three (+998), four buys a margin, and five would start eating
+ * real short numbers. A national-format prefix with no `+` — a bare `91`, or the `(0)` some
+ * widgets show — is left alone, because there is no way to tell it from somebody's actual
+ * first two digits.
+ */
+export function hasAnswer(field: { kind?: string; currentValue?: string | undefined }): boolean {
+  const value = field.currentValue?.trim()
+  if (!value) return false
+  if (field.kind === 'tel' && DIAL_CODE_ONLY.test(value)) return false
+  return true
+}
 
 export const FormSchema = z.object({
   /** Origin only. We deliberately do not send full URLs — they leak query-string PII. */

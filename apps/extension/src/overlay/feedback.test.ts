@@ -127,7 +127,7 @@ describe('createFeedbackCapture', () => {
    * form confidently offered the same wrong answer again, indefinitely. So it is reported as a
    * rejection and stored where retrieval cannot reach it.
    */
-  it('reports a field the user cleared as a rejection, never as an answer', () => {
+  it('teaches nothing at all for a field the user cleared', () => {
     const { feedback, sent } = capture()
     feedback.arm(
       [{ fieldId: 'f1', label: 'Q', proposed: 'something' }],
@@ -136,16 +136,8 @@ describe('createFeedbackCapture', () => {
 
     document.dispatchEvent(new Event('submit', { bubbles: true }))
 
-    expect(sent[0]?.entries).toEqual([
-      {
-        label: 'Q',
-        proposed: 'something',
-        accepted: '',
-        edited: false,
-        rejected: true,
-        trigger: 'submit',
-      },
-    ])
+    // Not a rejection, not an empty answer, not a request at all.
+    expect(sent).toHaveLength(0)
   })
 
   it('does not call an empty field we never filled a rejection', () => {
@@ -468,12 +460,13 @@ describe('an answer that settles without the form being submitted', () => {
     expect(sent[1]?.entries[0]?.accepted).toBe('Android')
   })
 
-  it('does not report a rejection for a widget that is still committing', () => {
+  it('waits out a widget that is still committing, and teaches the value it settles on', () => {
     /**
      * react-select drives its own value over roughly a second and a half, so it reads empty for
-     * a moment after being touched. Treating the first empty read as a rejection would teach
-     * "the user rejected this" every single time they picked something — the feature actively
-     * poisoning itself. One empty read is a maybe; two is a decision.
+     * a moment after being touched. This used to need an explicit "one empty read is a maybe,
+     * two is a decision" counter, because an empty read became a rejection. Now that empty
+     * teaches nothing either way, the only thing left to prove is that the *late* value still
+     * arrives — the field goes back in the queue the moment it changes.
      */
     const { feedback, sent } = capture()
     const element = fieldEl('f1')
@@ -493,7 +486,9 @@ describe('an answer that settles without the form being submitted', () => {
     expect(sent[0]?.entries[0]?.rejected).toBeUndefined()
   })
 
-  it('reports a rejection once the field is still empty on a second look', () => {
+  it('stays silent for a field that is still empty on a second look', () => {
+    // Previously a rejection on the second empty read. An empty box is not a verdict, however
+    // many times it is looked at.
     const { feedback, sent } = capture()
     const element = fieldEl('f1')
     feedback.arm(
@@ -504,7 +499,7 @@ describe('an answer that settles without the form being submitted', () => {
     settle(element)
     vi.advanceTimersByTime(LEARN_MIN_REPORT_INTERVAL_MS + LEARN_SETTLE_DELAY_MS + 10)
 
-    expect(sent[0]?.entries[0]).toMatchObject({ proposed: 'India', accepted: '', rejected: true })
+    expect(sent).toHaveLength(0)
   })
 
   /**
@@ -656,7 +651,7 @@ describe('what a report was about', () => {
     expect(reportedFields[0]).toEqual(['f2'])
   })
 
-  it('names the field behind a rejection too', () => {
+  it('reports nothing, and names nothing, for a field left empty', () => {
     const { feedback, sent, reportedFields } = capture()
     feedback.arm(
       [{ fieldId: 'f9', label: 'Portfolio', proposed: 'https://example.com' }],
@@ -665,8 +660,8 @@ describe('what a report was about', () => {
 
     document.dispatchEvent(new Event('submit', { bubbles: true }))
 
-    expect(sent[0]?.entries[0]?.rejected).toBe(true)
-    expect(reportedFields[0]).toEqual(['f9'])
+    expect(sent).toHaveLength(0)
+    expect(reportedFields).toHaveLength(0)
   })
 })
 
@@ -709,9 +704,10 @@ describe('a clear that follows a correction', () => {
     expect(sent).toHaveLength(1)
   })
 
-  it('still rejects an answer the user cleared without replacing', () => {
-    // The signal this exists for is intact: a proposal cleared and never answered is the
-    // second-strongest thing the product ever hears.
+  it('does not reject an answer the user cleared without replacing either', () => {
+    // This asserted the opposite, and the case it protected — a proposal cleared and never
+    // answered — is exactly the one that turned out to be unreadable. Retyping, a validator
+    // refusing the format, and tabbing out of a half-finished form all look identical to it.
     const { feedback, sent } = capture()
     feedback.arm(
       [{ fieldId: 'f1', label: 'Portfolio', proposed: 'https://example.com' }],
@@ -720,7 +716,7 @@ describe('a clear that follows a correction', () => {
 
     document.dispatchEvent(new Event('submit', { bubbles: true }))
 
-    expect(sent[0]?.entries[0]?.rejected).toBe(true)
+    expect(sent).toHaveLength(0)
   })
 })
 

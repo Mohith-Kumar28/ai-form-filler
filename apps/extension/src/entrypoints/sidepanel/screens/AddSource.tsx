@@ -344,6 +344,23 @@ function VoiceMode({ onDone }: { onDone: () => Promise<void> }) {
     return () => URL.revokeObjectURL(playbackUrl)
   }, [playbackUrl])
 
+  /**
+   * The side panel cannot show the microphone prompt, so the asking happens in a tab.
+   *
+   * `getUserMedia` in a side panel rejects with `NotAllowedError` and never prompts — which is
+   * exactly the reported symptom: it says permission is missing and then offers no way to give
+   * it. "Allow microphone" here used to call `start()` again, so it asked Chrome the same
+   * question that Chrome had already declined to put to the user, and failed identically.
+   *
+   * `microphone.html` is an ordinary top-level extension page, where the prompt does appear.
+   * The grant is scoped to the extension's origin, which the panel shares, so recording works
+   * here the moment that tab is done. `permissions.query` below has an `onchange` hook, so the
+   * panel notices the grant without needing to be reopened.
+   */
+  function openPermissionTab() {
+    void chrome.tabs.create({ url: chrome.runtime.getURL('microphone.html') })
+  }
+
   async function start() {
     setDenied(null)
     try {
@@ -361,11 +378,16 @@ function VoiceMode({ onDone }: { onDone: () => Promise<void> }) {
       setSeconds(0)
       setBlob(null)
       setRecording(true)
-    } catch {
+    } catch (error) {
+      // Worth telling apart: "no microphone" is not something a permission tab can fix.
+      const name = (error as { name?: string } | null)?.name
+      if (name === 'NotFoundError' || name === 'DevicesNotFoundError') {
+        setMicPermission('denied')
+        setDenied('Chrome cannot find a microphone. Connect one and try again.')
+        return
+      }
       setMicPermission('denied')
-      setDenied(
-        'Microphone access is blocked. Click below to allow access, or enable it in your browser settings.',
-      )
+      setDenied('Chrome will not let the side panel ask for your microphone. Grant it once here.')
     }
   }
 
@@ -419,7 +441,7 @@ function VoiceMode({ onDone }: { onDone: () => Promise<void> }) {
               {denied}
             </p>
             {micPermission === 'denied' && (
-              <Button variant="secondary" onClick={start}>
+              <Button variant="primary" onClick={openPermissionTab}>
                 <IconMic className="size-3.5" />
                 Allow microphone
               </Button>

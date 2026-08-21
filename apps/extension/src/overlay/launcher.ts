@@ -13,6 +13,19 @@ const POSITION_KEY = 'aff:launcherPos'
 const EDGE = 16
 const DRAG_THRESHOLD = 4
 
+/**
+ * How far outside the launcher still counts as reaching for it, in CSS pixels.
+ *
+ * The drag handle used to appear only while the 38px circle itself was hovered, so picking the
+ * launcher up meant landing on the circle, spotting the handle, and getting to it before the
+ * cursor slipped off — the handle vanished from under the hand reaching for it. 44px is roughly
+ * a thumb, and it is measured from the wrap's box, so it extends past the handle as well.
+ */
+const NEAR_PAD = 44
+
+/** How long the launcher stays "near" after the cursor leaves. Long enough to turn around. */
+const NEAR_LINGER_MS = 700
+
 /** Rotating reassurance shown in place of the field count while the AI thinks. */
 /**
  * What the badge says while there is no number worth showing.
@@ -38,6 +51,8 @@ export interface LauncherHandle {
   setLoading: (loading: boolean) => void
   /** Shows an upgrade indicator instead of the field count. */
   setExhausted: () => void
+  /** A one-off wiggle on detection, so a form on the page is noticed. Plays at most once. */
+  playAttention: () => void
   /** Back to the idle circle + badge. */
   reset: () => void
   destroy: () => void
@@ -94,9 +109,6 @@ export function mountLauncher(options: { onOpen: () => void; onStop: () => void 
       countBadge.appendChild(dot)
     }
     countBadge.appendChild(document.createTextNode(text))
-    // Long text grows leftward into the page instead of off the right edge of the window.
-    if (text.length > 11) countBadge.setAttribute('data-wide', 'true')
-    else countBadge.removeAttribute('data-wide')
   }
 
   let loadingStage = 'generating'
@@ -126,6 +138,8 @@ export function mountLauncher(options: { onOpen: () => void; onStop: () => void 
     }
   }
 
+  let attentionPlayed = false
+
   // Safety net: if no fill event ever arrives, the icon must not spin forever.
   let loadingSafety: ReturnType<typeof setTimeout> | null = null
 
@@ -153,7 +167,9 @@ export function mountLauncher(options: { onOpen: () => void; onStop: () => void 
   grabber.type = 'button'
   grabber.className = 'launcher-grab'
   grabber.setAttribute('aria-label', 'Drag to move')
-  grabber.innerHTML = '<span></span><span></span><span></span>'
+  grabber.setAttribute('title', 'Drag to move')
+  // Six, in two columns of three — the grabber glyph. Three in a line is a kebab menu.
+  grabber.innerHTML = '<span></span>'.repeat(6)
 
   body.appendChild(button)
   body.appendChild(countBadge)
@@ -165,15 +181,44 @@ export function mountLauncher(options: { onOpen: () => void; onStop: () => void 
 
   // ── Position ─────────────────────────────────────────────────────────────
   // The wrap is pinned to the right edge; dragging moves it vertically.
-  const rightX = () => window.innerWidth - wrap.offsetWidth - EDGE
-  let pos = { y: Math.round(window.innerHeight * 0.25) }
+
+  /**
+   * The viewport, *excluding* the scrollbar.
+   *
+   * `window.innerWidth` includes it, so on any page long enough to scroll — which is most pages
+   * with a form on them — the launcher was placed 16px from the outer edge of a viewport whose
+   * last 15px are occupied by the scrollbar. The gap the user actually saw was nearer 1px, and
+   * anything hanging off the launcher, the badge above all, went under the scrollbar or off the
+   * edge entirely. `clientWidth` is the content box.
+   *
+   * Guarded because a quirks-mode document can report 0 here, and 0 would pin the launcher off
+   * the left of the window.
+   */
+  const viewportWidth = () => document.documentElement.clientWidth || window.innerWidth
+  const viewportHeight = () => document.documentElement.clientHeight || window.innerHeight
+
+  const rightX = () => viewportWidth() - wrap.offsetWidth - EDGE
+  let pos = { y: Math.round(viewportHeight() * 0.25) }
+
+  // Declared up here rather than beside the pointermove handler that uses them: `applyPosition`
+  // calls `invalidateNear` and runs during mount, which a `const` declared further down would
+  // meet in its temporal dead zone.
+  let nearRect: DOMRect | null = null
+  let nearTimer: ReturnType<typeof setTimeout> | null = null
+  let isNear = false
+
+  const invalidateNear = () => {
+    nearRect = null
+  }
 
   const clampY = (y: number) =>
-    Math.min(Math.max(EDGE, y), window.innerHeight - button.offsetHeight - EDGE)
+    Math.min(Math.max(EDGE, y), viewportHeight() - button.offsetHeight - EDGE)
 
   const applyPosition = (y: number) => {
     pos = { y }
     wrap.style.translate = `${Math.round(rightX())}px ${Math.round(y)}px`
+    // The cached proximity rect is now stale — see `onPointerMove`.
+    invalidateNear()
   }
 
   /**
@@ -196,6 +241,16 @@ export function mountLauncher(options: { onOpen: () => void; onStop: () => void 
   grabber.addEventListener('pointerdown', (event) => {
     grabber.setPointerCapture(event.pointerId)
     dragState = { startY: event.clientY, origY: pos.y, dragging: false }
+    /*
+      The CSS has wanted this attribute since it was written; nothing ever set it.
+
+      Both rules that keep the handle alive mid-drag were therefore resting on `:active` alone,
+      and `:active` is lost as soon as the pointer leaves the button's box — which, when the
+      thing you are doing is dragging that button somewhere else, is instantly. The handle
+      faded out from under a pointer that still had it captured, and the cursor reverted from
+      `grabbing` to the page's own.
+    */
+    wrap.setAttribute('data-dragging', 'true')
   })
 
   grabber.addEventListener('pointermove', (event) => {
@@ -206,11 +261,17 @@ export function mountLauncher(options: { onOpen: () => void; onStop: () => void 
     applyPosition(clampY(dragState.origY + dy))
   })
 
-  grabber.addEventListener('pointerup', () => {
+  const endDrag = () => {
+    wrap.removeAttribute('data-dragging')
     if (!dragState) return
     if (dragState.dragging) void chrome.storage.local.set({ [POSITION_KEY]: pos })
     dragState = null
-  })
+  }
+
+  grabber.addEventListener('pointerup', endDrag)
+  // A cancelled pointer (a gesture the browser took over, a lost capture) never fires `pointerup`,
+  // and without this the wrap keeps `data-dragging` and the handle never hides again.
+  grabber.addEventListener('pointercancel', endDrag)
 
   button.addEventListener('click', () => options.onOpen())
 
@@ -220,7 +281,54 @@ export function mountLauncher(options: { onOpen: () => void; onStop: () => void 
     if (saved) applyPosition(clampY(saved.y))
   })
 
-  const onResize = () => applyPosition(clampY(pos.y))
+  /*
+    Proximity, measured on pointermove, in place of a bigger hover target.
+
+    The rect is cached and invalidated on the two things that move the launcher — a drag and a
+    resize — because reading `getBoundingClientRect` on every pointermove of every page the
+    extension is injected into is a layout flush we have no business asking for. `data-near`
+    only ever changes when it actually flips, so a cursor crossing the page does no DOM work.
+  */
+  const setNear = (near: boolean) => {
+    if (near === isNear) return
+    isNear = near
+    if (near) wrap.setAttribute('data-near', 'true')
+    else wrap.removeAttribute('data-near')
+  }
+
+  const onPointerMove = (event: PointerEvent) => {
+    // Mid-drag the pointer is wherever the user has taken it; "near" is not the question.
+    if (dragState) return
+    if (!nearRect) nearRect = wrap.getBoundingClientRect()
+    const r = nearRect
+    const near =
+      event.clientX >= r.left - NEAR_PAD &&
+      event.clientX <= r.right + NEAR_PAD &&
+      event.clientY >= r.top - NEAR_PAD &&
+      event.clientY <= r.bottom + NEAR_PAD
+
+    if (near) {
+      if (nearTimer !== null) {
+        clearTimeout(nearTimer)
+        nearTimer = null
+      }
+      setNear(true)
+      return
+    }
+
+    if (!isNear || nearTimer !== null) return
+    nearTimer = setTimeout(() => {
+      nearTimer = null
+      setNear(false)
+    }, NEAR_LINGER_MS)
+  }
+
+  document.addEventListener('pointermove', onPointerMove, { passive: true })
+
+  const onResize = () => {
+    invalidateNear()
+    applyPosition(clampY(pos.y))
+  }
   window.addEventListener('resize', onResize)
 
   const anchorRect = (): Rect => {
@@ -266,6 +374,30 @@ export function mountLauncher(options: { onOpen: () => void; onStop: () => void 
       countBadge.textContent = 'Upgrade'
       countBadge.setAttribute('data-exhausted', 'true')
     },
+    /**
+     * "There is a form here."
+     *
+     * The launcher is a static circle in the corner of a page somebody is reading, which is
+     * precisely the shape peripheral vision discards. Three beats on arrival is the smallest
+     * thing that says the tool has something to offer on *this* page rather than merely
+     * existing on every page.
+     *
+     * Once per launcher, and the launcher is destroyed and rebuilt only when the field count
+     * goes to zero and back — so a single-page app that swaps forms wiggles again, and a page
+     * that merely re-detects the same form does not. The class is removed on `animationend`
+     * so it cannot fight the hover scale afterwards; reduced motion drops the animation, and
+     * the listener never fires, which is why the guard is a flag rather than the class itself.
+     */
+    playAttention: () => {
+      if (attentionPlayed) return
+      attentionPlayed = true
+      button.classList.add('launcher--attention')
+      button.addEventListener(
+        'animationend',
+        () => button.classList.remove('launcher--attention'),
+        { once: true },
+      )
+    },
     setLoading: (loading) => {
       if (loading) {
         button.classList.add('launcher--loading')
@@ -291,6 +423,8 @@ export function mountLauncher(options: { onOpen: () => void; onStop: () => void 
     },
     destroy: () => {
       settleLoading()
+      if (nearTimer !== null) clearTimeout(nearTimer)
+      document.removeEventListener('pointermove', onPointerMove)
       window.removeEventListener('resize', onResize)
       wrap.remove()
     },

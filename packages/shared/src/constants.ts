@@ -51,8 +51,11 @@ export const PLAN_LIMITS = {
  * spent a whole $5 allowance on essays would cost $7.80 — more than they paid.
  *
  * Set near a quarter of `PLAN_LIMITS`, which bounds that worst case to roughly a third of revenue
- * while never binding in practice: essays were 3–9% of fields in the same data. It is deliberately
- * quiet in the interface for that reason — see `UsageBar`, which only shows it past 60%.
+ * while never binding in practice: essays were 3–9% of fields in the same data.
+ *
+ * `UsageBar` reported it only past 60% used, on the grounds that a guardrail which never binds is
+ * noise. That was defensible while it was ours alone; it stopped being so once checkout sells the
+ * figure by name. It is now always shown.
  */
 export const PLAN_LONGFORM_LIMITS = {
   free: 0,

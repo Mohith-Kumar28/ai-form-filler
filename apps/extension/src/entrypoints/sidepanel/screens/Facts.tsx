@@ -38,8 +38,16 @@ import {
 import { IconCrown, IconPlus } from '../icons.js'
 import { InfoTabs } from './info-tabs.js'
 
-/** How long after the last keystroke a field settles and saves. Blur saves immediately. */
-const SETTLE_MS = 800
+/**
+ * How long after the last keystroke a field settles and saves. Blur still saves immediately.
+ *
+ * 800ms is inside the rhythm of ordinary typing — a pause to think mid-sentence beats it — so
+ * filling in one address fired a PATCH every few words, each one a round trip that rewrites the
+ * whole profile. Two seconds sits past the gaps in typing and well short of the point where a
+ * save feels unreliable, and nothing is at risk in between: leaving the field commits at once,
+ * and so does leaving the screen.
+ */
+const SETTLE_MS = 2000
 
 /** How long "Saved" stays up before the header goes quiet again. */
 const SAVED_MS = 1600

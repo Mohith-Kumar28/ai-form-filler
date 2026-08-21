@@ -249,20 +249,24 @@ export function IconSignOut(props: IconProps) {
 }
 
 /**
- * "My info": a card with a face and two lines on it.
+ * "My info": a list.
  *
- * The tab used to wear `IconDocument`, a single sheet of paper. That is a *source* — one of the
- * things you feed it — and this screen is the other side of that: the facts it holds about you,
- * with the sources as the second tab. A sheet of paper beside "My info" named the input where the
- * label named the subject.
+ * Two glyphs have been wrong here for different reasons. `IconDocument`, a sheet of paper, named
+ * a *source* — one of the things you feed it — where the label names the subject. Replacing it
+ * with an ID card fixed the meaning and broke the drawing: a rounded frame, a head, a shoulder
+ * arc and two 2px rules is five shapes inside a 9px box, and at the 20px the tab bar renders it
+ * they collapse into a smudge. The metaphor was right and there was no room to draw it.
+ *
+ * A list is what the screen actually is — facts, one per row — and three dotted rules survive
+ * being small, which is the only size this is ever seen at. `h.01` with a round cap is a dot; a
+ * zero-length segment would not paint. The bare rules alone are `IconText`, and this is not shown
+ * anywhere near it.
  */
-export function IconIdCard(props: IconProps) {
+export function IconList(props: IconProps) {
   return (
     <Svg {...props}>
-      <rect x="1.75" y="3.25" width="12.5" height="9.5" rx="2" />
-      <circle cx="5.75" cy="7.1" r="1.35" />
-      <path d="M3.6 11c.4-1.1 1.2-1.7 2.15-1.7s1.75.6 2.15 1.7" />
-      <path d="M10.4 7h2.1M10.4 9.6h2.1" />
+      <path d="M3.25 4.5h.01M3.25 8h.01M3.25 11.5h.01" />
+      <path d="M6.75 4.5H13M6.75 8H13M6.75 11.5H13" />
     </Svg>
   )
 }

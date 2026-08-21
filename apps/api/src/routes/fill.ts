@@ -118,10 +118,10 @@ const feedbackRoute = createRoute({
   /**
    * Rate limited, in its own bucket, and deliberately **not** quota-counted.
    *
-   * Quota is denominated in forms. Somebody who has used their last fill of the month still
-   * deserves their corrections recorded — the entire point of learning is that next month
-   * starts smarter, and charging a form for teaching us something would make the product worse
-   * at the one thing it is for.
+   * Quota is denominated in answers the model wrote. Somebody who has used their last action of
+   * the month still deserves their corrections recorded — the entire point of learning is that
+   * next month starts smarter, and charging for teaching us something would make the product
+   * worse at the one thing it is for. `learningBudget` bounds the work instead.
    */
   middleware: [feedbackRateLimit] as const,
   request: {

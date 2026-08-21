@@ -15,7 +15,6 @@ import {
   Screen,
   ScreenBody,
   ScreenHeader,
-  Section,
   SUNSET_GRADIENT,
   Toggle,
   UsageBar,
@@ -119,8 +118,6 @@ export function Profile({ account }: { account: Account }) {
     return () => clearTimeout(timer)
   }, [settingsMutation.isPending, settingsMutation.isError, settingsMutation.isSuccess])
 
-  const [settingsOpen, setSettingsOpen] = useState(true)
-
   const toggleSetting = (key: keyof Settings) => {
     settingsMutation.mutate({ ...currentSettings, [key]: !currentSettings[key] })
   }
@@ -217,8 +214,24 @@ export function Profile({ account }: { account: Account }) {
           </div>
         )}
 
-        <Section title="On the page" open={settingsOpen} onToggle={setSettingsOpen}>
-          <div className="col-span-full -mx-gutter">
+        {/*
+          Two switches, shown rather than disclosed.
+
+          This was a `Section` — a `<details>` with a chevron — which is the right control for the
+          six field groups on "Your info", where collapsing is what makes forty facts fit in a
+          400px panel. Here it wrapped a grand total of two rows, so the disclosure cost a click
+          and a guess to reveal less than it occupied when closed. A dropdown whose contents are
+          shorter than the affordance is not organising anything.
+
+          It also sat flush to both edges of the panel while everything above it was a card inset
+          by the gutter, so the one collapsed thing on the screen was also the one thing touching
+          the sides. Same inset, same radius, same border as the cards it follows.
+        */}
+        <div className="px-gutter pb-1">
+          <p className="mb-2 font-display text-sm font-bold tracking-[-0.01em] text-ink-muted">
+            On the page
+          </p>
+          <div className="overflow-hidden rounded-2xl border border-border-muted bg-surface-raised">
             <Toggle
               checked={currentSettings.inlineAutofill}
               onChange={() => toggleSetting('inlineAutofill')}
@@ -226,6 +239,7 @@ export function Profile({ account }: { account: Account }) {
               label="Inline autofill"
               description="Offer a suggestion when you focus a field it already knows."
             />
+            <div className="mx-gutter border-t border-border-muted" />
             <Toggle
               checked={currentSettings.showLauncher}
               onChange={() => toggleSetting('showLauncher')}
@@ -234,7 +248,7 @@ export function Profile({ account }: { account: Account }) {
               description="Show the fill button on the right edge of the page."
             />
           </div>
-        </Section>
+        </div>
 
         <div className="px-gutter py-4">
           <button

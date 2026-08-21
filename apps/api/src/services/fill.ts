@@ -1,5 +1,5 @@
 import type { Fill, FillPlan, FillRequest, FillTier, Identity, Plan, Skip } from '@aff/shared'
-import { ApiErrorResponse, PLAN_SOLO_ESSAY_LIMITS } from '@aff/shared'
+import { ApiErrorResponse, hasAnswer, PLAN_SOLO_ESSAY_LIMITS } from '@aff/shared'
 import { and, eq, sql } from 'drizzle-orm'
 import { fillLog, profileDocs, profileSources } from '../db/schema.js'
 import type { Env } from '../env.js'
@@ -134,10 +134,28 @@ export async function runFill(
     )
   }
 
-  let structured: { identity: Identity } = { identity: { links: {} } }
+  /*
+    `custom` is read here too, and it used not to be.
+
+    The stored blob has always held both halves of the profile — `identity`, the twelve fixed
+    slots, and `custom`, the facts the user typed under names they chose. This parsed out the
+    first and dropped the second on the floor, so every typed fact was invisible to tier 0 and
+    reached the model tiers only as prose inside `profileDoc`.
+
+    The visible symptom was that the panel could fill an address field from a stored fact the
+    instant you focused it, and the fill button could not fill the same field from the same
+    fact. Two different code paths reading two different subsets of one profile row.
+  */
+  let structured: { identity: Identity; custom: Record<string, string> } = {
+    identity: { links: {} },
+    custom: {},
+  }
   try {
-    const parsed = JSON.parse(docRow.structured) as { identity?: Identity }
-    structured = { identity: parsed.identity ?? { links: {} } }
+    const parsed = JSON.parse(docRow.structured) as {
+      identity?: Identity
+      custom?: Record<string, string>
+    }
+    structured = { identity: parsed.identity ?? { links: {} }, custom: parsed.custom ?? {} }
   } catch {
     // A corrupt structured blob costs us tier-0 answers, not the whole request — the model
     // tiers can still read the same facts out of the profile document.
@@ -171,15 +189,16 @@ export async function runFill(
     })
   }
 
-  // Fields the user has already filled are left alone unless explicitly asked otherwise.
+  // Fields the user has already answered are left alone unless explicitly asked otherwise.
+  // `hasAnswer`, not `currentValue`: a phone widget's `+91` is the page talking, not the user.
   const candidates = request.overwriteExisting
     ? request.form.fields
-    : request.form.fields.filter((f) => !f.currentValue)
+    : request.form.fields.filter((f) => !hasAnswer(f))
 
   const alreadyFilled: Skip[] = request.overwriteExisting
     ? []
     : request.form.fields
-        .filter((f) => f.currentValue)
+        .filter((f) => hasAnswer(f))
         .map((f) => ({ fieldId: f.id, reason: 'already_filled' as const }))
 
   if (candidates.length === 0) {
@@ -196,10 +215,8 @@ export async function runFill(
   }
 
   const { classifications, counts } = classifyForm(candidates)
-  const labels = new Map(candidates.map((f) => [f.id, f.label]))
-  const tier0 = resolveTier0(identity, classifications, labels)
-
   const byId = new Map(candidates.map((f) => [f.id, f]))
+  const tier0 = resolveTier0(identity, classifications, byId, structured.custom)
 
   const { affordable, unaffordable } = budgetFills(
     tier0.unresolved,
@@ -265,7 +282,7 @@ export async function runFill(
    */
   const unresolvedQuestions = affordable.map((c) => ({
     fieldId: c.fieldId,
-    question: labels.get(c.fieldId) ?? '',
+    question: byId.get(c.fieldId)?.label ?? '',
   }))
 
   /**

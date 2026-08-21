@@ -51,24 +51,6 @@ import {
  */
 const MAX_LEARNED_PER_SUBMIT = 12
 
-/**
- * Sentinel for "this field's answer was rejected", stored in the same map as taught answers.
- *
- * A leading space, which `canonical()` strips from every real answer, so a rejection and an
- * answer can share the dedup map without ever colliding.
- */
-const REJECTED = ' rejected'
-
-/**
- * Rejections in one batch, above which the batch is read as a reset rather than as verdicts.
- *
- * Clearing one answer is a judgement about that answer. Clearing the whole form is somebody
- * starting over — and it arrives here as a rejection per field, which teaches "never answer
- * First name with Mohith" about a value that was perfectly correct. Three is chosen because two
- * deliberate corrections in one settle window is ordinary and three is not.
- */
-const RESET_REJECTION_COUNT = 3
-
 /** How often the "did anything change" sweep may walk every field. See `takeSnapshot`. */
 const SNAPSHOT_THROTTLE_MS = 750
 
@@ -286,9 +268,13 @@ export function createFeedbackCapture(origin: string, send: FeedbackSend): Feedb
    * Fields that read empty once.
    *
    * A widget which writes asynchronously — react-select drives its own value over roughly a
-   * second and a half — reads empty for a moment after being touched. Recording that as a
-   * rejection would teach "the user rejected this" every single time they picked something.
-   * One empty read is a maybe; two is a decision.
+   * second and a half — reads empty for a moment after being touched. Dropping it from `pending`
+   * on that first read loses the value it is about to commit, because nothing re-queues a field
+   * that no longer changes. So one empty read buys a second look, and only the second gives up.
+   *
+   * This set used to serve a different purpose: deciding when an empty field was *settled enough
+   * to be a rejection*. Rejections are gone and this is not about them — it is only about not
+   * reading a widget mid-write.
    */
   const emptyOnce = new Set<string>()
 
@@ -383,64 +369,36 @@ export function createFeedbackCapture(origin: string, send: FeedbackSend): Feedb
     }
   }
 
-  /** A cleared answer, reported as a negative signal. Null when there is nothing to reject. */
-  const rejectionEntry = (proposal: ProposedValue): Entry | null => {
-    // Only a value *we* proposed can be rejected. An empty field nobody filled is not a
-    // signal about anything — it is just an empty field.
-    if (proposal.proposed.trim() === '') return null
+  /*
+    There is no `rejectionEntry` here any more, and emptying a field on the page teaches nothing.
 
-    const already = taught.get(proposal.fieldId)
-    if (already === REJECTED) return null
+    It used to watch every field we filled and, on finding one gone empty, file it as a negative:
+    "never answer this question that way again". The guards around it kept accumulating — not a
+    field we filled, not one already taught, not a whole-form wipe, not the first empty read from
+    an async widget — and each new one was evidence against the signal rather than a repair to it.
+    A cleared box has no single meaning. People clear a field to retype it, to watch the fill run
+    again, to satisfy a validator that rejected the format, or on their way to closing the tab.
 
-    /**
-     * Already answered this field themselves, so a later clear is not a verdict on ours.
-     *
-     * The sequence that made this matter: the user extends our paragraph with a sentence they
-     * care about — it is taught — and then clears the form to watch it fill again. The clear
-     * files our original text as a rejection, and since their edit *contains* that text almost
-     * verbatim, the next prompt says both "reuse their answer" and "never offer that again".
-     * Composing something new is a fair reading of that, and it looks precisely like the edit
-     * was never learned.
-     *
-     * Same principle the store applies in `keptRejections`, at the other end of the wire: a
-     * rejection is worth keeping only because it says "not this" *without* saying what is
-     * right. Once they have said what is right, it has nothing left to add — and a negative
-     * that fights the positive is worse than no negative.
-     */
-    if (already !== undefined) return null
+    The rule is now the simple one: **learn from what somebody wrote, never from what they
+    removed.** An answer kept or edited is a fact about what they want; an empty box is the
+    absence of one, and absence is not a verdict.
 
-    taught.set(proposal.fieldId, REJECTED)
-    return {
-      label: proposal.label,
-      ...(proposal.kind ? { kind: proposal.kind } : {}),
-      ...(proposal.section ? { section: proposal.section } : {}),
-      ...(proposal.hint ? { hint: proposal.hint } : {}),
-      proposed: proposal.proposed,
-      accepted: '',
-      edited: false,
-      rejected: true,
-    }
-  }
+    The explicit "Clear" button on our own answer card still reports — see `reportVerdict` in
+    `content.ts` and the `cleared` branch of `entryFor` above. Somebody looking at one specific
+    answer and saying no to it is a judgement, not a side effect of tidying a form.
+  */
 
   const report = (reported: { entry: Entry; fieldId: string }[], trigger: 'settle' | 'submit') => {
     if (reported.length === 0) return
 
-    /**
-     * A batch that is nothing but cleared fields, and several of them, taught nothing good.
-     *
-     * `rejectionEntry` already refuses a field nobody filled — an empty box is not a signal. What
-     * it could not see is the *shape of the batch*: emptying a form we had just filled produced one
-     * negative per field, all of them about answers the user had no complaint with. They were
-     * clearing the page, not rejecting its contents.
-     *
-     * Kept when there is at least one real answer alongside, because then the clear is a choice
-     * made among others rather than a wipe.
-     */
-    const rejections = reported.filter(({ entry }) => entry.rejected === true)
-    if (rejections.length === reported.length && rejections.length >= RESET_REJECTION_COUNT) {
-      console.debug('[aff] form cleared, not learning', { cleared: rejections.length, trigger })
-      return
-    }
+    /*
+      The "was this whole batch a form wipe?" guard used to sit here.
+
+      It counted rejections in a batch and dropped the batch if they were all rejections and
+      there were at least three — a blunt instrument aimed at the passive clear-detection that
+      has since been removed outright. With nothing generating those negatives, it can only ever
+      match the empty set.
+    */
 
     lastReportAt = Date.now()
     send(
@@ -490,14 +448,15 @@ export function createFeedbackCapture(origin: string, send: FeedbackSend): Feedb
 
       const accepted = resolveAccepted(proposal)
 
+      // Empty teaches nothing. The first read buys one more look, in case a widget is still
+      // committing; the second gives up quietly. Either way no entry is ever produced from it,
+      // and `noteActivity` re-queues the field if anything is typed into it later.
       if ((accepted === null || accepted.trim() === '') && page.isAlive(fieldId)) {
         if (!emptyOnce.has(fieldId)) {
           emptyOnce.add(fieldId)
           schedule()
           continue
         }
-        const rejection = rejectionEntry(proposal)
-        if (rejection) entries.push({ entry: rejection, fieldId })
         pending.delete(fieldId)
         continue
       }
@@ -535,19 +494,10 @@ export function createFeedbackCapture(origin: string, send: FeedbackSend): Feedb
      * the two caps agreeing.
      */
     const answers: { proposal: ProposedValue; accepted: string }[] = []
-    const rejections: { entry: Entry; fieldId: string }[] = []
 
     for (const proposal of proposals) {
       const accepted = resolveAccepted(proposal)
-
-      if (accepted === null || accepted.trim() === '') {
-        if (page.isAlive(proposal.fieldId)) {
-          const rejection = rejectionEntry(proposal)
-          if (rejection) rejections.push({ entry: rejection, fieldId: proposal.fieldId })
-        }
-        continue
-      }
-
+      if (accepted === null || accepted.trim() === '') continue
       answers.push({ proposal, accepted })
     }
 
@@ -562,7 +512,7 @@ export function createFeedbackCapture(origin: string, send: FeedbackSend): Feedb
 
     // Rejections are cheap and few — a form cannot have more of them than it had fills — so
     // they are not made to compete with answers for the submit cap.
-    report([...entries, ...rejections], 'submit')
+    report(entries, 'submit')
 
     /**
      * Deliberately still armed.
@@ -684,8 +634,8 @@ export function createFeedbackCapture(origin: string, send: FeedbackSend): Feedb
       // same page must not re-teach what the first one already did.
       snapshot.clear()
       pending.clear()
-      touched.clear()
       emptyOnce.clear()
+      touched.clear()
       firstPendingAt = 0
 
       document.addEventListener('submit', onSubmit, { capture: true, passive: true })
@@ -717,8 +667,8 @@ export function createFeedbackCapture(origin: string, send: FeedbackSend): Feedb
       }
       snapshot.clear()
       pending.clear()
-      touched.clear()
       emptyOnce.clear()
+      touched.clear()
       document.removeEventListener('submit', onSubmit, { capture: true })
       document.removeEventListener('visibilitychange', onVisibilityChange)
       window.removeEventListener('pagehide', onPageHide)

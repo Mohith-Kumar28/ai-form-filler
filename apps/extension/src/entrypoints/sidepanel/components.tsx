@@ -27,7 +27,7 @@ import {
   IconCrown,
   IconEye,
   IconEyeOff,
-  IconIdCard,
+  IconList,
   IconMascot,
   IconMore,
   IconSearch,
@@ -136,7 +136,7 @@ export function ScreenFooter({ children }: { children: ReactNode }) {
 const TABS: { key: TabName; label: string; icon: (props: { className?: string }) => ReactNode }[] =
   [
     { key: 'home', label: 'Fill', icon: IconMascot },
-    { key: 'yourInfo', label: 'My info', icon: IconIdCard },
+    { key: 'yourInfo', label: 'My info', icon: IconList },
     { key: 'account', label: 'Account', icon: IconUser },
   ]
 
@@ -891,8 +891,16 @@ export function UsageBar({
   const warning = pct >= 80 && !exhausted
 
   const longLeft = Math.max(0, longLimit - longUsed)
-  const longPct = longLimit > 0 ? (longUsed / longLimit) * 100 : 0
-  const showLong = longLimit > 0 && longPct >= 60
+  /*
+   * The long-answer allowance is always reported, never only once it is nearly gone.
+   *
+   * It used to appear past 60% used, on the reasoning that it is a cost guardrail rather than a
+   * feature and never binds in practice. That reasoning holds right up until the number is sold:
+   * the plan is bought on a checkout page that promises "150 long written answers", so an account
+   * screen that mentions it only when it is running out is a meter that hides the very figure the
+   * purchase was made on. A number you charge for is a number you report.
+   */
+  const showLong = longLimit > 0
 
   return (
     <div
@@ -936,14 +944,17 @@ export function UsageBar({
       </p>
 
       {showLong && (
-        <p className="mt-2 border-t border-border-muted pt-2 text-xs text-ink-dim">
+        <p className="mt-2.5 border-t border-border-muted pt-2.5 text-xs leading-snug text-ink-dim">
           {longLeft === 0 ? (
             <span className="text-warning">
               No long answers left. Short answers still work as normal.
             </span>
           ) : (
             <>
-              {longLeft} of {longLimit} long answers left — essays and rewrites
+              <span className="font-bold tabular-nums text-ink-muted">
+                {longLeft} of {longLimit}
+              </span>{' '}
+              long answers left — essays and rewrites
             </>
           )}
         </p>

@@ -239,7 +239,7 @@ function Gallery() {
             <Profile account={ACCOUNT_ONBOARDING} />
           </Frame>
 
-          <Frame label="Account" note="out of long answers — the quiet second line">
+          <Frame label="Account" note="out of long answers">
             <Profile account={ACCOUNT_NO_LONGFORM} />
           </Frame>
 

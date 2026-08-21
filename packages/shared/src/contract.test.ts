@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { Account, PLAN_LIMITS, PLAN_LONGFORM_LIMITS } from './account.js'
 import { ApiErrorResponse } from './api.js'
 import { FillPlan, FillRequest, REVIEW_CONFIDENCE_THRESHOLD } from './fill.js'
-import { FormSchema } from './form.js'
+import { FormSchema, hasAnswer } from './form.js'
 import { Profile } from './profile.js'
 
 const minimalForm = {
@@ -24,6 +24,41 @@ describe('FormSchema', () => {
 
   it('refuses an empty field list — nothing to fill is a detection bug, not a valid form', () => {
     expect(() => FormSchema.parse({ ...minimalForm, fields: [] })).toThrow()
+  })
+})
+
+/**
+ * The dial-code prefix, which is the reason this function exists.
+ *
+ * A phone widget seeds its own input with the code of whatever country its flag is showing,
+ * before anybody has typed. Reading that as "already answered" made the fill skip the field and
+ * made the content script withhold the inline sparkle — one prefix, two symptoms.
+ */
+describe('hasAnswer', () => {
+  it('treats a lone dial code in a tel field as unanswered', () => {
+    for (const currentValue of ['+91', '+1', '+', '+91 ', '+44 ()', '+998']) {
+      expect(hasAnswer({ kind: 'tel', currentValue })).toBe(false)
+    }
+  })
+
+  it('treats a real phone number as answered', () => {
+    expect(hasAnswer({ kind: 'tel', currentValue: '+91 98765 43210' })).toBe(true)
+    expect(hasAnswer({ kind: 'tel', currentValue: '9876543210' })).toBe(true)
+  })
+
+  it('only forgives the prefix on tel — a "+91" typed into a text box is an answer', () => {
+    expect(hasAnswer({ kind: 'text', currentValue: '+91' })).toBe(true)
+  })
+
+  it('is false for genuinely empty values, whatever the kind', () => {
+    expect(hasAnswer({ kind: 'text', currentValue: '   ' })).toBe(false)
+    expect(hasAnswer({ kind: 'tel' })).toBe(false)
+    expect(hasAnswer({})).toBe(false)
+  })
+
+  it('does not forgive a national-format prefix, which is indistinguishable from a number', () => {
+    // No "+", so "91" could be the first two digits of what somebody actually typed.
+    expect(hasAnswer({ kind: 'tel', currentValue: '91' })).toBe(true)
   })
 })
 

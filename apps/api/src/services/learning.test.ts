@@ -28,9 +28,9 @@ describe('a learned identity value reaches the path that answers it', () => {
   it('answers the next form from the profile, with no model call', () => {
     const identity: Identity = { links: {}, phone: '+1 555 0100' }
     const classifications = [classifyField(field('Phone number', 'tel'))]
-    const labels = new Map([['f1', 'Phone number']])
+    const fields = new Map([['f1', field('Phone number', 'tel')]])
 
-    const { fills, unresolved } = resolveTier0(identity, classifications, labels)
+    const { fills, unresolved } = resolveTier0(identity, classifications, fields)
 
     expect(fills[0]?.value).toBe('+1 555 0100')
     expect(fills[0]?.tier).toBe(0)
