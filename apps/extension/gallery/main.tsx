@@ -25,6 +25,8 @@ import { cssName, DARK, LIGHT, TOKEN_NAMES } from '../src/lib/tokens.js'
 import './stub-chrome.js'
 import {
   ACCOUNT,
+  ACCOUNT_FREE_GRANT,
+  ACCOUNT_FREE_SPENT,
   ACCOUNT_LOW_QUOTA,
   ACCOUNT_NO_LONGFORM,
   ACCOUNT_ON_HOLD,
@@ -33,6 +35,7 @@ import {
   MESSY_PROFILE,
   PLAN,
   PROFILE,
+  PROFILE_UNEXTRACTED,
   REPORT,
 } from './fixtures.js'
 
@@ -297,6 +300,14 @@ function Gallery() {
             />
           </Frame>
 
+          <Frame label="Account" note="free grant, barely touched — one CTA, no lecture">
+            <Profile account={ACCOUNT_FREE_GRANT} sourceCount={2} />
+          </Frame>
+
+          <Frame label="Account" note="free grant spent — now the meter speaks">
+            <Profile account={ACCOUNT_FREE_SPENT} sourceCount={2} />
+          </Frame>
+
           <Frame label="Account" note="onboarding — no billing section">
             <Profile account={ACCOUNT_ONBOARDING} />
           </Frame>
@@ -375,6 +386,26 @@ function Gallery() {
               step={7}
               onStep={() => undefined}
               onFinish={() => undefined}
+            />
+          </Frame>
+
+          <Frame label="First run" note="a source we extracted nothing from — no zero tile">
+            <Onboarding
+              account={ACCOUNT_ONBOARDING}
+              profile={PROFILE_UNEXTRACTED}
+              step={7}
+              onStep={() => undefined}
+              onFinish={() => undefined}
+            />
+          </Frame>
+
+          <Frame label="Home" note="free grant — upgrade in the header">
+            <Home
+              account={ACCOUNT_FREE_GRANT}
+              profile={PROFILE}
+              page={PAGE_WITH_FORM}
+              hasLastFill={false}
+              onFill={() => undefined}
             />
           </Frame>
 

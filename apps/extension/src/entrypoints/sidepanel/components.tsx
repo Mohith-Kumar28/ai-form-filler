@@ -1412,6 +1412,7 @@ export function UsageBar({
   longLimit,
   plan,
   resetsAt,
+  footer,
   className = '',
 }: {
   used: number
@@ -1420,8 +1421,22 @@ export function UsageBar({
   longLimit: number
   plan: string
   resetsAt: string
+  /**
+   * Something to do about the number above, inside the same card.
+   *
+   * A slot rather than a button, because this component must not know what a plan costs. It had a
+   * `plan === 'free'` trial button hardcoded in it once, which is how the account screen ended up
+   * with two of them — the meter grew a CTA while the plan card below it already had one. The
+   * meter reports; the caller decides whether there is an offer and what it says.
+   */
+  footer?: ReactNode
   className?: string
 }) {
+  /**
+   * A free plan is the one-time grant, and the difference is visible in three places on this card:
+   * the subtitle, the reset line, and the exhausted message. Derived once so they cannot disagree.
+   */
+  const isGrant = plan === 'free'
   const pct = limit > 0 ? Math.min(100, (used / limit) * 100) : 0
   const left = Math.max(0, limit - used)
   const exhausted = used >= limit
@@ -1429,35 +1444,72 @@ export function UsageBar({
 
   const longLeft = Math.max(0, longLimit - longUsed)
   /*
-   * The long-answer allowance is always reported, never only once it is nearly gone.
+   * Always reported, on every plan.
    *
-   * It used to appear past 60% used, on the reasoning that it is a cost guardrail rather than a
-   * feature and never binds in practice. That reasoning holds right up until the number is sold:
-   * the plan is bought on a checkout page that promises "150 long written answers", so an account
-   * screen that mentions it only when it is running out is a meter that hides the very figure the
-   * purchase was made on. A number you charge for is a number you report.
+   * This has now been wrong in both directions. It first appeared only past 60% used, on the
+   * grounds that a guardrail which never binds is noise. Then it was hidden on the grant, on the
+   * grounds that nobody is *sold* the grant. Both arguments share a mistake: they treat the long
+   * answer as a restriction to be disclosed late, when it is the thing the product is actually
+   * good at. Essays are the expensive, difficult work — the reason to use this over a browser's
+   * own autofill — so the count is not fine print, it is the headline feature's meter, and the
+   * user should be able to see how much of it they have left without waiting to be warned.
    */
-  const showLong = longLimit > 0
+  const showLong = longLimit > 0 && !(longLeft === 0 && exhausted)
 
   return (
     <div
       className={`rounded-2xl border border-border-muted bg-surface-raised p-4 ${className}`.trim()}
     >
+      {/*
+        No denominator on the grant.
+
+        "99 of 100" asks the reader to do arithmetic to find the number they wanted, and the total
+        is the half that stops mattering the moment they have seen it once — the grant never
+        refills, so "of 100" is a fact about the past. What somebody opening this card wants is how
+        much they have left, so that is the whole number: **99**.
+
+        A monthly plan keeps the fraction, because there the total is the plan they are paying for
+        and "552 of 600" is the only form that says whether that plan is the right size.
+      */}
       <p className="font-display text-xl font-bold tracking-[-0.02em] text-ink">
         <span className={exhausted ? 'text-danger' : ''}>{left}</span>
-        <span className="text-ink-dim"> of {limit}</span>
+        {!isGrant && <span className="text-ink-dim"> of {limit}</span>}
       </p>
       {/*
-        "Form fields", not "AI actions".
+        "Auto-fills", not "form fields" and certainly not "AI actions".
 
-        An action is our unit of billing, not a thing anybody recognises — it says nothing about
-        what it buys, and a person reading "600 AI actions left" cannot tell whether that is one
-        job application or fifty. One action is one field answered, so the meter says *fields*: a
-        number the user can convert into work they were about to do, in the same word the fill
-        screen already uses when it reports "12 fields found" on a page.
+        Three attempts at this. "AI actions" was our unit of billing — a person reading "600 AI
+        actions left" cannot tell whether that is one job application or fifty. "Form fields left"
+        fixed the unit and broke the sentence: it reads as a count of fields on some form, so "100
+        form fields left on the free plan" sounds like a limit on how big a form may be, not on how
+        many times the product will work for you.
+
+        An auto-fill is the thing the user pressed the button to get. It needs no glossary, it is
+        the word the product is named after doing, and it counts the same way the meter does.
+      */}
+      {/*
+        "this month" is a lie on a free account.
+
+        The grant is one-time — `periodFor` meters it against a fixed period key, so it never
+        refills — and a meter that says "this month" invites the user to wait for the 1st for
+        something that is not coming. Paid plans do reset, and say so.
+      */}
+      {/*
+        The grant says "auto-fills"; a paid plan still says "form fields".
+
+        Not an oversight. "600 form fields a month" is the phrase on the checkout page, in the live
+        Dodo product description, on the marketing site and in the metering clause of the terms —
+        so a paid meter that renamed the unit would disagree with the contract the user bought
+        under. The grant was never sold to anybody, so it is free to use the plainer word, and no
+        single account ever sees both forms.
+
+        Renaming it everywhere is the better end state and is a coordinated change: site, pricing
+        page, terms, and the product descriptions already live at Dodo.
       */}
       <p className="mt-0.5 text-sm text-ink-muted">
-        form {plural(limit, 'field')} left to fill this month
+        {isGrant
+          ? `auto-${plural(left, 'fill')} left on the free plan`
+          : `form ${plural(limit, 'field')} left to fill this month`}
       </p>
 
       <div
@@ -1466,7 +1518,7 @@ export function UsageBar({
         aria-valuenow={used}
         aria-valuemin={0}
         aria-valuemax={limit}
-        aria-label="Form fields filled this month"
+        aria-label={isGrant ? 'Free auto-fills used' : 'Auto-fills used this month'}
       >
         <div
           className={`h-full rounded-full transition-[width] duration-500 ${
@@ -1483,37 +1535,61 @@ export function UsageBar({
         />
       </div>
 
-      <p className="mt-2 text-xs text-ink-dim">
-        {exhausted
-          ? `Resets ${formatResetDate(resetsAt)}. Move up a plan to keep going now.`
-          : warning
-            ? `Almost there. Resets ${formatResetDate(resetsAt)}.`
-            : `Resets ${formatResetDate(resetsAt)}`}
-      </p>
+      {/*
+        On the free grant this line speaks only when it has news.
+
+        It used to explain the mechanism — "One-off, to try it on a real form — these do not
+        reset" — to somebody who had spent one field out of a hundred. Three clauses of billing
+        theory under a bar that is 1% full, answering a question nobody had yet, and it read as an
+        apology for the thing they had just been given. The grant not resetting matters exactly
+        once: when it runs out, which is when the line appears and says what to do about it.
+
+        Paid plans keep their reset date, because on a monthly allowance the date is the news.
+      */}
+      {(!isGrant || exhausted) && (
+        <p className="mt-2 text-xs text-ink-dim">
+          {isGrant
+            ? 'Your free auto-fills are used up. Start your trial to keep going.'
+            : exhausted
+              ? `Resets ${formatResetDate(resetsAt)}. Move up a plan to keep going now.`
+              : warning
+                ? `Almost there. Resets ${formatResetDate(resetsAt)}.`
+                : `Resets ${formatResetDate(resetsAt)}`}
+        </p>
+      )}
 
       {showLong && (
         <p className="mt-2.5 border-t border-border-muted pt-2.5 text-xs leading-snug text-ink-dim">
           {longLeft === 0 ? (
-            <span className="text-warning">
-              No long answers left. Short answers still work as normal.
-            </span>
+            /*
+              One sentence for both plans, and it is only reachable while something still works.
+
+              It used to read "Short ones still work while your free auto-fills last", which was
+              false in the exact state it was most likely to be read in: a spent grant has zero
+              long answers *and* zero auto-fills, so the card claimed short ones still worked
+              directly under a red zero saying they did not. `showLong` now hides this line once
+              the main allowance is gone too — at that point the headline has already said it.
+            */
+            <span className="text-warning">No long answers left. Everything else still works.</span>
           ) : (
             <>
               <span className="font-bold tabular-nums text-ink-muted">
-                {longLeft} of {longLimit}
+                {/* Same rule as the headline: no denominator on a total that never comes back. */}
+                {isGrant ? longLeft : `${longLeft} of ${longLimit}`}
               </span>{' '}
-              long answers left — essays and rewrites
+              {/*
+                No trailing explainer. This has been "essays and rewrites" and "the written ones";
+                both were an attempt to define "long answer" in three words, and neither managed
+                it. "20 long answers left" is a sentence anybody parses on sight — the place to
+                explain what one is, if it needs explaining, is where the product writes one.
+              */}
+              long {plural(longLeft, 'answer')} left
             </>
           )}
         </p>
       )}
 
-      {plan === 'free' && (
-        <Button variant="primary" block className="mt-3.5" onClick={() => void openTrial()}>
-          <IconCrown className="size-3.5" />
-          Start free trial
-        </Button>
-      )}
+      {footer && <div className="mt-3.5">{footer}</div>}
     </div>
   )
 }
@@ -1620,7 +1696,17 @@ export function UpgradeSheet({
     return () => node.removeEventListener('keydown', onKey)
   }, [])
 
-  const trial = mode === 'trial'
+  /**
+   * `mode` seeds this; it does not own it.
+   *
+   * The trial and the plan picker were two dead ends: "Start free trial" went straight to a Dodo
+   * checkout for Pro, and the only way to find out Ultra existed was a separate button on the
+   * Account screen. Somebody being asked for money for the first time could not see what the
+   * alternatives were without leaving the offer — so the two views are one sheet with a way
+   * between them, and the checkout is reached from whichever one the user actually chose.
+   */
+  const [view, setView] = useState<'trial' | 'compare'>(mode)
+  const trial = view === 'trial'
 
   return (
     <div className="absolute inset-0 z-20 flex flex-col justify-end">
@@ -1667,6 +1753,19 @@ export function UpgradeSheet({
               Answers written from your own sources, in your words. Fields it already knows from
               your saved info never count against the total.
             </p>
+            {/*
+              Underplayed on purpose. The trial is the recommendation, and a second full-strength
+              button beside it would turn a clear offer back into a decision. This is for the
+              person who wants to know what else there is before saying yes — and its absence is
+              what previously sent them to the Account screen to find out.
+            */}
+            <button
+              type="button"
+              onClick={() => setView('compare')}
+              className="mt-3 w-full rounded-full py-2 text-xs font-semibold text-ink-muted underline decoration-border-muted underline-offset-2 transition-colors hover:text-ink"
+            >
+              See both plans side by side
+            </button>
           </>
         ) : (
           <div className="mt-4 space-y-2.5">
@@ -1681,6 +1780,20 @@ export function UpgradeSheet({
               <p className="text-sm font-semibold text-ink">Pro · $5 / month</p>
               <PerkList rows={planRows('pro')} />
             </div>
+            {/*
+              Only when the comparison was reached *from* the trial offer. Someone who arrived here
+              already paying has no trial to go back to, and offering one would be an offer we
+              would then have to refuse at checkout.
+            */}
+            {mode === 'trial' && (
+              <button
+                type="button"
+                onClick={() => setView('trial')}
+                className="w-full rounded-full py-2 text-xs font-semibold text-ink-muted underline decoration-border-muted underline-offset-2 transition-colors hover:text-ink"
+              >
+                Back to the 14-day free trial
+              </button>
+            )}
           </div>
         )}
 

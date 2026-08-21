@@ -12,13 +12,30 @@
 /** Below this, a fill is marked for review rather than accepted silently. */
 export const REVIEW_CONFIDENCE_THRESHOLD = 0.7
 
+/**
+ * The plan names, defined here rather than in the zod schema that used to own them.
+ *
+ * `account.ts` builds its `Plan` enum from this list, so there is still one definition — but the
+ * list lives on the zod-free side because `offerFor` takes a plan now, and the content script
+ * calls `offerFor`. See the note at the top of this file for what importing zod costs there.
+ */
+export const PLANS = ['free', 'pro', 'ultra'] as const
+export type PlanName = (typeof PLANS)[number]
+
 /* ── Plans and allowances ──────────────────────────────────────────────────
 
-   `free` is not a free tier. It is the state of an account that has signed in
-   and has no subscription — during onboarding, or after a trial lapsed. The
-   name is kept because `plan === 'free'` already means "not paying" at every
-   call site, and renaming it would touch the D1 enum, the wire contract and
-   every branch in the panel to say the same thing.                          */
+   `free` is a **one-time grant**, not a monthly tier. Every other plan's
+   allowance is per calendar month; free is measured once over the life of the
+   account and never refills. `periodFor` in `services/account.ts` is what makes
+   that true — a free account meters against a fixed period key, so there is no
+   reset date and no schema change.
+
+   One-time rather than monthly because a monthly free allowance lets somebody
+   applying to five jobs a month finish their whole job search without paying,
+   and the job search *is* the product. A grant sized to about three
+   applications cannot finish the job. It can only prove the thing works, on the
+   user's own real application, and then run out mid-campaign — which is the
+   highest-intent moment this product has.                                    */
 
 /**
  * AI actions per calendar month, per plan. Reported to the user as *form fields*, which is the
@@ -36,12 +53,23 @@ export const REVIEW_CONFIDENCE_THRESHOLD = 0.7
  * defensible — see the comment this deleted in `routes/fill.ts`. Rewrites were therefore unmetered
  * on the most expensive model we run.
  *
- * `free` is 0 on purpose: filling is the paywall. Everything before it — sources, facts, the whole
- * of onboarding — is open, and the panel shows no plan, price or meter until the first fill is
- * attempted.
+ * `free` is the one-time grant: 50 auto-fills, roughly one or two real applications. It is the
+ * half of the product the competition gives away — Simplify ships unlimited autofill free and
+ * charges $39.99/mo for the written answers — so charging for short fields from the first click
+ * reads as worse-than-free on the commodity, while granting them costs us almost nothing: 50 short
+ * answers is well under a cent.
+ *
+ * Was 100. Halved because the short-field count is not what the grant is for and not what it costs
+ * — see `PLAN_LONGFORM_LIMITS`, where the grant's real money is. What 100 bought was three
+ * applications of *mechanical* autofill, which is enough to finish the job without ever meeting
+ * the written answers; 50 still proves the boring half works and arrives at the offer while the
+ * long-answer allowance is the reason to take it.
+ *
+ * The panel still shows no plan, price or meter until the first fill is attempted. What changed is
+ * that the first fill now *succeeds*.
  */
 export const PLAN_LIMITS = {
-  free: 0,
+  free: 50,
   pro: 600,
   ultra: 2500,
 } as const
@@ -59,9 +87,25 @@ export const PLAN_LIMITS = {
  * `UsageBar` reported it only past 60% used, on the grounds that a guardrail which never binds is
  * noise. That was defensible while it was ours alone; it stopped being so once checkout sells the
  * figure by name. It is now always shown.
+ *
+ * On `free` this is not a guardrail but *the* meter, and the only line item in the grant that costs
+ * real money: twenty long answers is ~$0.26, against well under a cent for the fifty short
+ * auto-fills beside them. This number is what bounds the cost of an account that never pays, so it
+ * is the one to move first if free inference spend ever needs cutting — not the auto-fill count,
+ * which is noise by comparison and was halved to 50 without materially changing the total.
+ *
+ * Raised from ten deliberately, and it doubles that exposure: ~$0.26 of inference per account that
+ * never converts, so 1,000 such accounts is ~$260. The reason it is worth it is that essays are
+ * the thing nothing else on the market does well, and ten is thin — a single long application form
+ * can ask for four or five, so ten was two forms before the one feature worth paying for stopped
+ * working. Twenty is four forms, which is enough to form a habit rather than a sample.
+ *
+ * `PLAN_SOLO_ESSAY_LIMITS.free` is what keeps that affordable and is deliberately *not* raised
+ * with it: only the first three get a frontier call to themselves, so answers 4–20 are batched and
+ * cost a fraction of the headline figure above.
  */
 export const PLAN_LONGFORM_LIMITS = {
-  free: 0,
+  free: 20,
   pro: 150,
   ultra: 500,
 } as const
@@ -75,7 +119,11 @@ export const PLAN_LONGFORM_LIMITS = {
  * rather than more of the same, and it costs us exactly what it is worth.
  */
 export const PLAN_SOLO_ESSAY_LIMITS = {
-  free: 0,
+  // Three, out of the grant's twenty. Only the first three long answers get a frontier call to
+  // themselves; the rest are batched, which is measurably flatter writing. That is the honest shape
+  // of the upgrade — the grant proves the ceiling of the writing, then stops delivering it — and it
+  // is the gate that costs us the most per unit, so it stays tight even as the grant grows.
+  free: 3,
   pro: 6,
   ultra: 12,
 } as const
@@ -88,7 +136,11 @@ export const PLAN_SOLO_ESSAY_LIMITS = {
  * still never an error — the entry is dropped and logged, see `learningBudget`.
  */
 export const PLAN_LEARNING_BUDGETS = {
-  free: 0,
+  // Non-zero, because learning is the reason a second account is worse than the first one. The
+  // grant is only 50 auto-fills, so this can never write much; what it buys is that somebody who
+  // burns a grant and signs up again with a fresh address loses the voice they taught, which is
+  // the only defence against multi-accounting that does not involve fraud tooling.
+  free: 30,
   pro: 300,
   ultra: 800,
 } as const
@@ -137,16 +189,28 @@ export const TRIAL_DAYS = 14
  *
  * One rule, in one place, because three surfaces ask the question and they must not disagree — the
  * side panel when Fill is pressed, the page when the launcher is pressed, and the account screen.
- * A limit of zero is an account that has never subscribed (`PLAN_LIMITS.free` is 0), so there is
- * nothing to compare and everything to explain; any other limit belongs to somebody already paying
- * who has run out of a plan they chose, and what they need is the next one up.
+ * Decided from the **plan**, not from the limit. It used to read `limit <= 0`, which worked only
+ * while `PLAN_LIMITS.free` was 0 and silently inverted the moment free got a real allowance: an
+ * exhausted grant would have been offered a plan comparison, as though the user were already
+ * paying. The plan is the fact being asked about, so it is the argument now.
+ *
+ * `free` has never subscribed, so there is nothing to compare and everything to explain. Any other
+ * plan belongs to somebody already paying who has run out of one they chose, and what they need is
+ * the next one up.
  *
  * Zod-free and in `constants` so the content script can import it: the page decides this from the
  * quota it already holds, without a round trip, because opening the side panel needs a live user
  * gesture and a round trip spends it.
  */
-export function offerFor(limit: number): 'trial' | 'compare' {
-  return limit <= 0 ? 'trial' : 'compare'
+export function offerFor(plan: PlanName | string): 'trial' | 'compare' {
+  /*
+    Written as "is this a paid plan" rather than "is this free", which is not the same test on a
+    value that arrived over the wire. `plan !== 'free'` would send anything unrecognised — a
+    truncated field, an empty string, a plan name added by a newer server than this build knows —
+    down the comparison path, and a comparison of plans somebody has never had is the one wrong
+    answer that cannot be recovered from. Trial is the safe default, so it is the default.
+  */
+  return plan === 'pro' || plan === 'ultra' ? 'compare' : 'trial'
 }
 
 export const FILL_PORT = 'aff:fill' as const

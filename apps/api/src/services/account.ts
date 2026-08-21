@@ -17,6 +17,30 @@ export function currentPeriod(now = new Date()): string {
   return `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, '0')}`
 }
 
+/**
+ * The period key a free account meters against: fixed, so its allowance never rolls over.
+ *
+ * Not a date, which is the whole point. `quota_usage` is keyed by `(userId, period)`, so writing
+ * every free account's usage under one constant key makes the grant a lifetime counter using the
+ * table that already exists — no migration, no second table, no nullable columns. A row with
+ * period `grant` is a grant; a row with period `2026-08` is a month.
+ *
+ * It cannot collide with a real period: `currentPeriod` only ever emits digits and a hyphen.
+ */
+export const GRANT_PERIOD = 'grant'
+
+/**
+ * Which period a plan's usage belongs to.
+ *
+ * Every read and write of `quota_usage` goes through this rather than calling `currentPeriod`
+ * directly, because the two must agree. A check that reads the grant row and a charge that writes
+ * the month row is an allowance that is never spent — the failure mode is silent and it is free
+ * inference for everybody, so there is one function and no call site is allowed its own opinion.
+ */
+export function periodFor(plan: Plan): string {
+  return plan === 'free' ? GRANT_PERIOD : currentPeriod()
+}
+
 /** Midnight UTC on the first of next month. */
 export function periodResetsAt(now = new Date()): string {
   return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1)).toISOString()
@@ -57,7 +81,7 @@ export async function getOrCreateUser(db: Db, identity: GoogleIdentity): Promise
 }
 
 export async function loadQuota(db: Db, userId: string, plan: Plan): Promise<QuotaState> {
-  const period = currentPeriod()
+  const period = periodFor(plan)
   const rows = await db
     .select({ used: quotaUsage.used, longUsed: quotaUsage.longUsed })
     .from(quotaUsage)
@@ -71,6 +95,15 @@ export async function loadQuota(db: Db, userId: string, plan: Plan): Promise<Quo
     limit: PLAN_LIMITS[plan],
     longUsed: row?.longUsed ?? 0,
     longLimit: PLAN_LONGFORM_LIMITS[plan],
+    /**
+     * Sent on every plan, meaningful on the paid ones.
+     *
+     * The one-time grant has no reset, so on `free` this is a date nothing happens on. It is still
+     * populated rather than made optional because the field is required across the wire contract
+     * and the generated client models, and widening it there to carry one piece of information the
+     * client can already derive — `quota.plan` is right beside it — would be a contract change for
+     * nothing. `UsageBar` branches on the plan and never shows a reset to a free account.
+     */
     resetsAt: periodResetsAt(),
   }
 }

@@ -21,10 +21,20 @@ export const site = {
 /**
  * The plans, and the only place the site states a number.
  *
- * There is no free tier. Access starts with a 14-day trial of Pro, taken through Dodo's checkout,
- * which then converts at $5 a month. That is a deliberate trade: the nearest competitor gives
- * mechanical autofill away and charges $39.99/mo for the AI-written answers that are this product's
- * whole point, so the wedge here is price rather than a free allowance.
+ * There is a free grant, and it is not a tier. A new account gets a one-time 50 auto-fills and 20
+ * long answers — which do not refill; after that, access is a 14-day trial of Pro through Dodo's
+ * checkout, converting at $5 a month.
+ *
+ * The split between those two numbers is the strategy: the short-field half is the commodity and is
+ * deliberately small, while the long answers are the part worth paying for and are deliberately
+ * generous enough to form a habit. See `PLAN_LIMITS` and `PLAN_LONGFORM_LIMITS`.
+ *
+ * The grant exists because the nearest competitor gives mechanical autofill away and charges
+ * $39.99/mo for the AI-written answers that are this product's whole point. Matching them on the
+ * commodity costs us about a cent a head; the wedge is still price on the part that matters.
+ *
+ * NOTE: `pricing` below is still two cards and says nothing about the grant. Deliberate — the cards
+ * and their copy are a design change, not a constants change, and are not done here.
  *
  * The unit is one **form field**: a field an AI answered, a rewrite, or a source added or
  * reprocessed. Fields answered from the user's own saved information cost nothing and are not

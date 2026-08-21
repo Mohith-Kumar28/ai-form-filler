@@ -101,7 +101,7 @@ fillRoutes.openapi(fillRoute, async (c) => {
    */
   const actions = plan.fills.filter((fill) => fill.tier !== 0).length
   const longActions = plan.fills.filter((fill) => fill.tier === 3).length
-  const used = await consumeQuota(c.env, userId, actions, longActions)
+  const used = await consumeQuota(c.env, userId, account.quota.plan, actions, longActions)
 
   return c.json({ ...plan, quotaRemaining: Math.max(0, account.quota.limit - used) }, 200)
 })
@@ -239,7 +239,7 @@ fillRoutes.openapi(improveRoute, async (c) => {
     latencyMs: Date.now() - startedAt,
     model: result.model,
   })
-  await consumeQuota(c.env, userId, 1, 1)
+  await consumeQuota(c.env, userId, c.get('account').quota.plan, 1, 1)
 
   return c.json({ value: result.value }, 200)
 })

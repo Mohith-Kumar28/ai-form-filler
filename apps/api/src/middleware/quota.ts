@@ -1,10 +1,15 @@
-import { ApiErrorResponse, PLAN_LEARNING_BUDGETS, type Plan } from '@aff/shared'
+import {
+  ApiErrorResponse,
+  PLAN_LEARNING_BUDGETS,
+  PLAN_LONGFORM_LIMITS,
+  type Plan,
+} from '@aff/shared'
 import { and, eq, sql } from 'drizzle-orm'
 import { drizzle } from 'drizzle-orm/d1'
 import { createMiddleware } from 'hono/factory'
 import { quotaUsage } from '../db/schema.js'
 import type { AppEnv } from '../env.js'
-import { currentPeriod, periodResetsAt } from '../services/account.js'
+import { periodFor, periodResetsAt } from '../services/account.js'
 
 /**
  * Sliding-window rate limit in KV.
@@ -86,9 +91,14 @@ export const feedbackRateLimit = createRateLimit({
  * This is the load-bearing spend control: every request costs us real money, so the decision to
  * allow one is never delegated to the client.
  *
- * It is also the paywall. An account with no subscription has a limit of 0 and fails here on its
- * very first attempt, which is exactly the moment the panel offers the trial — after the person has
- * already added their résumé and their facts, and not before.
+ * It is also the paywall, but no longer on the first attempt. An account with no subscription now
+ * carries a one-time grant, so it fails here when the grant runs out — three applications in,
+ * mid-search, having watched the thing work on its own real forms. That is a deliberate move of the
+ * wall rather than a softening of it: the card is still required, it is just asked for after the
+ * value has been demonstrated instead of before.
+ *
+ * The condition is the **plan**, not `limit === 0`. Those were the same test while free was zero
+ * and are now opposites: a free account that has spent its grant has a limit of 100.
  *
  * Note what this does *not* do: it does not refuse a request merely because the allowance is too
  * small for the whole form. `runFill` fills what it can afford and reports the rest as skipped, so
@@ -100,10 +110,11 @@ export const enforceQuota = createMiddleware<AppEnv>(async (c, next) => {
   if (quota.used >= quota.limit) {
     throw new ApiErrorResponse(
       'QUOTA_EXCEEDED',
-      quota.limit === 0
+      quota.plan === 'free'
         ? // Deliberately not "to fill this form": this middleware also guards `/fill/improve`,
-          // where the user is rewriting one answer rather than filling anything.
-          'Start your free trial to let it answer this.'
+          // where the user is rewriting one answer rather than filling anything. And deliberately
+          // past tense — it names what they already got, because that is the reason to say yes.
+          `You've used all ${quota.limit} free fields. Start your trial to keep going.`
         : `You've filled all ${quota.limit} fields your plan covers this month.`,
       {
         quota: { used: quota.used, limit: quota.limit, resetsAt: quota.resetsAt },
@@ -127,8 +138,8 @@ export const enforceLongformQuota = createMiddleware<AppEnv>(async (c, next) => 
   if (quota.longUsed >= quota.longLimit) {
     throw new ApiErrorResponse(
       'QUOTA_EXCEEDED',
-      quota.longLimit === 0
-        ? 'Start your free trial to rewrite answers.'
+      quota.plan === 'free'
+        ? `You've used all ${quota.longLimit} free long answers. Start your trial for ${PLAN_LONGFORM_LIMITS.pro} a month.`
         : `You've used all ${quota.longLimit} long answers and rewrites this month.`,
       {
         quota: { used: quota.used, limit: quota.limit, resetsAt: quota.resetsAt },
@@ -149,20 +160,26 @@ export const enforceLongformQuota = createMiddleware<AppEnv>(async (c, next) => 
  * It used to take no amount at all and always add one, because the unit was a whole form. Charging
  * per action is the entire point of the change: a thirty-field application and a three-field
  * signup no longer cost the same, and a rewrite is no longer free.
+ *
+ * `plan` is threaded in rather than looked up because it decides *which row* is charged — the
+ * account's lifetime grant or the current month — and a charge written to the wrong period is an
+ * allowance that never depletes. It is a required parameter for that reason: every caller already
+ * holds `account.quota.plan`, and the type checker refuses the ones that forget.
  */
 export async function consumeQuota(
   env: AppEnv['Bindings'],
   userId: string,
+  plan: Plan,
   actions: number,
   longActions = 0,
 ): Promise<number> {
   if (actions <= 0) {
-    const rows = await readUsage(env, userId)
+    const rows = await readUsage(env, userId, plan)
     return rows?.used ?? 0
   }
 
   const db = drizzle(env.DB)
-  const period = currentPeriod()
+  const period = periodFor(plan)
 
   await db
     .insert(quotaUsage)
@@ -177,13 +194,13 @@ export async function consumeQuota(
       },
     })
 
-  const row = await readUsage(env, userId)
+  const row = await readUsage(env, userId, plan)
   return row?.used ?? actions
 }
 
-async function readUsage(env: AppEnv['Bindings'], userId: string) {
+async function readUsage(env: AppEnv['Bindings'], userId: string, plan: Plan) {
   const db = drizzle(env.DB)
-  const period = currentPeriod()
+  const period = periodFor(plan)
   const rows = await db
     .select({ used: quotaUsage.used, longUsed: quotaUsage.longUsed })
     .from(quotaUsage)

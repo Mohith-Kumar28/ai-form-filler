@@ -128,6 +128,8 @@ function Done({ profile }: { profile: Profile | undefined }) {
   const reading = sources.some(
     (source) => source.status === 'pending' || source.status === 'parsing',
   )
+  /** Something to say, or something still happening. A settled zero is neither. */
+  const showRead = read > 0 || reading
 
   return (
     <div className="text-center">
@@ -140,14 +142,30 @@ function Done({ profile }: { profile: Profile | undefined }) {
         Open a form and press Fill. I mark anything I guessed and learn from what you change.
       </p>
 
-      <div className="mt-4 grid grid-cols-3 gap-2">
+      {/*
+        The character count earns its place or it is not there.
+
+        `extractedChars` is zero for a source we never extracted text from ourselves — an image, a
+        voice note, a PDF that Supermemory read on its own — which is a successful ingest, not an
+        empty one. Rendering that as a bold accent-coloured **0** put the loudest element on the
+        final screen of onboarding on the one number that was both meaningless and, read plainly,
+        a report of failure: "1 source, 0 characters read". The user had just watched it read
+        their résumé.
+
+        So the tile appears when there is something to report, or while reading is still going on
+        (where "…" is honest), and otherwise the grid is two columns of facts and sources — both
+        of which are always true.
+      */}
+      <div className={`mt-4 grid gap-2 ${showRead ? 'grid-cols-3' : 'grid-cols-2'}`}>
         <Tally value={String(facts)} label={plural(facts, 'fact', 'facts')} />
         <Tally value={String(sources.length)} label={plural(sources.length, 'source')} />
-        <Tally
-          value={reading && read === 0 ? '…' : formatCount(read)}
-          label={reading ? 'still reading' : 'characters read'}
-          tone="accent"
-        />
+        {showRead && (
+          <Tally
+            value={reading && read === 0 ? '…' : formatCount(read)}
+            label={reading ? 'still reading' : 'characters read'}
+            tone="accent"
+          />
+        )}
       </div>
 
       <ul className="mt-4 space-y-2 text-left">

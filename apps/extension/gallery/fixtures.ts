@@ -1,4 +1,5 @@
 import type { ApplyReport, FillPlan } from '@aff/shared'
+import { PLAN_LIMITS, PLAN_LONGFORM_LIMITS } from '@aff/shared/constants'
 import type { Account, Profile } from '../src/generated/model/index.js'
 
 /**
@@ -58,6 +59,42 @@ export const ACCOUNT_ONBOARDING: Account = {
 }
 
 /** Out of long answers with plenty of actions left — the meter's quiet secondary line. */
+/**
+ * The state most new users are actually in, and the one that had no frame.
+ *
+ * A free account one field into its one-off grant of 100 — `PLAN_LIMITS.free`. Every other free
+ * fixture here has `limit: 0`, which is the trial-only world from before the grant existed, so the
+ * card that a real new user sees was not reviewable anywhere. That is how it ended up carrying two
+ * competing trial buttons, a paragraph of billing mechanics, and a long-answer meter nobody had
+ * been sold.
+ */
+export const ACCOUNT_FREE_GRANT: Account = {
+  ...ACCOUNT,
+  quota: {
+    ...ACCOUNT.quota,
+    plan: 'free',
+    used: 1,
+    limit: PLAN_LIMITS.free,
+    longUsed: 0,
+    longLimit: PLAN_LONGFORM_LIMITS.free,
+  },
+  subscription: null,
+}
+
+/** The same account with the grant spent — where the meter is finally supposed to speak up. */
+export const ACCOUNT_FREE_SPENT: Account = {
+  ...ACCOUNT,
+  quota: {
+    ...ACCOUNT.quota,
+    plan: 'free',
+    used: PLAN_LIMITS.free,
+    limit: PLAN_LIMITS.free,
+    longUsed: PLAN_LONGFORM_LIMITS.free,
+    longLimit: PLAN_LONGFORM_LIMITS.free,
+  },
+  subscription: null,
+}
+
 export const ACCOUNT_NO_LONGFORM: Account = {
   ...ACCOUNT,
   quota: { ...ACCOUNT.quota, used: 240, longUsed: 150 },
@@ -290,4 +327,17 @@ export const PLAN: FillPlan = {
 export const REPORT: ApplyReport = {
   applied: ['f_why', 'f_salary', 'f_hear', 'f_notice', 'f_name', 'f_email'],
   failed: ['f_auth'],
+}
+
+/**
+ * One ready source that we extracted no text from ourselves — the bug this fixture pins down.
+ *
+ * A photo of a transcript, a voice note, a PDF Supermemory read on its own: all successful
+ * ingests, all `extractedChars: 0`. The final onboarding screen rendered that as a bold accent
+ * **0** captioned "characters read", directly under "1 source", to somebody who had just watched
+ * the thing read their file. A successful ingest reported as a failure.
+ */
+export const PROFILE_UNEXTRACTED: Profile = {
+  ...PROFILE,
+  sources: [{ ...(PROFILE.sources ?? [])[0], extractedChars: 0 }],
 }

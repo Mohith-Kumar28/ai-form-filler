@@ -2,7 +2,7 @@ import type { DeletionReport, Settings } from '@aff/shared'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useState } from 'react'
 import type { Account } from '../../../generated/model/index.js'
-import { openManageSubscription, openTrial, openUpgrade } from '../../../lib/billing.js'
+import { openManageSubscription } from '../../../lib/billing.js'
 import { plural } from '../../../lib/format.js'
 import { sendMessage } from '../../../lib/messaging.js'
 import { usePaywallSeen } from '../../../lib/paywall.js'
@@ -18,6 +18,7 @@ import {
   ScreenHeader,
   SUNSET_GRADIENT,
   Toggle,
+  UpgradeSheet,
   UsageBar,
 } from '../components.js'
 import { IconCrown, IconSignOut, IconTrash } from '../icons.js'
@@ -105,8 +106,12 @@ export function Profile({
    *
    * Driven off the subscription rather than the plan so the section does not vanish the moment a
    * trial lapses — that is precisely when somebody needs to find the renew button.
+   *
+   * `used > 0` matches `Home`, and for the same reason: a free account now spends a real grant
+   * before it ever meets a paywall, and the screen a person visits *to* check what is left cannot
+   * be the screen that hides it until it is gone. See the longer note in `Home`.
    */
-  const showBilling = account.subscription != null || paywallSeen
+  const showBilling = account.subscription != null || paywallSeen || account.quota.used > 0
   const daysLeft = trialDaysLeft(account.subscription)
   const note = subscriptionNote(account.subscription)
 
@@ -122,6 +127,7 @@ export function Profile({
   })
 
   const [confirmingDelete, setConfirmingDelete] = useState(false)
+  const [showUpgrade, setShowUpgrade] = useState(false)
 
   const deleteAccount = useMutation({
     mutationFn: async (confirmEmail: string) => {
@@ -216,56 +222,93 @@ export function Profile({
           back to it. See `usePaywallSeen`.
         */}
         {showBilling && (
-          <div className="grid grid-cols-1 items-start gap-2.5 px-gutter pb-4 wide:grid-cols-2">
-            {account.quota.limit > 0 && <UsageBar {...account.quota} />}
+          /*
+            One card on a free account, two on a paid one.
+
+            The plan card used to render in both cases, and on a free account it was a heading
+            reading "No plan yet" above a button — a box whose entire content was the absence of
+            content, sitting beside a meter that already said "on the free plan" in its subtitle.
+            Two cards, one of them saying nothing, each with a gradient button: that is where the
+            two competing trial CTAs came from, and removing one of the buttons left the empty box
+            behind. So the box goes too, and the offer lives in the card that has something to say.
+
+            A paid account genuinely has two subjects — this month's usage, and the subscription
+            itself with its status, its renewal date and its portal — so it keeps both.
+          */
+          <div
+            /*
+              Two columns only when there are two cards. `wide:grid-cols-2` was unconditional, so
+              once the free account's plan card was removed the remaining meter sat in the left
+              half of a two-column grid with an empty column beside it — a card at half width for
+              no reason, in a panel where width is the scarce thing.
+            */
+            className={`grid grid-cols-1 items-start gap-2.5 px-gutter pb-4 ${
+              plan === 'free' ? '' : 'wide:grid-cols-2'
+            }`}
+          >
+            {account.quota.limit > 0 && (
+              <UsageBar
+                {...account.quota}
+                footer={
+                  plan === 'free' ? (
+                    /*
+                      Opens the sheet, not a checkout.
+
+                      Calling `openTrial()` here spawned a Dodo tab for Pro specifically, so the
+                      first thing a user saw after "start my free trial" was a card form for one
+                      plan they had never been shown, with no sight of Ultra or of what either
+                      includes. The sheet is where the choice is made and the comparison lives;
+                      Dodo is where the card is entered.
+                    */
+                    <Button variant="primary" block onClick={() => setShowUpgrade(true)}>
+                      <IconCrown className="size-3.5" />
+                      Start 14-day free trial
+                    </Button>
+                  ) : undefined
+                }
+              />
+            )}
 
             {/* The plan, in one place. It used to be announced in a header badge, a gradient
                 banner and a table row simultaneously — and for a non-paying account it said
                 "Free plan" and offered nothing at all. */}
-            <div className="rounded-2xl border border-border-muted bg-surface-raised p-4">
-              <div className="flex items-center gap-3">
-                {plan !== 'free' && (
+            {plan !== 'free' && (
+              <div className="rounded-2xl border border-border-muted bg-surface-raised p-4">
+                <div className="flex items-center gap-3">
                   <span
                     className="flex size-9 shrink-0 items-center justify-center rounded-full"
                     style={{ background: SUNSET_GRADIENT }}
                   >
                     <IconCrown className="size-4 text-white" />
                   </span>
-                )}
-                <div className="min-w-0 flex-1">
-                  <p className="text-base font-semibold text-ink">
-                    {plan === 'free' ? 'No plan yet' : `${PLAN_LABEL[plan] ?? plan} plan`}
-                  </p>
-                  {daysLeft !== null && (
-                    <p className="mt-0.5 text-xs text-ink-muted">
-                      {daysLeft === 0
-                        ? 'Trial ends today, then $5 a month'
-                        : `Free trial · ${daysLeft} ${plural(daysLeft, 'day')} left, then $5 a month`}
+                  <div className="min-w-0 flex-1">
+                    <p className="text-base font-semibold text-ink">
+                      {`${PLAN_LABEL[plan] ?? plan} plan`}
                     </p>
-                  )}
+                    {daysLeft !== null && (
+                      <p className="mt-0.5 text-xs text-ink-muted">
+                        {daysLeft === 0
+                          ? 'Trial ends today, then $5 a month'
+                          : `Free trial · ${daysLeft} ${plural(daysLeft, 'day')} left, then $5 a month`}
+                      </p>
+                    )}
+                  </div>
                 </div>
-              </div>
 
-              {note && <p className="mt-2.5 text-xs leading-snug text-warning">{note}</p>}
+                {note && <p className="mt-2.5 text-xs leading-snug text-warning">{note}</p>}
 
-              {plan === 'free' ? (
-                <Button variant="primary" block className="mt-3.5" onClick={() => void openTrial()}>
-                  <IconCrown className="size-3.5" />
-                  Start 14-day free trial
-                </Button>
-              ) : (
                 <div className="mt-3.5 flex flex-col gap-2">
                   <Button variant="secondary" block onClick={() => void openManageSubscription()}>
                     Manage subscription
                   </Button>
                   {plan !== 'ultra' && (
-                    <Button variant="ghost" block onClick={() => void openUpgrade()}>
+                    <Button variant="ghost" block onClick={() => setShowUpgrade(true)}>
                       Compare plans
                     </Button>
                   )}
                 </div>
-              )}
-            </div>
+              </div>
+            )}
           </div>
         )}
 
@@ -366,6 +409,13 @@ export function Profile({
           </div>
         </div>
       </ScreenBody>
+
+      {showUpgrade && (
+        <UpgradeSheet
+          mode={plan === 'free' ? 'trial' : 'compare'}
+          onClose={() => setShowUpgrade(false)}
+        />
+      )}
 
       {confirmingDelete && (
         <DeleteAccountSheet

@@ -132,8 +132,8 @@ describe('Profile', () => {
 
 describe('Account', () => {
   it('accepts an account with no subscription, whose allowance is nothing', () => {
-    // `free` is not a free tier — it is the state of an account that has not subscribed. A limit of
-    // zero is what makes filling the paywall: `enforceQuota` refuses the very first request.
+    // `free` is the one-time grant, not a monthly tier. It carries a real allowance, so the first
+    // fill succeeds; `enforceQuota` refuses once the grant is spent, which is the paywall.
     const parsed = Account.parse({
       id: 'u_1',
       email: 'a@b.com',
@@ -148,7 +148,8 @@ describe('Account', () => {
       profileReady: false,
       profileVersion: 0,
     })
-    expect(parsed.quota.limit).toBe(0)
+    expect(parsed.quota.limit).toBe(PLAN_LIMITS.free)
+    expect(parsed.quota.longLimit).toBe(PLAN_LONGFORM_LIMITS.free)
     expect(parsed.subscription).toBeUndefined()
   })
 
@@ -237,22 +238,34 @@ describe('offerFor', () => {
 
     Home asks it when Fill is pressed, the content script asks it when the launcher is pressed with
     nothing left to spend, and both hand the answer to the same sheet. They used to compute it
-    inline, which is two copies of "a limit of zero means they never subscribed" — and the day one
-    of them drifted, the page would have offered a trial to somebody already paying for Ultra.
+    inline, which is two copies of the rule — and the day one of them drifted, the page would have
+    offered a trial to somebody already paying for Ultra.
   */
   it('offers the trial to an account that has never subscribed', () => {
-    expect(offerFor(PLAN_LIMITS.free)).toBe('trial')
-    expect(offerFor(0)).toBe('trial')
+    expect(offerFor('free')).toBe('trial')
   })
 
   it('offers a plan comparison to anybody who has run out of a plan they pay for', () => {
-    expect(offerFor(PLAN_LIMITS.pro)).toBe('compare')
-    expect(offerFor(PLAN_LIMITS.ultra)).toBe('compare')
+    expect(offerFor('pro')).toBe('compare')
+    expect(offerFor('ultra')).toBe('compare')
   })
 
-  it('treats a nonsense negative limit as never having subscribed', () => {
-    // Belt and braces: the quota arrives over the wire, and a trial offer is the safe wrong answer
+  it('offers the trial for an unrecognised plan name', () => {
+    // Belt and braces: the plan arrives over the wire, and a trial offer is the safe wrong answer
     // — it is the one that cannot show a paying user a comparison of plans they already have.
-    expect(offerFor(-1)).toBe('trial')
+    expect(offerFor('')).toBe('trial')
+  })
+
+  /*
+    The regression this signature exists to prevent.
+
+    The rule used to be `limit <= 0`, which was a proxy for "free" that held only while
+    `PLAN_LIMITS.free` was 0. Now that free carries a real grant, the proxy inverts: an exhausted
+    free account would have been shown a comparison of plans it has never had. Asserting the two
+    are no longer interchangeable is what stops the old shortcut coming back.
+  */
+  it('does not treat a free plan as a paid one now that its limit is non-zero', () => {
+    expect(PLAN_LIMITS.free).toBeGreaterThan(0)
+    expect(offerFor('free')).toBe('trial')
   })
 })

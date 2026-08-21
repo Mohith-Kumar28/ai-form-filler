@@ -120,8 +120,8 @@
     "semantic_hash": ""
   },
   "apps/api/src/middleware/quota.ts": {
-    "mtime": 1787295841.1858928,
-    "ast_hash": "52157c86d1b62ea81424350fc1513d48",
+    "mtime": 1787333419.7152693,
+    "ast_hash": "413f678d2bd572d48fbb04b1d9ec731e",
     "semantic_hash": ""
   },
   "apps/api/src/openapi/schemas.ts": {
@@ -190,8 +190,8 @@
     "semantic_hash": ""
   },
   "apps/api/src/routes/fill.ts": {
-    "mtime": 1787289679.290108,
-    "ast_hash": "323b3fb7003ce8a96464ea27b8613d41",
+    "mtime": 1787333435.5609386,
+    "ast_hash": "efcbb62c3dc2c8f971c68958b5a77428",
     "semantic_hash": ""
   },
   "apps/api/src/routes/me.ts": {
@@ -200,18 +200,18 @@
     "semantic_hash": ""
   },
   "apps/api/src/routes/profile.ts": {
-    "mtime": 1787296183.1271677,
-    "ast_hash": "8953a0299cb6d8231a3c60c494b2be8d",
+    "mtime": 1787333671.9147463,
+    "ast_hash": "4b0a31a44223688b4431e541fde342a7",
     "semantic_hash": ""
   },
   "apps/api/src/services/account.test.ts": {
-    "mtime": 1787285881.447653,
-    "ast_hash": "ca84e14c5a66d86071188bdd873ccc1c",
+    "mtime": 1787333652.728042,
+    "ast_hash": "9af2ab36a304524646d512f6db66f110",
     "semantic_hash": ""
   },
   "apps/api/src/services/account.ts": {
-    "mtime": 1787285881.4477983,
-    "ast_hash": "d6061024d8c461c9dfdf494135a31d3e",
+    "mtime": 1787333392.8213303,
+    "ast_hash": "4aa440b6f3af92fbf27f90fec50329d7",
     "semantic_hash": ""
   },
   "apps/api/src/services/answer-bank.ts": {
@@ -270,8 +270,8 @@
     "semantic_hash": ""
   },
   "apps/extension/src/entrypoints/content.ts": {
-    "mtime": 1787331445.5825207,
-    "ast_hash": "f9415deed5584cfb91d220e2ed560b6a",
+    "mtime": 1787333508.315186,
+    "ast_hash": "c0032eb91dee3508316ebe2e9f321f39",
     "semantic_hash": ""
   },
   "apps/extension/src/entrypoints/sidepanel/App.tsx": {
@@ -705,8 +705,8 @@
     "semantic_hash": ""
   },
   "packages/shared/src/account.ts": {
-    "mtime": 1787329952.1367753,
-    "ast_hash": "3c5dbc21cf03e46e18f23c1807a6d6c5",
+    "mtime": 1787333553.593503,
+    "ast_hash": "374f7620e70afbfbbf4b3f41ee19858b",
     "semantic_hash": ""
   },
   "packages/shared/src/api.ts": {
@@ -715,13 +715,13 @@
     "semantic_hash": ""
   },
   "packages/shared/src/constants.ts": {
-    "mtime": 1787296746.0042906,
-    "ast_hash": "4567ede717dabaca31ccd0dc2703a640",
+    "mtime": 1787333614.224819,
+    "ast_hash": "df27e2f420957915bac9ae209ef398e8",
     "semantic_hash": ""
   },
   "packages/shared/src/contract.test.ts": {
-    "mtime": 1787296770.1085882,
-    "ast_hash": "84a1044f0a4d2e8a67ba73959faf1a66",
+    "mtime": 1787333584.6447685,
+    "ast_hash": "e799bacc815f310f8c4443e833128111",
     "semantic_hash": ""
   },
   "packages/shared/src/fill.ts": {
@@ -860,8 +860,8 @@
     "semantic_hash": ""
   },
   "apps/extension/src/entrypoints/sidepanel/components.tsx": {
-    "mtime": 1787329969.7523468,
-    "ast_hash": "31628419a71780080d5610f2c993566b",
+    "mtime": 1787333541.783413,
+    "ast_hash": "fb07323ec6e5a2a51a080df0d628aec9",
     "semantic_hash": ""
   },
   "apps/extension/src/entrypoints/sidepanel/navigation.tsx": {
@@ -880,13 +880,13 @@
     "semantic_hash": ""
   },
   "apps/extension/src/entrypoints/sidepanel/screens/Home.tsx": {
-    "mtime": 1787330881.89653,
-    "ast_hash": "10e49b4e627ce6d41f291039f04d0a54",
+    "mtime": 1787333740.174395,
+    "ast_hash": "866d31b72330866d3c0f3e400b2dd1ef",
     "semantic_hash": ""
   },
   "apps/extension/src/entrypoints/sidepanel/screens/Profile.tsx": {
-    "mtime": 1787329103.4246154,
-    "ast_hash": "3eb316898e64d904d2bf14bdeec73cbe",
+    "mtime": 1787333740.1746345,
+    "ast_hash": "b0822c4e80454d97c9291ddb8f256277",
     "semantic_hash": ""
   },
   "apps/extension/src/entrypoints/sidepanel/screens/SourceDetail.tsx": {
@@ -1185,8 +1185,8 @@
     "semantic_hash": ""
   },
   "apps/web/src/lib/site.ts": {
-    "mtime": 1787296271.1667917,
-    "ast_hash": "e2b2506aa721164aee88c6a013431e7d",
+    "mtime": 1787333665.4972286,
+    "ast_hash": "967346ac66b333eb66d769822d75dc9d",
     "semantic_hash": ""
   },
   "apps/web/src/router.tsx": {

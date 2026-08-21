@@ -1,7 +1,7 @@
-import { offerFor } from '@aff/shared/constants'
+import { offerFor, PLAN_LIMITS, PLAN_LONGFORM_LIMITS } from '@aff/shared/constants'
 import { type ReactNode, useState } from 'react'
 import type { Account, Profile } from '../../../generated/model/index.js'
-import { plural } from '../../../lib/format.js'
+import { formatCount, plural } from '../../../lib/format.js'
 import { usePaywallSeen } from '../../../lib/paywall.js'
 import type { ActivePage } from '../../../lib/use-active-page.js'
 import {
@@ -17,7 +17,14 @@ import {
   SUNSET_GRADIENT,
   UpgradeSheet,
 } from '../components.js'
-import { IconChevronRight, IconList, IconMascot, IconPlus, IconSparkle } from '../icons.js'
+import {
+  IconChevronRight,
+  IconCrown,
+  IconList,
+  IconMascot,
+  IconPlus,
+  IconSparkle,
+} from '../icons.js'
 import { useNavigation } from '../navigation.js'
 
 /**
@@ -100,7 +107,7 @@ export function Home({
   const sources = profile?.sources ?? []
   const readyCount = sources.filter((source) => source.status === 'ready').length
 
-  const { used, limit, plan } = account.quota
+  const { used, limit, longLimit, plan } = account.quota
   const exhausted = used >= limit
   const [showUpgrade, setShowUpgrade] = useState(false)
   const { seen: paywallSeen, markSeen } = usePaywallSeen()
@@ -120,8 +127,40 @@ export function Home({
    * Account, where a person goes *to* look at it. What survives here is the one case where the
    * number is the answer to a question the user just asked: they pressed Fill and nothing
    * happened.
+   *
+   * `used > 0` was added with the free grant, and it is the rule's original intent rather than a
+   * relaxation of it. The rule is "nothing about money until the first fill attempt". While a free
+   * account's limit was zero those were one event — the first attempt *was* the refusal, so
+   * `paywallSeen` dated them both. A grant separates them by about three applications, and gating
+   * on `paywallSeen` alone would mean the meter first appears at the moment it reads zero: a
+   * a whole grant spent with no indication, then a wall with no warning. Usage is the proof that
+   * a fill has been attempted, so it is what opens the subject.
    */
-  const showMoney = account.subscription != null || paywallSeen
+  const showMoney = account.subscription != null || paywallSeen || used > 0
+
+  /**
+   * Why the sheet is open, and it has to be true of the account reading it.
+   *
+   * There used to be one sentence per *plan*, and the free one described a spent grant: "it has
+   * done all your auto-fills and written all your long answers for you". That was accurate while
+   * the sheet
+   * could only be reached by running out. It is now reachable from the header at any moment, so
+   * the same sentence would greet somebody who has filled a single field with a summary of work
+   * they have not done yet.
+   *
+   * Three cases, and the split is what has actually happened rather than what they pay:
+   *
+   *   - a grant that ran out — the work already done is the argument, so name it;
+   *   - a grant with room left — nothing has been demonstrated yet and nothing is blocked, so the
+   *     honest pitch is simply what more looks like, with no invented urgency;
+   *   - a paid plan out of room — the reset date, which is the only thing they need.
+   */
+  const upgradeReason =
+    plan === 'free'
+      ? used >= limit
+        ? `It has done ${limit} auto-fills and written ${longLimit} long answers for you. Pro is ${formatCount(PLAN_LIMITS.pro)} form fields and ${PLAN_LONGFORM_LIMITS.pro} long answers a month.`
+        : `You have ${Math.max(0, limit - used)} free auto-${plural(Math.max(0, limit - used), 'fill')} left. Pro is ${formatCount(PLAN_LIMITS.pro)} form fields and ${PLAN_LONGFORM_LIMITS.pro} long answers every month.`
+      : `You've filled all ${limit} fields your plan covers this month. They reset on the 1st.`
 
   const checking = page.status === 'checking'
   /** No form, or a page we are not allowed to read. Either way there is nothing to press. */
@@ -185,7 +224,42 @@ export function Home({
             <span>Fillaform</span>
           </span>
         }
-        right={plan !== 'free' ? <ProBadge plan={plan} /> : undefined}
+        /*
+          The header's right slot carries the plan, whatever the plan is.
+
+          On a paid account that is the badge. On a free one it was `undefined` — the one screen
+          the user opens most had no way up from it at all, and the offer lived only behind an
+          exhausted meter or a refused fill. Waiting for the wall means the only people who are
+          ever shown a price are the ones who just hit a dead end.
+
+          It opens the sheet rather than a checkout: the header is the least contextual place in
+          the product to press a button, so the least it owes the user is a look at what they
+          would be buying before Dodo asks for a card.
+        */
+        right={
+          plan !== 'free' ? (
+            <ProBadge plan={plan} />
+          ) : (
+            /*
+              Secondary, not primary. "Fill this form" is the reason this screen exists and it is
+              already a full-strength gradient — a second gradient pill in the header competes with
+              it for the same glance, and the one that loses is the one the user came to press. The
+              crown and the accent text are enough to read as an offer at 12px; being the loudest
+              thing on the screen is not the job.
+            */
+            <Button variant="secondary" size="sm" onClick={() => setShowUpgrade(true)}>
+              {/*
+                The crown carries the colour, not the label. `className="text-accent"` on the
+                Button lost to the `text-ink` inside `VARIANTS.secondary` — two single utilities of
+                equal specificity, decided by stylesheet order rather than by the order they are
+                written in — and winning that with `!important` is not worth it for a tint. The
+                icon has no competing class, so it reads as an offer either way.
+              */}
+              <IconCrown className="size-3.5 text-accent" />
+              Upgrade
+            </Button>
+          )
+        }
       />
 
       {/*
@@ -302,8 +376,8 @@ export function Home({
 
                     {exhausted && showMoney && (
                       <p className="mt-2 text-xs leading-snug text-ink-muted">
-                        {limit === 0
-                          ? 'Start your free trial to fill this form.'
+                        {plan === 'free'
+                          ? `You've used all ${limit} free auto-fills.`
                           : `You've filled all ${limit} fields your plan covers this month.`}{' '}
                         <button
                           type="button"
@@ -313,7 +387,7 @@ export function Home({
                           }}
                           className="font-semibold text-accent underline-offset-2 hover:underline"
                         >
-                          {limit === 0 ? 'Start free trial' : 'See plans'}
+                          {plan === 'free' ? 'Start free trial' : 'See plans'}
                         </button>
                       </p>
                     )}
@@ -336,15 +410,8 @@ export function Home({
       {showUpgrade && (
         <UpgradeSheet
           onClose={() => setShowUpgrade(false)}
-          mode={offerFor(limit)}
-          reason={
-            limit === 0
-              ? // Names what they have already built, because that is the reason to say yes.
-                readyCount > 0
-                ? `Start the trial and it will answer this form from the ${readyCount} ${plural(readyCount, 'source')} you added.`
-                : undefined
-              : `You've filled all ${limit} fields your plan covers this month. They reset on the 1st.`
-          }
+          mode={offerFor(plan)}
+          reason={upgradeReason}
         />
       )}
     </Screen>

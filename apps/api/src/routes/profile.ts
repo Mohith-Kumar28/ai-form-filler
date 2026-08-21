@@ -4,6 +4,7 @@ import {
   PLAN_FACT_LIMITS,
   PLAN_SOURCE_LIMITS,
   PLAN_UPLOAD_LIMITS,
+  type Plan,
 } from '@aff/shared'
 import { createRoute, OpenAPIHono, z } from '@hono/zod-openapi'
 import { count, eq } from 'drizzle-orm'
@@ -63,15 +64,19 @@ profileRoutes.use('/sources/:id/reprocess', rateLimit)
  * Charged at one action, the same as answering one field, and spent only after the ingest
  * actually succeeded (see `chargeIngest`). A failed upload costs the user nothing.
  *
- * What this deliberately does *not* do is call `enforceQuota` on the add-source routes. An account
- * with no subscription has a limit of zero, so enforcing here would make "add your résumé" the
- * paywall — and the whole onboarding order depends on it not being: put your information in, see
- * what it knows, and meet the price at the moment you ask it to fill something. So the first
- * sources are recorded as spent and are simply free of charge in practice, because at limit zero
- * there is nothing to spend. Reprocess is the opposite case and does enforce; see its route.
+ * What this deliberately does *not* do is call `enforceQuota` on the add-source routes. The whole
+ * onboarding order depends on "add your résumé" not being the paywall: put your information in, see
+ * what it knows, and meet the price at the moment you ask it to fill something. Reprocess is the
+ * opposite case and does enforce; see its route.
+ *
+ * This mattered less when a free account's limit was zero and there was nothing to spend. Now the
+ * grant is real, so an ingest genuinely eats one of the free account's 50 auto-fills — which is
+ * correct (a source add is a multimodal extraction plus a memory write, and it costs us) but does
+ * mean the five onboarding sources come out of the same pot the first fill draws on. The pot is
+ * sized with that in mind; the paywall it walks into is still the fill.
  */
-async function chargeIngest(env: AppEnv['Bindings'], userId: string): Promise<void> {
-  await consumeQuota(env, userId, 1)
+async function chargeIngest(env: AppEnv['Bindings'], userId: string, plan: Plan): Promise<void> {
+  await consumeQuota(env, userId, plan, 1)
 }
 
 const getProfileRoute = createRoute({
@@ -216,7 +221,7 @@ profileRoutes.openapi(addTextSourceRoute, async (c) => {
       ...(memoryId ? { memoryId } : {}),
       structured,
     })
-    await chargeIngest(c.env, userId)
+    await chargeIngest(c.env, userId, account.quota.plan)
     return c.json({ profile, truncated: page.truncated }, 200)
   }
 
@@ -250,7 +255,7 @@ profileRoutes.openapi(addTextSourceRoute, async (c) => {
       ...(memoryId ? { memoryId } : {}),
       structured,
     })
-    await chargeIngest(c.env, userId)
+    await chargeIngest(c.env, userId, account.quota.plan)
     return c.json({ profile, truncated: parsed.truncated }, 200)
   }
 
@@ -390,7 +395,7 @@ profileRoutes.openapi(uploadSourceRoute, async (c) => {
      */
     ...(memoryId ? {} : { status: 'failed' as const, error: 'Could not be indexed. Try again.' }),
   })
-  await chargeIngest(c.env, userId)
+  await chargeIngest(c.env, userId, account.quota.plan)
   return c.json({ profile, truncated: false }, 200)
 })
 
@@ -632,7 +637,7 @@ profileRoutes.openapi(reprocessSourceRoute, async (c) => {
     expensive half. Refunding a failed reprocess would leave the one endpoint that can be retried
     without limit free to retry without limit, which is the loop this is metered to prevent.
   */
-  await chargeIngest(c.env, userId)
+  await chargeIngest(c.env, userId, c.get('account').quota.plan)
 
   return c.json({ profile }, 200)
 })

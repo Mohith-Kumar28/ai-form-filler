@@ -1,6 +1,9 @@
 import { z } from 'zod'
+import { PLANS } from './constants.js'
 
-export const Plan = z.enum(['free', 'pro', 'ultra'])
+// Built from the zod-free list rather than restating it, because `offerFor` takes a plan and the
+// content script calls `offerFor` — so the names had to exist on that side of the zod boundary.
+export const Plan = z.enum(PLANS)
 export type Plan = z.infer<typeof Plan>
 
 // Defined in constants.ts (zod-free). Sized from real `fill_log` cost data — see the comments there.
@@ -24,7 +27,13 @@ export const QuotaState = z.object({
    */
   longUsed: z.number().int().nonnegative(),
   longLimit: z.number().int().nonnegative(),
-  /** ISO timestamp of the next monthly reset. */
+  /**
+   * ISO timestamp of the next monthly reset.
+   *
+   * Meaningful on the paid plans only. `free` is a one-time grant that never resets, and the server
+   * still populates this rather than making it optional — see `loadQuota`. Read `plan` to know
+   * whether it means anything; `UsageBar` does.
+   */
   resetsAt: z.string().datetime(),
 })
 export type QuotaState = z.infer<typeof QuotaState>

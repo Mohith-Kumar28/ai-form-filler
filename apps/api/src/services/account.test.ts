@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { currentPeriod, effectivePlan, periodResetsAt } from './account.js'
+import { currentPeriod, effectivePlan, GRANT_PERIOD, periodFor, periodResetsAt } from './account.js'
 
 describe('currentPeriod', () => {
   it('zero-pads single-digit months so keys sort lexicographically', () => {
@@ -12,6 +12,33 @@ describe('currentPeriod', () => {
     // 2026-08-31T23:30Z is still August everywhere UTC-based, but would be September
     // in UTC+1 if this used local getMonth().
     expect(currentPeriod(new Date('2026-08-31T23:30:00Z'))).toBe('2026-08')
+  })
+})
+
+describe('periodFor', () => {
+  /*
+    The one function that decides whether an allowance refills.
+
+    Free is the one-time grant, so its usage is keyed to a constant and there is no month in it —
+    that single fact is what makes the grant a lifetime counter inside a table designed for months.
+    Paid plans get the calendar period they always had.
+  */
+  it('meters a free account against a fixed key, so its grant never rolls over', () => {
+    expect(periodFor('free')).toBe(GRANT_PERIOD)
+    // Same answer in a different month: that is the whole property.
+    expect(periodFor('free')).toBe(periodFor('free'))
+  })
+
+  it('meters a paid account against the calendar month', () => {
+    expect(periodFor('pro')).toBe(currentPeriod())
+    expect(periodFor('ultra')).toBe(currentPeriod())
+  })
+
+  it('cannot collide with a real period key', () => {
+    // `currentPeriod` only ever emits digits and a hyphen, so a non-numeric key is unreachable
+    // by any date. If the grant key were ever changed to something like '0000-00', a user's
+    // lifetime grant and some month's usage would share a row and silently pool.
+    expect(GRANT_PERIOD).not.toMatch(/^[0-9-]+$/)
   })
 })
 

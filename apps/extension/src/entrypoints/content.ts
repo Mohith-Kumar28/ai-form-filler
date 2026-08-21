@@ -660,7 +660,7 @@ export default defineContentScript({
       launcher?.reset()
       closeCard()
       void chrome.runtime
-        .sendMessage({ type: 'overlay/paywall', mode: offerFor(quota?.limit ?? 0) })
+        .sendMessage({ type: 'overlay/paywall', mode: offerFor(quota?.plan ?? 'free') })
         .catch(() => undefined)
     }
 
@@ -1134,26 +1134,44 @@ export default defineContentScript({
         void chrome.runtime.sendMessage({ type: 'overlay/openPanel' }).catch(() => undefined)
 
       /**
+       * A dead session opens the panel. It does not draw a card about opening the panel.
+       *
+       * This used to mount an in-page card reading "Your session ended. Sign in again to
+       * continue." above a single Sign in button whose entire implementation was `openPanel` —
+       * so the page rebuilt, in its own markup, a worse copy of a screen the panel already
+       * renders properly, and charged the user a click to get there. The panel's signed-out
+       * view *is* the sign-in UI: it has the button, the branding, and the explanation.
+       *
+       * Every other branch below is different in kind: a quota, a missing source, a failed
+       * fill. Those say something the panel does not, at the spot where the click happened.
+       * This one had nothing of its own to say.
+       */
+      if (code === 'UNAUTHENTICATED' || code === 'INVALID_TOKEN') {
+        closeCard()
+        openPanel()
+        return
+      }
+
+      /**
        * One action, chosen by what the user has to do about it — not by what broke.
        *
        * A retry offered for a signed-out session is a button that cannot work, and offering it
        * is worse than offering nothing: it costs another round trip to reach the same silence.
+       * That case no longer reaches here at all — see the early return above.
        */
       const remedy: { id: string; label: string; act: () => void } =
-        code === 'UNAUTHENTICATED' || code === 'INVALID_TOKEN'
-          ? { id: 'signin', label: 'Sign in', act: openPanel }
-          : code === 'QUOTA_EXCEEDED' || code === 'LIMIT_EXCEEDED'
-            ? /*
+        code === 'QUOTA_EXCEEDED' || code === 'LIMIT_EXCEEDED'
+          ? /*
                 The same offer the launcher makes, from the same place.
 
                 `openPanel` alone landed the user in the panel with no explanation of why they
                 were there — the fill had been refused for want of a plan, and the panel opened on
                 whatever screen they left it. This asks for the sheet as well.
               */
-              { id: 'upgrade', label: 'See plans', act: openPaywall }
-            : code === 'PROFILE_NOT_READY'
-              ? { id: 'sources', label: 'Add a source', act: openPanel }
-              : { id: 'retry', label: 'Try again', act: () => requestFill('form') }
+            { id: 'upgrade', label: 'See plans', act: openPaywall }
+          : code === 'PROFILE_NOT_READY'
+            ? { id: 'sources', label: 'Add a source', act: openPanel }
+            : { id: 'retry', label: 'Try again', act: () => requestFill('form') }
 
       closeCard()
       card = mountMenuCard({
