@@ -1,5 +1,8 @@
 node_modules/
 dist/
+# WXT build output. `.output/` was the default and is kept here so pre-rename artifacts
+# stay ignored; `apps/extension/build/` is the visible directory it moved to.
+apps/extension/build/
 .output/
 .wxt/
 .wrangler/

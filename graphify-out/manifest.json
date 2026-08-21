@@ -260,8 +260,8 @@
     "semantic_hash": ""
   },
   "apps/extension/package.json": {
-    "mtime": 1786706014.952036,
-    "ast_hash": "a333947cbd85a647e4e1947d02bde863",
+    "mtime": 1787339344.8914707,
+    "ast_hash": "198d5e26c4f9f0a735bea226d4de78e8",
     "semantic_hash": ""
   },
   "apps/extension/src/entrypoints/background.ts": {
@@ -600,23 +600,23 @@
     "semantic_hash": ""
   },
   "apps/extension/vitest.config.ts": {
-    "mtime": 1786563995.974436,
-    "ast_hash": "0594e4782c12191041918cd04548d580",
+    "mtime": 1787339443.4790468,
+    "ast_hash": "acb98fbf7ba5b89b233c8464d5810730",
     "semantic_hash": ""
   },
   "apps/extension/wxt.config.ts": {
-    "mtime": 1787338881.4859424,
-    "ast_hash": "dc978c73bbff64d72f82993537af9c93",
+    "mtime": 1787339519.624897,
+    "ast_hash": "79e0526a0a3cd7cd2b71b19bfcd33a4f",
     "semantic_hash": ""
   },
   "biome.json": {
-    "mtime": 1787228126.506869,
-    "ast_hash": "31041a248bf90d3748c27bdedc43e5e3",
+    "mtime": 1787339356.6108012,
+    "ast_hash": "41b5e4e910909aa1d4456752e0145407",
     "semantic_hash": ""
   },
   "package.json": {
-    "mtime": 1787327496.5922847,
-    "ast_hash": "dbd831657001dced844b61019c6f930a",
+    "mtime": 1787339353.0333416,
+    "ast_hash": "272ebb1dff9338242c797c7b74484d55",
     "semantic_hash": ""
   },
   "packages/form-adapters/package.json": {
@@ -755,8 +755,8 @@
     "semantic_hash": ""
   },
   "scripts/reveal-extension.mjs": {
-    "mtime": 1786642114.88361,
-    "ast_hash": "315e80e724af024b6c62ec6677d09b09",
+    "mtime": 1787339416.8488169,
+    "ast_hash": "3fbe6de56aa2b8f43e2c03b0de79b331",
     "semantic_hash": ""
   },
   "scripts/secrets.mjs": {
@@ -780,8 +780,8 @@
     "semantic_hash": ""
   },
   "HANDOFF.md": {
-    "mtime": 1787296846.5494573,
-    "ast_hash": "406fb53be25dd41d4770a784eb307b92",
+    "mtime": 1787339369.0863667,
+    "ast_hash": "92cafa7180a1595d593aa3d324d25eb1",
     "semantic_hash": ""
   },
   "PRODUCT.md": {
@@ -790,8 +790,8 @@
     "semantic_hash": ""
   },
   "README.md": {
-    "mtime": 1787338896.3204477,
-    "ast_hash": "7967e3a0b8a461fa4af025cdb65be23f",
+    "mtime": 1787339369.0859823,
+    "ast_hash": "7eca6a05dfaa18b2e39fbc6ddfc9b27e",
     "semantic_hash": ""
   },
   "apps/extension/src/entrypoints/sidepanel/index.html": {
@@ -1690,8 +1690,8 @@
     "semantic_hash": ""
   },
   "store-assets/LISTING.md": {
-    "mtime": 1787338923.898695,
-    "ast_hash": "d9c2229b2d4c4cf892ae541c96563287",
+    "mtime": 1787340022.1618242,
+    "ast_hash": "21c426c73df8d59f67b54b43b9590573",
     "semantic_hash": ""
   }
 }

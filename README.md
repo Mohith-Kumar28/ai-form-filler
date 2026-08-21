@@ -72,7 +72,7 @@ a **specific extension ID** — so the extension has to exist before the client 
    pnpm ext:path       # prints the exact folder to load
    ```
    Open `chrome://extensions`, enable Developer mode, **Load unpacked** →
-   `apps/extension/.output/chrome-mv3-dev`. Copy the extension ID.
+   `apps/extension/build/chrome-mv3-dev`. Copy the extension ID.
 
    > **Load `chrome-mv3-dev`, not `chrome-mv3`.** They are two separate builds:
    > `pnpm dev` writes the first and keeps it reloading; `pnpm build` writes the second,

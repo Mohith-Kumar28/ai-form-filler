@@ -1,9 +1,75 @@
+import { readdir, unlink } from 'node:fs/promises'
+import path from 'node:path'
 import tailwindcss from '@tailwindcss/vite'
 import { defineConfig } from 'wxt'
+
+/**
+ * True only for `pnpm zip` — the artifact that gets uploaded to the Chrome Web Store.
+ *
+ * Set by the `zip` script in package.json rather than inferred, because WXT cannot tell `wxt
+ * zip` from `wxt build`: both run as command `build` in production mode. Guessing from those
+ * would mean dropping `key` from every local unpacked build too, which silently changes the
+ * extension ID and breaks Google sign-in — the exact failure `key` was added to prevent.
+ *
+ * Two fields below are stripped when this is set. Both are *rejected or wrong* in a published
+ * listing but *required or useful* locally, which is why they cannot simply be deleted.
+ */
+const STORE_BUILD = process.env.STORE_BUILD === '1'
 
 export default defineConfig({
   srcDir: 'src',
   modules: ['@wxt-dev/module-react'],
+
+  /**
+   * `build/`, not WXT's default `.output/`.
+   *
+   * The leading dot made this a hidden folder, and both places you need to reach it hide it:
+   * macOS Finder omits dotfolders, and so does Chrome's "Load unpacked" directory picker — so
+   * the folder containing the extension appeared not to exist. `pnpm ext:reveal` was written
+   * to work around that; with a visible directory it is merely a convenience.
+   *
+   * Renaming this changes the load path, so Chrome treats an already-loaded unpacked extension
+   * as gone: remove it at chrome://extensions and load `build/chrome-mv3-dev` once more. The
+   * `key` below pins the ID, so nothing else — sign-in included — is affected by the move.
+   */
+  outDir: 'build',
+
+  /**
+   * The upload artifact: `build/fillaform-0.0.1-chrome.zip`.
+   *
+   * `{{version}}` resolves from `version_name ?? version`, and `version_name` is exactly what
+   * `STORE_BUILD` strips — so in the zip the placeholder is always the plain `manifest.version`
+   * and never the build stamp. That makes the filename the answer to the question the store
+   * asks on every upload: it refuses a version it has already accepted, and the name on disk
+   * now says which one this is without opening it.
+   *
+   * The paired `zip:start` hook below deletes the previous zips, so the folder holds one file
+   * and it is the one to upload.
+   */
+  zip: {
+    name: 'fillaform',
+    artifactTemplate: '{{name}}-{{version}}-{{browser}}.zip',
+  },
+
+  /**
+   * Sweep stale zips before writing the new one.
+   *
+   * Without this, bumping the version leaves the old artifact beside the new one under a name
+   * that is equally plausible — and uploading the wrong file is not a visible mistake: the
+   * store accepts it and publishes a version you did not mean to ship. Deleting is safe
+   * because a zip here is a build output, reproducible with `pnpm zip`, and the store keeps
+   * its own copy of everything already uploaded.
+   */
+  hooks: {
+    'zip:start': async (wxt) => {
+      const dir = wxt.config.outBaseDir
+      const stale = (await readdir(dir).catch(() => [])).filter((f) => f.endsWith('.zip'))
+      for (const file of stale) {
+        await unlink(path.resolve(dir, file))
+        wxt.logger.info(`Removed previous artifact: ${file}`)
+      }
+    },
+  },
 
   /**
    * Don't launch a throwaway browser in dev.
@@ -11,13 +77,13 @@ export default defineConfig({
    * WXT's own Chrome profile is signed into nothing, which makes it useless for a tool whose
    * whole job is filling forms with your real identity.
    *
-   * **`pnpm dev` writes to `.output/chrome-mv3-dev`, not `.output/chrome-mv3`.** Those are
+   * **`pnpm dev` writes to `build/chrome-mv3-dev`, not `build/chrome-mv3`.** Those are
    * two separate builds: `wxt` (dev) produces the first and keeps it live-reloading, `wxt
    * build` produces the second and only when you run it. Loading the wrong one is
    * indistinguishable from a fix not working — the extension simply stays on whatever was
    * last built into the folder Chrome is watching, and no error is reported anywhere.
    *
-   * Load `.output/chrome-mv3-dev` unpacked in your normal Chrome and leave `pnpm dev`
+   * Load `build/chrome-mv3-dev` unpacked in your normal Chrome and leave `pnpm dev`
    * running: it rebuilds and reloads the extension on every save, session and all.
    */
   webExt: {
@@ -37,7 +103,12 @@ export default defineConfig({
    * prints `undefined`.
    */
   manifest: {
-    version_name: `0.1.0+${new Date().toISOString().replace(/\D/g, '').slice(4, 12)}`,
+    // Omitted from the store zip: a stamp that says which local build a tab is running has no
+    // meaning once published, and `0.1.0+08221530` beside `version: '0.0.1'` reads as a
+    // contradiction on a public listing. `content.ts` falls back to 'dev' when it is absent.
+    ...(STORE_BUILD
+      ? {}
+      : { version_name: `0.1.0+${new Date().toISOString().replace(/\D/g, '').slice(4, 12)}` }),
     /**
      * Name and description are store-search surface, not just branding.
      *
@@ -73,7 +144,7 @@ export default defineConfig({
     host_permissions: ['<all_urls>'],
 
     /**
-     * Pins the extension ID.
+     * Pins the extension ID — locally only.
      *
      * Without a key, Chrome derives an unpacked extension's ID from its **load path**, so
      * the same code loaded from two directories gets two different IDs. A Chrome Extension
@@ -83,9 +154,19 @@ export default defineConfig({
      *   bkjmijloddfiilopdckanmnpmiimpcho
      *
      * The matching private key lives in apps/extension/.keys/ and is gitignored. It is only
-     * needed to reproduce this ID locally; the Web Store issues its own key at publish time.
+     * needed to reproduce this ID locally.
+     *
+     * **The Web Store rejects any manifest containing `key`** — "key field is not allowed in
+     * manifest", refused at upload as a file error rather than as a review note. The store
+     * issues its own key and derives the published ID from the listing, so the field is not
+     * merely disallowed there, it is meaningless. Hence the strip, and hence the flag: this
+     * has to disappear for exactly one build and stay for every other.
      */
-    key: 'MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAyxaFDyiXe+tpz0u2Ab/fBOBJ++3uuL7BRIvndrSdVyqJRYGUV+2lVBjKhy0aOY94RVwgbIlYnSHMZ4Z3I13xBnvG4Xzt8vBghegQqI2tO1AhTZY8uMnaHj99tBJpRSGvvjr+IbRVziloRNhjPpWCkLbIITe8otzKUSI/JR5kxFml3HX7oS6tfmm8iZVXemWnKmfSMowmkLEjSdRHnzuC0ABs2W6KKbvhUbuv/Pawmh/c9WOcR1BRWyp21ILIIScj+9wxxh81Njz2DaJceu7rV7whJ8MD1cjWv5wEYG7uYUXOfOH/HbS4rgAvht0bIdUOzk2TTXssy7Bk8y56HFUTIQIDAQAB',
+    ...(STORE_BUILD
+      ? {}
+      : {
+          key: 'MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAyxaFDyiXe+tpz0u2Ab/fBOBJ++3uuL7BRIvndrSdVyqJRYGUV+2lVBjKhy0aOY94RVwgbIlYnSHMZ4Z3I13xBnvG4Xzt8vBghegQqI2tO1AhTZY8uMnaHj99tBJpRSGvvjr+IbRVziloRNhjPpWCkLbIITe8otzKUSI/JR5kxFml3HX7oS6tfmm8iZVXemWnKmfSMowmkLEjSdRHnzuC0ABs2W6KKbvhUbuv/Pawmh/c9WOcR1BRWyp21ILIIScj+9wxxh81Njz2DaJceu7rV7whJ8MD1cjWv5wEYG7uYUXOfOH/HbS4rgAvht0bIdUOzk2TTXssy7Bk8y56HFUTIQIDAQAB',
+        }),
 
     oauth2: {
       // Must stay byte-identical to GOOGLE_CLIENT_ID in apps/api/.dev.vars — the server

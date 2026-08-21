@@ -417,7 +417,7 @@ Check after touching content-script imports:
 
 ```sh
 pnpm --filter @aff/extension build   # content.js should stay ~20 kB
-grep -c ZodError apps/extension/.output/chrome-mv3/content-scripts/content.js   # must be 0
+grep -c ZodError apps/extension/build/chrome-mv3/content-scripts/content.js   # must be 0
 ```
 
 ### Phase 5 — Site adapters

@@ -59,9 +59,9 @@
     "lint": "biome check .",
     "format": "biome check --write .",
     "//8-clean": "─────────────── housekeeping ───────────────",
-    "clean": "rm -rf apps/*/.output apps/*/.wxt apps/*/dist && echo 'cleaned build artifacts'",
+    "clean": "rm -rf apps/*/build apps/*/.output apps/*/.wxt apps/*/dist && echo 'cleaned build artifacts'",
     "clean:all": "pnpm clean && rm -rf node_modules apps/*/node_modules packages/*/node_modules apps/api/.wrangler && echo 'cleaned everything — run pnpm install'",
-    "ext:path": "node -e \"console.log('Load unpacked ->', require('path').resolve('apps/extension/.output/chrome-mv3-dev'))\"",
+    "ext:path": "node -e \"console.log('Load unpacked ->', require('path').resolve('apps/extension/build/chrome-mv3-dev'))\"",
     "dev:token": "pnpm --filter @aff/api run dev:token"
   },
   "devDependencies": {
