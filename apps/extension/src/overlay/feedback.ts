@@ -59,6 +59,16 @@ const MAX_LEARNED_PER_SUBMIT = 12
  */
 const REJECTED = ' rejected'
 
+/**
+ * Rejections in one batch, above which the batch is read as a reset rather than as verdicts.
+ *
+ * Clearing one answer is a judgement about that answer. Clearing the whole form is somebody
+ * starting over — and it arrives here as a rejection per field, which teaches "never answer
+ * First name with Mohith" about a value that was perfectly correct. Three is chosen because two
+ * deliberate corrections in one settle window is ordinary and three is not.
+ */
+const RESET_REJECTION_COUNT = 3
+
 /** How often the "did anything change" sweep may walk every field. See `takeSnapshot`. */
 const SNAPSHOT_THROTTLE_MS = 750
 
@@ -414,6 +424,24 @@ export function createFeedbackCapture(origin: string, send: FeedbackSend): Feedb
 
   const report = (reported: { entry: Entry; fieldId: string }[], trigger: 'settle' | 'submit') => {
     if (reported.length === 0) return
+
+    /**
+     * A batch that is nothing but cleared fields, and several of them, taught nothing good.
+     *
+     * `rejectionEntry` already refuses a field nobody filled — an empty box is not a signal. What
+     * it could not see is the *shape of the batch*: emptying a form we had just filled produced one
+     * negative per field, all of them about answers the user had no complaint with. They were
+     * clearing the page, not rejecting its contents.
+     *
+     * Kept when there is at least one real answer alongside, because then the clear is a choice
+     * made among others rather than a wipe.
+     */
+    const rejections = reported.filter(({ entry }) => entry.rejected === true)
+    if (rejections.length === reported.length && rejections.length >= RESET_REJECTION_COUNT) {
+      console.debug('[aff] form cleared, not learning', { cleared: rejections.length, trigger })
+      return
+    }
+
     lastReportAt = Date.now()
     send(
       { origin, entries: reported.map(({ entry }) => ({ ...entry, trigger })) },

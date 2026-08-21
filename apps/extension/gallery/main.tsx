@@ -2,7 +2,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { type ReactNode, StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import './gallery.css'
-import { UpgradeSheet } from '../src/entrypoints/sidepanel/components.js'
+import { TabBar, UpgradeSheet } from '../src/entrypoints/sidepanel/components.js'
 import { NavigationProvider } from '../src/entrypoints/sidepanel/navigation.js'
 import { AddSource } from '../src/entrypoints/sidepanel/screens/AddSource.js'
 import { Facts } from '../src/entrypoints/sidepanel/screens/Facts.js'
@@ -253,6 +253,19 @@ function Gallery() {
 
           <Frame label="Upgrade sheet" note="compare, from a spent allowance">
             <SheetHost mode="compare" />
+          </Frame>
+
+          {/*
+            The tab bar had no frame, which is why its icons went unreviewed.
+
+            It lives in `App.tsx` rather than in any screen, so every frame here rendered the panel
+            without its own navigation. Three glyphs at 20px are exactly the kind of thing that
+            needs looking at rather than reasoning about.
+          */}
+          <Frame label="Tab bar" note="the three roots">
+            <div className="flex h-full flex-col justify-end">
+              <TabBar />
+            </div>
           </Frame>
         </div>
       </div>

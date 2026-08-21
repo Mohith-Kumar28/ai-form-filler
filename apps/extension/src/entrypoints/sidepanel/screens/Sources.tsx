@@ -33,27 +33,15 @@ import {
   SkeletonRow,
   StatusPill,
 } from '../components.js'
-import {
-  IconAlert,
-  IconAudio,
-  IconCrown,
-  IconDocument,
-  IconImage,
-  IconLink,
-  IconPlus,
-  IconRefresh,
-  IconText,
-} from '../icons.js'
+import { IconAlert, IconCrown, IconPlus, IconRefresh } from '../icons.js'
 import { useNavigation } from '../navigation.js'
 import { InfoTabs } from './info-tabs.js'
 
-const KIND_ICON = {
-  document: IconDocument,
-  link: IconLink,
-  text: IconText,
-  image: IconImage,
-  audio: IconAudio,
-} as const
+/*
+ * `KIND_ICON` mapped each source kind to a glyph. The tile shows the file format as text instead —
+ * "XLSX" says what a document icon cannot — so the map, and the five icon imports behind it, are
+ * gone. Links still show their favicon, which is a real picture of the thing.
+ */
 
 /*
  * `KIND_NOUN` mapped each kind to a display word — "Document", "Voice note" — for the `·`-joined
@@ -102,6 +90,12 @@ function formatLabel(source: ProfileSourcesItem): string {
  * rather than a shelf of things the user handed over. A source is a *file* — it has a shape, a
  * format and often a picture — so the tile is large enough to carry that.
  *
+ * The format name stands alone, without a glyph above it. The first version stacked both, and at
+ * 48px that is an icon and an 8px label competing in a space too small for either: the label was
+ * barely legible and the glyph said less than it did. A document icon is the same picture for a PDF,
+ * a spreadsheet and a deck, whereas "XLSX" is the answer. So the informative half stays and the
+ * decorative half goes.
+ *
  * Only images fetch their bytes. A real thumbnail of a PDF means rendering one, and an `<iframe>`
  * scaled into a 48px box is both expensive on a list of twenty and worse-looking than the format
  * name set properly. Links keep the favicon they already had.
@@ -110,7 +104,6 @@ function SourceTile({ source }: { source: ProfileSourcesItem }) {
   const [preview, setPreview] = useState<string | null>(null)
   const [failed, setFailed] = useState(false)
   const isImage = source.kind === 'image' && source.hasFile
-  const Icon = KIND_ICON[source.kind as keyof typeof KIND_ICON] ?? IconDocument
 
   useEffect(() => {
     if (!isImage || source.status !== 'ready') return
@@ -130,6 +123,7 @@ function SourceTile({ source }: { source: ProfileSourcesItem }) {
   }, [isImage, source.id, source.status])
 
   const bad = source.status === 'failed'
+  const label = formatLabel(source)
 
   return (
     <span
@@ -147,15 +141,14 @@ function SourceTile({ source }: { source: ProfileSourcesItem }) {
           className="size-5 rounded"
         />
       ) : (
-        <span className="flex flex-col items-center gap-0.5">
-          <Icon className={`size-4 ${bad ? 'text-danger' : 'text-ink-dim'}`} />
-          <span
-            className={`text-[8.5px] font-bold leading-none tracking-[0.04em] ${
-              bad ? 'text-danger' : 'text-ink-dim'
-            }`}
-          >
-            {formatLabel(source)}
-          </span>
+        <span
+          /* Tracking tightens as the word lengthens, so LINK and EPUB occupy the same tile
+             without either looking cramped or adrift. */
+          className={`font-display font-bold leading-none ${
+            label.length > 3 ? 'text-[10px] tracking-[-0.01em]' : 'text-[11px] tracking-[0.01em]'
+          } ${bad ? 'text-danger' : 'text-ink-muted'}`}
+        >
+          {label}
         </span>
       )}
     </span>
@@ -282,20 +275,28 @@ function SourceCard({
           <span className="min-w-0 flex-1 pt-0.5">
             <span className="block truncate text-base font-semibold text-ink">{source.label}</span>
             <span className="mt-0.5 block truncate text-xs text-ink-dim">{detail}</span>
-            <span className="mt-1.5 flex flex-wrap items-center gap-1.5">
-              {busy ? (
-                <StatusPill tone="busy">Reading</StatusPill>
-              ) : source.status === 'failed' ? (
-                <StatusPill tone="bad">Couldn’t read</StatusPill>
-              ) : (
-                <StatusPill tone="ready">Ready</StatusPill>
-              )}
-              {source.extractedChars ? (
-                <span className="truncate text-xs text-ink-dim">
-                  {formatCount(source.extractedChars)} characters read
-                </span>
-              ) : null}
-            </span>
+            {/*
+              A pill only when something is happening, or has gone wrong.
+
+              Every card used to wear a green "Ready", which is the same claim on every row of a
+              list whose rows are, overwhelmingly, ready — so it said nothing and drew the eye away
+              from the two rows that did. The same rule the field marks follow: a fact asks nothing
+              of the user, so it is not decorated. Ready is the absence of a pill.
+            */}
+            {(busy || source.status === 'failed' || source.extractedChars) && (
+              <span className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                {busy ? (
+                  <StatusPill tone="busy">Reading</StatusPill>
+                ) : source.status === 'failed' ? (
+                  <StatusPill tone="bad">Couldn’t read</StatusPill>
+                ) : null}
+                {!busy && source.extractedChars ? (
+                  <span className="truncate text-xs text-ink-dim">
+                    {formatCount(source.extractedChars)} read
+                  </span>
+                ) : null}
+              </span>
+            )}
           </span>
         </button>
         <OverflowMenu items={items} label={`Actions for ${source.label}`} />

@@ -35,7 +35,7 @@ import {
   Section,
   SkeletonRow,
 } from '../components.js'
-import { IconAlert, IconCrown, IconPlus } from '../icons.js'
+import { IconCrown, IconPlus } from '../icons.js'
 import { InfoTabs } from './info-tabs.js'
 
 /** How long after the last keystroke a field settles and saves. Blur saves immediately. */
@@ -44,7 +44,13 @@ const SETTLE_MS = 800
 /** How long "Saved" stays up before the header goes quiet again. */
 const SAVED_MS = 1600
 
-const EMPTY: ReconciledProfile = { values: {}, extras: {}, extraLinks: {}, merged: [] }
+const EMPTY: ReconciledProfile = {
+  values: {},
+  extras: {},
+  extraLinks: {},
+  droppedLinks: [],
+  merged: [],
+}
 
 function matches(query: string, ...haystack: string[]): boolean {
   const q = query.trim().toLowerCase()
@@ -67,7 +73,6 @@ export function Facts({ profile }: { profile: Profile | undefined }) {
   const [draft, setDraft] = useState<ReconciledProfile>(EMPTY)
   const [query, setQuery] = useState('')
   const [adding, setAdding] = useState(false)
-  const [mergeNote, setMergeNote] = useState<number | null>(null)
   const [status, setStatus] = useState<SaveStatus>('idle')
   const [saveError, setSaveError] = useState<string | undefined>()
 
@@ -161,8 +166,9 @@ export function Facts({ profile }: { profile: Profile | undefined }) {
 
     const next = reconcile(profile)
     setDraft(next)
+    // Repaired silently. `merged` is still returned for tests and for the debug log.
     if (next.merged.length > 0) {
-      setMergeNote(next.merged.length)
+      console.debug('[aff] folded duplicate fields', next.merged)
       dirty.current = true
       flush(next)
     }
@@ -329,22 +335,19 @@ export function Facts({ profile }: { profile: Profile | undefined }) {
       />
 
       <ScreenBody className="flex flex-col gap-2.5 px-gutter py-3">
-        {mergeNote !== null && (
-          <div className="flex items-start gap-2 rounded-xl bg-warning-muted px-3 py-2.5">
-            <IconAlert className="mt-0.5 size-3.5 shrink-0 text-warning" />
-            <p className="min-w-0 flex-1 text-xs leading-snug text-ink">
-              Merged {mergeNote} duplicate {mergeNote === 1 ? 'field' : 'fields'}.
-            </p>
-            <button
-              type="button"
-              onClick={() => setMergeNote(null)}
-              className="shrink-0 text-xs font-bold text-ink-muted hover:text-ink"
-            >
-              OK
-            </button>
-          </div>
-        )}
+        {/*
+          There is no "merged N duplicate fields" banner here any more.
 
+          It reported an internal repair: the ingest pass takes a link's platform name as a bare
+          string from a model, so `"LinkedIn"` could land beside `"linkedin"` and become two rows.
+          Folding them is right; telling the user is not. It is our extraction artefact, they never
+          asked for it, and the only action offered was "OK" — an alert whose entire content is that
+          something they did not do has been undone.
+
+          It was also permanent. `identity.links` is merged key by key on the server, so the fold
+          could never delete the variant and the same notice appeared on every single open. That is
+          fixed in `toPatch`, which now sends the explicit deletion; this just stops narrating it.
+        */}
         {/* The new fact appears here, directly under the button that asked for it. */}
         {adding &&
           (atLimit ? (

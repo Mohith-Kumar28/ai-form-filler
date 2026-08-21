@@ -25,14 +25,14 @@ import {
   IconChevronRight,
   IconClose,
   IconCrown,
-  IconDocument,
   IconEye,
   IconEyeOff,
-  IconGear,
+  IconIdCard,
   IconMascot,
   IconMore,
   IconSearch,
   IconSparkle,
+  IconUser,
 } from './icons.js'
 import { type TabName, useNavigation } from './navigation.js'
 
@@ -136,8 +136,8 @@ export function ScreenFooter({ children }: { children: ReactNode }) {
 const TABS: { key: TabName; label: string; icon: (props: { className?: string }) => ReactNode }[] =
   [
     { key: 'home', label: 'Fill', icon: IconMascot },
-    { key: 'yourInfo', label: 'My info', icon: IconDocument },
-    { key: 'account', label: 'Account', icon: IconGear },
+    { key: 'yourInfo', label: 'My info', icon: IconIdCard },
+    { key: 'account', label: 'Account', icon: IconUser },
   ]
 
 /**

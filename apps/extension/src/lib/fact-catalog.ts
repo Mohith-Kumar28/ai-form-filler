@@ -604,6 +604,16 @@ export interface ReconciledProfile {
   values: Record<string, string>
   /** `custom` keys matching no catalogue field, in the casing the user typed. */
   extras: Record<string, string>
+  /**
+   * Link platforms folded into a canonical spelling, in the casing they were stored under.
+   *
+   * These have to be sent back as explicit `''` deletions. `identity.links` is merged field by
+   * field on the server (`updateStructured`), not replaced, so writing the canonical key alone
+   * leaves the variant behind — and `reconcile` finds it again on the next load, folds it again,
+   * and reports the same repair forever. An empty string is how the wire schema says "deleted";
+   * `pruneLinks` drops the key.
+   */
+  droppedLinks: string[]
   /** `links` platforms matching no catalogue field, in the casing they were stored under. */
   extraLinks: Record<string, string>
   /**
@@ -642,6 +652,7 @@ export function reconcile(input: {
   const candidates = new Map<string, Source[]>()
   const extras: Record<string, string> = {}
   const extraLinks: Record<string, string> = {}
+  const droppedLinks: string[] = []
   const merged: string[] = []
 
   const offer = (field: CatalogField, raw: string, value: string, canonical: boolean) => {
@@ -662,8 +673,12 @@ export function reconcile(input: {
   for (const raw of Object.keys(identity.links ?? {}).sort()) {
     const value = identity.links?.[raw] ?? ''
     const field = fieldFor(raw)
-    if (field?.store === 'link') offer(field, raw, value, raw === field.key)
-    else extraLinks[raw] = value
+    if (field?.store === 'link') {
+      offer(field, raw, value, raw === field.key)
+      // Recorded whether or not anything collided: a lone variant spelling is a rename, and a
+      // rename that does not delete the old key is not a rename.
+      if (raw !== field.key) droppedLinks.push(raw)
+    } else extraLinks[raw] = value
   }
 
   // Whatever the user typed themselves. A key here may name a catalogue field of any store —
@@ -692,7 +707,13 @@ export function reconcile(input: {
     }
   }
 
-  return { values, extras, extraLinks, merged: [...new Set(merged)].sort() }
+  return {
+    values,
+    extras,
+    extraLinks,
+    droppedLinks: [...new Set(droppedLinks)].sort(),
+    merged: [...new Set(merged)].sort(),
+  }
 }
 
 /**
@@ -711,6 +732,7 @@ export function toPatch(reconciled: {
   values: Record<string, string>
   extras: Record<string, string>
   extraLinks: Record<string, string>
+  droppedLinks?: string[]
 }): { identity: Identity; custom: Record<string, string> } {
   const identity: Record<string, unknown> = {}
   const links: Record<string, string> = {}
@@ -726,6 +748,18 @@ export function toPatch(reconciled: {
 
   for (const [key, value] of Object.entries(reconciled.extraLinks)) links[key] = value
   for (const [key, value] of Object.entries(reconciled.extras)) custom[key] = value
+
+  /*
+   * Variant spellings are deleted explicitly, after the canonical keys are set.
+   *
+   * `updateStructured` merges `identity.links` key by key rather than replacing it, so a fold that
+   * only writes the winner leaves the loser in place — and the next load folds it again. `''` is
+   * the schema's "cleared", and `pruneLinks` turns that into a removed key. Guarded so a variant
+   * that is somehow also a canonical key cannot delete the value we just wrote.
+   */
+  for (const key of reconciled.droppedLinks ?? []) {
+    if (!(key in links)) links[key] = ''
+  }
 
   identity.links = links
   return { identity: identity as Identity, custom }

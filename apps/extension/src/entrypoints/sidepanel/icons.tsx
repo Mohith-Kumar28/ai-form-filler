@@ -248,6 +248,41 @@ export function IconSignOut(props: IconProps) {
   )
 }
 
+/**
+ * "My info": a card with a face and two lines on it.
+ *
+ * The tab used to wear `IconDocument`, a single sheet of paper. That is a *source* — one of the
+ * things you feed it — and this screen is the other side of that: the facts it holds about you,
+ * with the sources as the second tab. A sheet of paper beside "My info" named the input where the
+ * label named the subject.
+ */
+export function IconIdCard(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <rect x="1.75" y="3.25" width="12.5" height="9.5" rx="2" />
+      <circle cx="5.75" cy="7.1" r="1.35" />
+      <path d="M3.6 11c.4-1.1 1.2-1.7 2.15-1.7s1.75.6 2.15 1.7" />
+      <path d="M10.4 7h2.1M10.4 9.6h2.1" />
+    </Svg>
+  )
+}
+
+/**
+ * "Account": a person.
+ *
+ * The tab used to wear a cog, which says *settings*. Settings are one collapsed section on that
+ * screen; the rest is who you are signed in as, what plan you are on, and what it costs. The cog
+ * described the smallest thing there and buried the two the user actually goes looking for.
+ */
+export function IconUser(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <circle cx="8" cy="5.6" r="2.6" />
+      <path d="M2.9 13.6c.7-2.6 2.6-4 5.1-4s4.4 1.4 5.1 4" />
+    </Svg>
+  )
+}
+
 export function IconGear(props: IconProps) {
   return (
     <Svg {...props}>

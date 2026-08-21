@@ -176,13 +176,34 @@ describe('toPatch', () => {
     expect(patch.identity.email).toBe('')
   })
 
-  it('drops the duplicate spelling on the way out', () => {
+  it('deletes the duplicate spelling explicitly, rather than omitting it', () => {
+    /*
+     * This asserted `{ linkedin: '...' }` — the variant simply absent from the patch — and passed
+     * while the variant was never actually removed. `updateStructured` merges `identity.links` key
+     * by key instead of replacing the object, so a key that is not mentioned is a key that stays.
+     * The fold therefore repeated on every load, and the editor announced the same repair forever.
+     * `''` is the wire schema's "cleared", and `pruneLinks` turns it into a deleted key.
+     */
     const patch = toPatch(
       reconcile({
         identity: { links: { LinkedIn: 'https://l/in/ife', linkedin: '' } },
         custom: {},
       }),
     )
+    expect(patch.identity.links).toEqual({ linkedin: 'https://l/in/ife', LinkedIn: '' })
+  })
+
+  it('tombstones a lone variant spelling, because a rename must delete the old key', () => {
+    // No collision here — one key, spelled wrong. Renaming it to the canonical spelling still has
+    // to remove the original, or the next load finds both and there *is* a collision.
+    const patch = toPatch(reconcile({ identity: { links: { LinkedIn: 'https://l/in/ife' } } }))
+    expect(patch.identity.links).toEqual({ linkedin: 'https://l/in/ife', LinkedIn: '' })
+  })
+
+  it('never tombstones a key it is also writing a value to', () => {
+    // Defensive: if a variant ever normalised to its own canonical key, the deletion must not
+    // land on top of the value.
+    const patch = toPatch(reconcile({ identity: { links: { linkedin: 'https://l/in/ife' } } }))
     expect(patch.identity.links).toEqual({ linkedin: 'https://l/in/ife' })
   })
 })
