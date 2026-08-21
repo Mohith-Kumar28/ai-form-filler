@@ -3,6 +3,10 @@
 Everything the Chrome Web Store listing needs, plus the share card the site has always pointed
 at and never had.
 
+The listing's **text** — name, short description, detailed description, and the justification
+fields the store asks for — is in [LISTING.md](./LISTING.md). Two of those strings are also in
+`apps/extension/wxt.config.ts` and have to match it.
+
 ```
 pnpm assets:store              # rebuild all of it
 pnpm assets:store --no-gallery # skip rebuilding the review harness (faster, if it is current)
@@ -74,8 +78,8 @@ PNG is exactly its declared size.
 
 No prices and no trial terms anywhere in the artwork. Those change, images are cached by the
 store and by everyone who has ever screenshotted a listing, and a stale number in a picture is
-not something that can be edited later. Plan details belong in the listing description and on
-the site, where they are one line of text.
+not something that can be edited later. Plan details belong in the listing description
+([LISTING.md](./LISTING.md)) and on the site, where they are one line of text.
 
 Sources: [Supplying images](https://developer.chrome.com/docs/webstore/images) ·
 [Creating a great listing page](https://developer.chrome.com/docs/webstore/best-listing)

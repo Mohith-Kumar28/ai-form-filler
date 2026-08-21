@@ -38,8 +38,20 @@ export default defineConfig({
    */
   manifest: {
     version_name: `0.1.0+${new Date().toISOString().replace(/\D/g, '').slice(4, 12)}`,
-    name: 'Fillaform',
-    description: 'Fills any form from your own knowledge base, in your own writing voice.',
+    /**
+     * Name and description are store-search surface, not just branding.
+     *
+     * "Fillaform" is a coined word nobody searches for, and the Web Store ranks heavily on the
+     * name field, so the category the product actually competes in — AI form filler — is stated
+     * in it. The description carries the same words for the same reason: these two strings are
+     * what a listing is matched and skimmed on before anyone reads a screenshot.
+     *
+     * Limits Chrome enforces: name 75 chars (~45 visible in search), description 132.
+     * The longer listing copy these two summarise lives in `store-assets/LISTING.md`.
+     */
+    name: 'Fillaform — AI Form Filler',
+    description:
+      'AI form filler for job applications and any web form. Answers come from your own knowledge base, in your own writing voice.',
     version: '0.0.1',
 
     permissions: [
@@ -99,7 +111,7 @@ export default defineConfig({
     },
 
     side_panel: { default_path: 'sidepanel.html' },
-    action: { default_title: 'Fillaform' },
+    action: { default_title: 'Fillaform — AI form filler' },
 
     /**
      * Fill without reaching for the mouse.

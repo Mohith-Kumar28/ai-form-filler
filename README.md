@@ -1,7 +1,7 @@
-# Fillaform
+# Fillaform — AI Form Filler
 
-Fills any form — job applications, Google Forms, event registrations — from your own
-knowledge base, in your own writing voice.
+An AI form filler for any form — job applications, Google Forms, event registrations —
+answering from your own knowledge base, in your own writing voice.
 
 Unlike every existing autofill extension, this isn't limited to job applications and isn't a
 fixed profile-field mapper. You feed it resumes, transcripts, LinkedIn/GitHub URLs, and past

@@ -7,9 +7,17 @@ export const site = {
   name: 'Fillaform',
   legalName: 'Fillaform',
   domain: 'https://fillaform.in',
-  tagline: 'Fill any form in one click',
+  /**
+   * The tagline is a page title, not a headline — it is only ever read through `buildMeta`.
+   *
+   * It says "AI form filler" because that is the phrase people search, and because "fill any form
+   * in one click" describes mechanical autofill, which is the commodity this product is trying not
+   * to be mistaken for. The hero on the page still speaks in its own words; this string speaks to
+   * search. Same reason the extension's manifest name carries the phrase.
+   */
+  tagline: 'AI form filler for any web form',
   description:
-    'Fillaform is a Chrome extension that fills any web form for you: job applications, Google Forms, registrations, surveys. Add your CV and a few notes once, then every form gets answered in your own words. It labels the answers it guessed, so you know what to check.',
+    'Fillaform is an AI-powered form filler for Chrome. It answers any web form for you: job applications, Google Forms, registrations, surveys. Add your CV and a few notes once, then the AI writes every answer in your own words. It labels the answers it guessed, so you know what to check.',
   /** Pinned extension ID. The Web Store URL goes live once the listing is published. */
   chromeExtensionId: 'bkjmijloddfiilopdckanmnpmiimpcho',
   chromeWebStoreUrl: 'https://chromewebstore.google.com/detail/bkjmijloddfiilopdckanmnpmiimpcho',
