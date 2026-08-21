@@ -605,8 +605,8 @@
     "semantic_hash": ""
   },
   "apps/extension/wxt.config.ts": {
-    "mtime": 1787339519.624897,
-    "ast_hash": "79e0526a0a3cd7cd2b71b19bfcd33a4f",
+    "mtime": 1787340401.3473516,
+    "ast_hash": "a78804800ec69b7a8f2d5afbd5e2f665",
     "semantic_hash": ""
   },
   "biome.json": {
@@ -1690,8 +1690,8 @@
     "semantic_hash": ""
   },
   "store-assets/LISTING.md": {
-    "mtime": 1787340022.1618242,
-    "ast_hash": "21c426c73df8d59f67b54b43b9590573",
+    "mtime": 1787340463.4340725,
+    "ast_hash": "22a1766e8e9f93c7c481b2f98445bd97",
     "semantic_hash": ""
   }
 }

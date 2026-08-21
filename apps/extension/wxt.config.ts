@@ -125,14 +125,33 @@ export default defineConfig({
       'AI form filler for job applications and any web form. Answers come from your own knowledge base, in your own writing voice.',
     version: '0.0.1',
 
+    /**
+     * Every entry here has to be justified to a Web Store reviewer one by one, and an unused
+     * one is worse than useless: it widens the disclosed surface and invites a rejection over
+     * a capability the code never exercises.
+     *
+     * `scripting` was exactly that and has been removed. Nothing called `executeScript`,
+     * `registerContentScripts` or `insertCSS`, and the content script below is declared
+     * statically in the manifest, so Chrome injects it declaratively — the permission bought
+     * nothing.
+     *
+     * The written justifications live in `store-assets/LISTING.md`.
+     */
     permissions: [
+      // Auth token, cached plan, and the in-flight fill that has to survive the panel closing.
       'storage',
+      // Google sign-in via `chrome.identity.getAuthToken`. Background script only.
       'identity',
       'sidePanel',
-      // Lets the content script attach on the active tab only after the user acts,
-      // instead of asking for host access to every site up front.
+      /**
+       * Kept despite `host_permissions` below already covering every site.
+       *
+       * It is not redundant in the one configuration that matters: Chrome lets a user set an
+       * extension's site access to "on click", which withholds the broad host grant. `activeTab`
+       * is what still gets us the current tab when they do — so the extension degrades to
+       * click-to-run instead of silently failing on every page.
+       */
       'activeTab',
-      'scripting',
       // Serves `/_favicon/` so a saved link shows the site's own mark from Chrome's cache,
       // rather than the extension fetching favicons from every site in someone's list.
       'favicon',

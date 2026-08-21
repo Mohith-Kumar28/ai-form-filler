@@ -11,6 +11,10 @@ the installed extension will disagree:
 | Name | `apps/extension/wxt.config.ts` → `manifest.name` | 75 chars, ~45 visible in search |
 | Short description | `apps/extension/wxt.config.ts` → `manifest.description` | 132 chars |
 | Detailed description | here only | 16,000 chars |
+| Permission justifications | derived from `manifest.permissions` | 1,000 chars each |
+
+The justifications at the bottom of this file are keyed to the permissions the manifest actually
+declares. Add or remove one there and the Privacy practices tab changes with it.
 
 ## Why "AI" is in every field
 
@@ -276,5 +280,127 @@ from the store's error.
 | Website | https://fillaform.in |
 | Support URL | https://fillaform.in/contact |
 | Privacy policy URL | https://fillaform.in/privacy |
-| Single purpose | Filling web forms on the user's behalf, using an AI model and information the user has supplied. |
-| `<all_urls>` justification | A general-purpose form filler cannot know in advance which sites a user fills forms on. The content script observes only; nothing is transmitted until the user clicks fill. |
+
+## Privacy practices tab
+
+Every box the dashboard blocks publishing on. Each justification names the API called and the
+user action that triggers it — reviewers reject vague ones, and a justification that does not
+match the code is the most common cause of a second rejection.
+
+**`scripting` is not in this list.** It was declared and never used, and has been removed from
+the manifest — see `permissions` in `wxt.config.ts`. If the dashboard still asks for it, you are
+uploading an older zip.
+
+### Single purpose
+
+```
+Fillaform fills in web forms on the user's behalf. When the user presses Fill, it reads the
+fields of the form on the current page, generates an answer for each one from documents and
+notes that the user has previously added to their own Fillaform profile, and writes those
+answers into the fields. The user then reviews the form and submits it themselves. Everything
+in the extension exists to serve that one purpose: the side panel is where the user adds and
+manages the source material the answers are drawn from, and the on-page overlay is where the
+user reviews, edits and rewrites an answer before submitting.
+```
+
+### `storage`
+
+```
+Stores the user's signed-in session token, their cached plan and remaining quota, and the
+in-progress result of a fill. The fill result is kept in chrome.storage.session because the
+side panel can be closed by the user mid-fill; without it, closing the panel would discard
+answers the user has not yet reviewed. No page content or browsing history is stored.
+```
+
+### `identity`
+
+```
+Used solely for Google sign-in, via chrome.identity.getAuthToken, so the user can access the
+Fillaform account holding their documents and notes. It is called only from the background
+service worker and only when the user presses Sign in. The token is used to authenticate
+requests to our own API at api.fillaform.in and is never sent anywhere else. Signing out calls
+chrome.identity.removeCachedAuthToken.
+```
+
+### `sidePanel`
+
+```
+The extension's entire interface is a side panel. It is where the user adds their CV, notes and
+links, reviews the answers generated for a form, and manages their account. chrome.sidePanel is
+used to open that panel when the user clicks the toolbar icon or the on-page Fill button.
+```
+
+### `activeTab`
+
+```
+Needed to read the URL of the tab the user is currently on and to send a message to that tab's
+content script asking it to detect the form, so the panel can show how many fields were found
+before the user presses Fill. It applies only to the tab the user is actively working in, and
+only after the user opens the panel or presses Fill. It also allows the extension to keep
+working for users who set the extension's site access to "on click" rather than granting broad
+host access.
+```
+
+### `favicon`
+
+```
+The side panel lists the links the user has saved as source material. This permission serves
+chrome-extension://<id>/_favicon/, which renders each saved site's icon from Chrome's own local
+cache. It is used purely so that list is legible. The alternative would be for the extension to
+make a network request to every site in the user's list, which we specifically want to avoid.
+```
+
+### Host permission use (`<all_urls>`)
+
+```
+Fillaform is a general-purpose form filler, so it cannot know in advance which sites its users
+will fill forms on. Users fill job applications on employer career pages and applicant tracking
+systems, plus Google Forms, university and grant applications, event registrations, surveys and
+contact forms — an open-ended set of domains that cannot be enumerated in a manifest.
+
+The content script's behaviour is deliberately narrow. On page load it only observes: it finds
+form fields and their labels so the panel can report whether the page has a fillable form. No
+page content is transmitted at that stage. Only when the user presses Fill are the field labels
+and surrounding question text sent to our API to be answered, and only for the form on the page
+the user chose. The extension does not read page content on sites where the user never presses
+Fill, does not collect browsing history, and never submits a form on the user's behalf.
+```
+
+### Remote code
+
+Select **"No, I am not using remote code."**
+
+All JavaScript that runs is bundled inside the package. There is no `eval`, no `new Function`,
+no remotely-loaded script, no CDN, and no externally-hosted module — verified against the built
+output. If a reviewer asks, the distinction worth stating is:
+
+```
+The extension sends form field labels to our API and receives back text answers, which are
+written into form fields as values. That is data, not code. No script is fetched or executed
+from a remote source at any point.
+```
+
+### Data usage certification
+
+The three checkboxes must be ticked, and all three are true of this extension:
+
+- Data is not being sold to third parties
+- Data is not being used or transferred for purposes unrelated to the item's single purpose
+- Data is not being used or transferred to determine creditworthiness or for lending purposes
+
+### Data types to declare
+
+Tick these, and no others:
+
+| Type | Why | What to say |
+| --- | --- | --- |
+| Personally identifiable information | The CV, name and contact details the user adds | Used to fill forms on the user's behalf |
+| Authentication information | The Google sign-in token | Used to sign the user in to their account |
+| Website content | Form field labels and nearby question text, on the page the user chose to fill | Sent only when the user presses Fill, only to generate answers |
+
+**Not** location, health, financial, personal communications, or web history — the extension
+collects none of them. Do not tick "User activity": it does not track clicks, mouse movement or
+navigation.
+
+The privacy policy URL is required for all of this and must be live before submitting:
+https://fillaform.in/privacy
