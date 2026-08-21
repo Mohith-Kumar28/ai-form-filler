@@ -6,7 +6,7 @@ import { site } from '@/lib/site'
 
 const title = 'Pricing'
 const description =
-  'Fillaform pricing: Pro $5/month for 600 AI actions, Ultra $15/month for 2,500. Start with a 14-day free trial. Cancel any time.'
+  'Fillaform pricing: Pro $5/month for 600 form fields, Ultra $15/month for 2,500. Start with a 14-day free trial. Cancel any time.'
 
 export const Route = createFileRoute('/pricing')({
   head: () => ({
@@ -42,11 +42,12 @@ function PricingPage() {
             <h3 className="text-[15px] font-semibold text-ink">Frequently asked</h3>
             <div className="space-y-3 text-[13px] leading-relaxed text-ink-muted">
               <p>
-                <strong className="text-ink">What counts as an AI action?</strong> One field the AI
-                wrote an answer for, or one rewrite. Fields it already knows from your saved
-                information &mdash; your name, your email, your phone number &mdash; are answered
-                without asking a model, so they cost nothing and are not counted. On a real job
-                application that is usually about a third of the page.
+                <strong className="text-ink">What counts towards the monthly limit?</strong> One
+                field the AI wrote an answer for, one rewrite, or one source added or reprocessed.
+                Fields it already knows from your saved information &mdash; your name, your email,
+                your phone number &mdash; are answered without asking a model, so they cost nothing
+                and are not counted. On a real job application that is usually about a third of the
+                page.
               </p>
               <p>
                 <strong className="text-ink">Why are long answers counted separately?</strong> A

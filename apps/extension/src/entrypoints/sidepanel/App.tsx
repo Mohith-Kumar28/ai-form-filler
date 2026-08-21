@@ -3,12 +3,24 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useRef } from 'react'
 import { useGetAccount } from '../../generated/endpoints/account/account.js'
 import { useGetProfile } from '../../generated/endpoints/profile/profile.js'
+import type { Account } from '../../generated/model/index.js'
 import { hasSession } from '../../lib/auth.js'
+import { factCount, reconcile } from '../../lib/fact-catalog.js'
+import { useOnboarding } from '../../lib/onboarding.js'
+import { usePaywallSeen, usePendingPaywall } from '../../lib/paywall.js'
 import { onSessionEnded } from '../../lib/session.js'
 import { useActivePage } from '../../lib/use-active-page.js'
 import { useFill } from '../../lib/use-fill.js'
-import { Screen, ScreenBody, ScreenHeader, SkeletonRow, TabBar } from './components.js'
+import {
+  Screen,
+  ScreenBody,
+  ScreenHeader,
+  SkeletonRow,
+  TabBar,
+  UpgradeSheet,
+} from './components.js'
 import { NavigationProvider, useNavigation } from './navigation.js'
+import { Onboarding } from './onboarding/index.js'
 import { AddSource } from './screens/AddSource.js'
 import { Facts } from './screens/Facts.js'
 import { Filling } from './screens/Filling.js'
@@ -55,6 +67,57 @@ function useFillNavigation(status: string) {
   }, [status, nav])
 }
 
+/**
+ * The offer, when the *page* asked for it.
+ *
+ * Pressing the launcher on a form with nothing left to spend opens this panel and leaves a note
+ * saying which offer to show; this renders it over whatever screen the panel happened to be on.
+ * It lives here rather than in `Home` because the panel does not necessarily open on Home, and a
+ * refusal that opens the panel to silence is worse than the small card it replaced.
+ *
+ * Meeting it marks the paywall as seen, exactly as pressing Fill in here does — from this point the
+ * account screen carries a permanent way back to it.
+ */
+function PageRequestedPaywall({
+  account,
+  suppressed = false,
+}: {
+  account: Account
+  /**
+   * Take the note and drop it, showing nothing.
+   *
+   * For the one screen where the offer must not land: somebody in the middle of first-run setup who
+   * reached over and pressed the launcher on their form. Interrupting the setup with a price is
+   * both the wrong moment and the wrong order — the panel opening on their own half-finished
+   * profile is answer enough, and the offer arrives at their first real Fill. Consuming the note
+   * rather than ignoring it is what stops the sheet appearing minutes later, out of nowhere.
+   */
+  suppressed?: boolean
+}) {
+  const { pending, clear } = usePendingPaywall()
+  const { markSeen } = usePaywallSeen()
+
+  useEffect(() => {
+    if (pending && !suppressed) markSeen()
+  }, [pending, suppressed, markSeen])
+
+  if (!pending || suppressed) return null
+
+  const { limit } = account.quota
+
+  return (
+    <UpgradeSheet
+      mode={pending.mode}
+      onClose={clear}
+      reason={
+        pending.mode === 'trial'
+          ? 'Your answers are ready. Start the trial and it will fill the form you were looking at.'
+          : `You've filled all ${limit} fields your plan covers this month. They reset on the 1st.`
+      }
+    />
+  )
+}
+
 function Stack() {
   const nav = useNavigation()
   const account = useGetAccount({
@@ -63,6 +126,18 @@ function Stack() {
   const profile = useGetProfile()
   const page = useActivePage()
   const fill = useFill()
+
+  /**
+   * Whether this account has anything in it, which is how a new user is told from an old one.
+   *
+   * `undefined` until the profile has loaded, which holds the first-run flow at `loading` rather
+   * than letting it flash onto the screen of somebody with twelve sources. See `useOnboarding`.
+   */
+  const hasContent =
+    profile.data === undefined
+      ? undefined
+      : (profile.data.sources ?? []).length > 0 || factCount(reconcile(profile.data)) > 0
+  const onboarding = useOnboarding(hasContent)
 
   useFillNavigation(fill.state.status)
 
@@ -93,14 +168,38 @@ function Stack() {
     )
   }
 
+  const accountData = account.data
+
+  /*
+    First run takes the whole panel, tab bar included.
+
+    Deliberately not a screen in the navigation stack: it is a sequence with its own progress and
+    its own back button, and putting it on the stack would give it a second one — plus three tabs
+    inviting the user out of the middle of it. It also renders before `Home` can, which matters,
+    because Home's one button does nothing worth seeing on an empty account.
+  */
+  if (onboarding.status === 'running') {
+    return (
+      <>
+        <Onboarding
+          account={accountData}
+          profile={profile.data}
+          step={onboarding.step}
+          onStep={onboarding.go}
+          onFinish={onboarding.finish}
+        />
+        <PageRequestedPaywall account={accountData} suppressed />
+      </>
+    )
+  }
+
   const screen = nav.screen
   const isRoot = nav.tab !== null
-  const accountData = account.data
 
   function render() {
     switch (screen.name) {
       case 'account':
-        return <Profile account={accountData} />
+        return <Profile account={accountData} onReplayTour={onboarding.restart} />
 
       case 'yourInfo':
         // Facts is the default half: what it knows is what people come here to check.
@@ -170,6 +269,7 @@ function Stack() {
     <Screen>
       {render()}
       {isRoot && <TabBar />}
+      <PageRequestedPaywall account={accountData} />
     </Screen>
   )
 }

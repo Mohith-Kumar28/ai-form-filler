@@ -17,3 +17,23 @@ export async function writeLocal<T>(key: string, value: T): Promise<void> {
 export async function removeLocal(keys: string | string[]): Promise<void> {
   await chrome.storage.local.remove(keys)
 }
+
+/* ── Keys ─────────────────────────────────────────────────────────────────── */
+
+/**
+ * Whether this browser profile has met the paywall. `local`, so it outlives the browser.
+ *
+ * Lives here rather than beside `usePaywallSeen` because the service worker writes the other
+ * key below, and reaching into a module that imports React would drag React into the worker
+ * bundle for the sake of one string.
+ */
+export const PAYWALL_SEEN_KEY = 'aff:paywallSeen'
+
+/**
+ * A paywall the page asked for and the panel has not shown yet. `session`, not `local`.
+ *
+ * Written by the service worker just before it opens the panel, read once by the panel and then
+ * cleared. In session storage because it describes something happening right now: a note that
+ * survived a browser restart would be a sheet nobody asked for.
+ */
+export const PAYWALL_KEY = 'aff:pendingPaywall'

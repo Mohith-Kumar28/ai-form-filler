@@ -8,7 +8,12 @@ import type {
   FillPortRequest,
 } from '@aff/shared'
 import { hasAnswer } from '@aff/shared'
-import { FILL_PORT, LEARN_MAX_OPTIONS, REVIEW_CONFIDENCE_THRESHOLD } from '@aff/shared/constants'
+import {
+  FILL_PORT,
+  LEARN_MAX_OPTIONS,
+  offerFor,
+  REVIEW_CONFIDENCE_THRESHOLD,
+} from '@aff/shared/constants'
 import { sendMessage } from '../lib/messaging.js'
 import { type AnimatedFill, runFillAnimation } from '../overlay/animate.js'
 import {
@@ -54,6 +59,13 @@ export default defineContentScript({
     let cardFieldId: string | null = null
     let muted = false
     let filling = false
+    /**
+     * What the account could afford the last time we asked. See `refreshQuota`.
+     *
+     * Held on the page so a click can act on it without waiting — `openPaywall` explains why
+     * that matters. `null` means unknown, which is never treated as exhausted.
+     */
+    let quota: { used: number; limit: number; plan: string; exhausted: boolean } | null = null
     let settings = { inlineAutofill: true, showLauncher: true }
 
     const marks = new Map<string, FieldMark>()
@@ -162,6 +174,48 @@ export default defineContentScript({
     const feedback = createFeedbackCapture(location.origin, (payload, fieldIds) =>
       teach(payload, fieldIds),
     )
+
+    /**
+     * Review verdicts, coalesced into one report.
+     *
+     * Every tick and every Keep used to be its own request: `reportVerdict` called `teach` with a
+     * single-entry array, so clearing eight guessed answers on an application was eight round
+     * trips, eight profile reads and eight pointer reads — against a server whose `recordFeedback`
+     * is explicitly built to key and look up a whole batch at once. On a long form it could also
+     * reach `feedbackRateLimit` (30 a minute) and surface "Too many updates at once" to somebody
+     * who had done nothing but approve our own answers.
+     *
+     * Keyed by field, so a field cannot report twice and a later verdict on the same field
+     * supersedes an earlier one. The mark still comes off instantly and the panel's receipt is
+     * still messaged instantly — only the network report waits.
+     */
+    const pendingVerdicts = new Map<string, FeedbackRequest['entries'][number]>()
+    let verdictTimer: ReturnType<typeof setTimeout> | null = null
+
+    /**
+     * Long enough to gather a run of ticks, short enough that the chip still reads as a response
+     * to the last one. Somebody working down a column of guesses taps them a few hundred
+     * milliseconds apart.
+     */
+    const VERDICT_BATCH_MS = 700
+
+    function flushVerdicts(): void {
+      if (verdictTimer !== null) {
+        clearTimeout(verdictTimer)
+        verdictTimer = null
+      }
+      if (pendingVerdicts.size === 0) return
+      const fieldIds = [...pendingVerdicts.keys()]
+      const entries = [...pendingVerdicts.values()]
+      pendingVerdicts.clear()
+      teach({ origin: location.origin, entries }, fieldIds)
+    }
+
+    function queueVerdict(fieldId: string, entry: FeedbackRequest['entries'][number]): void {
+      pendingVerdicts.set(fieldId, entry)
+      if (verdictTimer !== null) clearTimeout(verdictTimer)
+      verdictTimer = setTimeout(flushVerdicts, VERDICT_BATCH_MS)
+    }
 
     // ── detection ───────────────────────────────────────────────────────────
 
@@ -361,6 +415,19 @@ export default defineContentScript({
           return
         }
         if (element !== document.activeElement) return
+        /*
+          The same gate the launcher has, for the same reason.
+
+          Answering one field is still a model call, so a locked account cannot have it — and
+          sending the request anyway would spend a round trip to arrive at an error card whose only
+          action is the offer. Decided from the cached quota so the click's gesture survives to
+          open the panel; see `openPaywall`.
+        */
+        if (quota?.exhausted) {
+          destroyFieldTrigger()
+          openPaywall()
+          return
+        }
         trigger.setAttribute('data-loading', 'true')
         requestFill('field', element)
       })
@@ -599,7 +666,7 @@ export default defineContentScript({
         note: {
           text: neverSubscribed
             ? 'Your answers are ready. Start the free trial and it will fill this form.'
-            : 'No AI actions left this month. Move up a plan to keep going.',
+            : 'No form fields left this month. Move up a plan to keep going.',
           bad: true,
         },
         onSelect: (id) => {
@@ -617,25 +684,60 @@ export default defineContentScript({
     }
 
     /**
-     * Whether there is quota left to fill with. A check, and only a check.
+     * The offer, in the panel, where there is room to make it.
      *
-     * It used to start the fill itself in one branch and leave the caller to start it in the
-     * others, so the caller had to call `requestFill` after a `true` that sometimes already
-     * meant "filling". The second call was swallowed by the `filling` guard, which is the kind
-     * of accident that works until someone removes the guard.
+     * `chrome.sidePanel.open` needs a user gesture, and a gesture does not survive a round trip
+     * to the API — so this must be reachable **without awaiting anything**, which is why the
+     * quota is cached in `quota` above rather than fetched on the click. If Chrome refuses to
+     * open the panel anyway, the in-page card is still there to catch the offer.
      */
-    async function hasQuotaToFill(): Promise<boolean> {
-      const result = await sendMessage({ type: 'account/quota' })
-      // Unknown is not exhausted: a signed-out or unreachable account is the fill's problem to
-      // report, and blocking here would replace a real error with a wrong one.
-      if (!result.ok || !result.value) return true
-      if (result.value.exhausted) {
-        launcher?.reset()
-        // A limit of zero is an account that has never subscribed; anything else has run out.
-        showUpgradePrompt(result.value.limit === 0)
-        return false
+    function openPaywall(): void {
+      launcher?.reset()
+      const mode = offerFor(quota?.limit ?? 0)
+      void chrome.runtime
+        .sendMessage({ type: 'overlay/paywall', mode })
+        .then((result: { ok?: boolean; value?: { opened?: boolean } } | undefined) => {
+          if (!result?.ok || !result.value?.opened) showUpgradePrompt(mode === 'trial')
+        })
+        .catch(() => showUpgradePrompt(mode === 'trial'))
+    }
+
+    /**
+     * What the account can afford, held on the page.
+     *
+     * Read once when a launcher appears and again whenever the tab is looked at afresh — a person
+     * who has just come back from a checkout tab must not be told they are still out of actions.
+     * Unknown is deliberately not exhausted: a signed-out or unreachable account is the fill's own
+     * problem to report, and refusing here would replace a real error with a wrong one.
+     */
+    function refreshQuota(): void {
+      void sendMessage({ type: 'account/quota' }).then((result) => {
+        quota = result.ok ? (result.value ?? null) : null
+        if (quota?.exhausted) launcher?.setExhausted()
+      })
+    }
+
+    /**
+     * Fill the whole form — the launcher's click and the keyboard command both land here.
+     *
+     * One function for both routes on purpose. The gesture has three decisions in it (can this
+     * account afford a fill, does the launcher need to start spinning, is a fill already in
+     * flight) and a second copy of them for the shortcut is a second copy that can disagree
+     * with the first.
+     *
+     * Decided from the cached quota, synchronously, and that is the point. This used to ask the
+     * worker for the quota and then act on the answer, which meant the refusal arrived a round
+     * trip after the click — too late to open the side panel, since Chrome will only do that
+     * while a gesture is live. So the paywall had to be drawn on the page. Reading a value we
+     * already hold keeps the gesture, and the offer lands in the panel where it can be read.
+     */
+    function startFormFill(): void {
+      if (quota?.exhausted) {
+        openPaywall()
+        return
       }
-      return true
+      launcher?.setLoading(true)
+      requestFill('form')
     }
 
     function ensureLauncher() {
@@ -670,13 +772,7 @@ export default defineContentScript({
          * It still opens on demand: the toolbar icon, and the actions on the error card below,
          * which point at the panel precisely when the panel is where the answer is.
          */
-        onOpen: () => {
-          launcher?.setLoading(true)
-          void hasQuotaToFill().then((ok) => {
-            if (ok) requestFill('form')
-            else launcher?.setLoading(false)
-          })
-        },
+        onOpen: startFormFill,
         onStop: () => {
           filling = false
           clearMarks()
@@ -701,11 +797,7 @@ export default defineContentScript({
       // Freshly mounted, which means fields were just found on a page that had none. Say so.
       launcher.playAttention()
 
-      void sendMessage({ type: 'account/quota' }).then((result) => {
-        if (result.ok && result.value?.exhausted) {
-          launcher?.setExhausted()
-        }
-      })
+      refreshQuota()
     }
 
     /**
@@ -741,31 +833,27 @@ export default defineContentScript({
 
       const schema = detection?.form.fields.find((candidate) => candidate.id === fieldId)
 
+      // Immediately, and never batched: the tab coming off is the response to the tap.
       marks.get(fieldId)?.destroy()
       marks.delete(fieldId)
 
-      teach(
-        {
-          origin: location.origin,
-          entries: [
-            feedbackEntryFor(
-              {
-                label: fill.label,
-                ...(fill.kind ? { kind: fill.kind } : {}),
-                value: fill.value,
-                ...(fill.options.length > 0 ? { options: fill.options } : {}),
-              },
-              {
-                ...(schema?.section ? { section: schema.section } : {}),
-                ...(schema?.hint ? { hint: schema.hint } : {}),
-              },
-              verdict,
-              value,
-              { trigger: 'review', ...(meta.rewritten ? { rewritten: true } : {}) },
-            ),
-          ],
-        },
-        [fieldId],
+      queueVerdict(
+        fieldId,
+        feedbackEntryFor(
+          {
+            label: fill.label,
+            ...(fill.kind ? { kind: fill.kind } : {}),
+            value: fill.value,
+            ...(fill.options.length > 0 ? { options: fill.options } : {}),
+          },
+          {
+            ...(schema?.section ? { section: schema.section } : {}),
+            ...(schema?.hint ? { hint: schema.hint } : {}),
+          },
+          verdict,
+          value,
+          { trigger: 'review', ...(meta.rewritten ? { rewritten: true } : {}) },
+        ),
       )
 
       // So an open panel's receipt stays true. Reaches nobody when the panel is closed, which
@@ -1026,6 +1114,9 @@ export default defineContentScript({
       filling = false
       destroyFieldTrigger()
       launcher?.reset()
+      // A fill is what spends the allowance, so the cached figure is now stale — and the next
+      // click reads it to decide whether to offer the plan.
+      refreshQuota()
     }
 
     function showErrorBox(element: HTMLElement | undefined, message: string) {
@@ -1078,7 +1169,14 @@ export default defineContentScript({
         code === 'UNAUTHENTICATED' || code === 'INVALID_TOKEN'
           ? { id: 'signin', label: 'Sign in', act: openPanel }
           : code === 'QUOTA_EXCEEDED' || code === 'LIMIT_EXCEEDED'
-            ? { id: 'upgrade', label: 'See plans', act: openPanel }
+            ? /*
+                The same offer the launcher makes, from the same place.
+
+                `openPanel` alone landed the user in the panel with no explanation of why they
+                were there — the fill had been refused for want of a plan, and the panel opened on
+                whatever screen they left it. This asks for the sheet as well.
+              */
+              { id: 'upgrade', label: 'See plans', act: openPaywall }
             : code === 'PROFILE_NOT_READY'
               ? { id: 'sources', label: 'Add a source', act: openPanel }
               : { id: 'retry', label: 'Try again', act: () => requestFill('form') }
@@ -1331,6 +1429,30 @@ export default defineContentScript({
             void apply(request.plan).then(sendResponse)
             return true
 
+          /**
+           * The keyboard shortcut, arriving from the service worker.
+           *
+           * Answered before the fill starts rather than after it finishes: this is a
+           * `sendMessage` from the worker, and a fill takes ten to twenty seconds — long enough
+           * for the channel to be torn down under it, which would surface as an error in the
+           * worker for a fill that ran perfectly well.
+           *
+           * A page with nothing detected on it does nothing at all. The shortcut is global to
+           * the browser, so it fires on every tab whether or not there is a form in it, and
+           * `requestFill` on an empty page would be a spinner over nothing.
+           *
+           * Deliberately not gated on `showLauncher`. Someone who hid the button is the person
+           * most likely to be using the key instead, and turning off a visual affordance is not
+           * a request to lose the feature behind it. A muted origin is a different statement —
+           * "not on this site" — and is respected.
+           */
+          case 'content/fill': {
+            sendResponse(null)
+            if (muted || !detection?.form.fields.length) return false
+            startFormFill()
+            return false
+          }
+
           case 'content/openCard': {
             openAnswerCard(request.fieldId, { scroll: true })
             sendResponse(null)
@@ -1449,6 +1571,38 @@ export default defineContentScript({
     document.addEventListener('focusout', onFocusOut, true)
 
     /**
+     * Coming back to this tab re-reads the allowance.
+     *
+     * Checkout happens in another tab, so returning to the form is exactly the moment the cached
+     * figure is most likely to be wrong — and the most galling moment to be told to upgrade
+     * something you have just paid for. Only while a launcher exists: on a page with no form
+     * there is nothing the answer could change.
+     */
+    const onVisible = () => {
+      if (document.visibilityState === 'visible' && launcher) refreshQuota()
+      /*
+        Going away is the deadline for anything still batched.
+
+        `visibilitychange → hidden` for the same reason `feedback.ts` picks it: it is the one
+        callback the platform guarantees to run, where `pagehide` fires on a document already
+        tearing down and is a poor place to start a `sendMessage`. Without this, ticking the last
+        guess and hitting Submit inside the batch window would throw the verdict away.
+      */
+      if (document.visibilityState === 'hidden') flushVerdicts()
+    }
+    document.addEventListener('visibilitychange', onVisible)
+
+    /*
+      Submitting is the other deadline, and it comes first.
+
+      A form's own handler can navigate immediately, so waiting for `visibilitychange` is not
+      enough on a page that replaces itself. Capture phase and passive, like every other listener
+      here: this must never delay or block a submission.
+    */
+    const onSubmitFlush = () => flushVerdicts()
+    document.addEventListener('submit', onSubmitFlush, { capture: true, passive: true })
+
+    /**
      * Re-detect after DOM changes, debounced. SPA navigation swaps forms without a page load,
      * and a form behind a "show more" toggle does not exist at first paint.
      */
@@ -1464,7 +1618,11 @@ export default defineContentScript({
     observer.observe(document.body, { childList: true, subtree: true })
 
     window.addEventListener('pagehide', () => {
+      // Last chance. Usually a no-op, because `visibilitychange` above got there first.
+      flushVerdicts()
       observer.disconnect()
+      document.removeEventListener('visibilitychange', onVisible)
+      document.removeEventListener('submit', onSubmitFlush, { capture: true })
       document.removeEventListener('pointerdown', onPointerDown, true)
       document.removeEventListener('keydown', onKeyDown, true)
       document.removeEventListener('focusin', onFocusIn, true)

@@ -58,22 +58,32 @@ ${overlayVariables(':host')}
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
-/* ── The launcher ─────────────────────────────────────────────────────────
-   Three shapes: a circle icon with a field-count badge below it when idle; an
-   expanded pill with progress text and a red stop button while filling; and a
-   brief pulse while thinking. A dots grabber appears on hover to drag it.     */
+/* ── The launcher ─────────────────────────────────────────
+   A circle pinned to the right edge of the window with a rail running from it
+   to that edge. The circle is the button; the rail carries the one thing the
+   launcher has to say — the keyboard shortcut when idle, the stage while it
+   thinks, done/total and a stop button while answers land. A dots grabber
+   appears on hover to drag the pair up and down.                             */
 /*
-  No gap between the grabber and the launcher, and that is load-bearing.
+  Anchored right, not positioned by arithmetic.
 
-  :host is pointer-events: none and only the interactive children opt back in, so a 6px
-  flex gap between the button and the grabber was 6px that accepted no pointer events at all.
-  Crossing it dropped :hover on the wrap, which is the only thing giving the grabber its
-  pointer-events: auto — so the handle faded out from under the cursor every time somebody
-  reached for it, and the launcher could not be dragged. The boxes now touch; the visual
-  separation is padding inside the grabber instead.
+  The wrap used to be placed with a computed left — viewport width minus its own width minus
+  a margin — recomputed by hand at every transition that changed the launcher's shape, because
+  that number is only correct for the width it had when it ran. right: 0 is correct at every
+  width, and content now grows leftward into the page where there is always room; translate
+  carries the vertical position alone.
+
+  No gap between the grabber and the circle, and that is load-bearing. :host is
+  pointer-events: none and only the interactive children opt back in, so a 6px flex gap was 6px
+  that accepted no pointer events at all. Crossing it dropped :hover on the wrap, which is the
+  only thing giving the grabber its pointer-events: auto — so the handle faded out from under
+  the cursor every time somebody reached for it, and the launcher could not be dragged. The
+  boxes touch; the separation is padding inside the grabber instead.
 */
 .launcher-wrap {
   position: fixed;
+  top: 0;
+  right: 0;
   display: flex;
   align-items: center;
   gap: 0;
@@ -92,18 +102,14 @@ ${overlayVariables(':host')}
   pointer-events at all. :hover stays as the fallback that works before the first pointermove.
 */
 
-.launcher-body {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-}
-
 .launcher {
+  position: relative;
+  /* Above the rail, whose left end is tucked underneath it. */
+  z-index: 1;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
+  flex: none;
   width: 38px;
   height: 38px;
   padding: 0;
@@ -118,6 +124,12 @@ ${overlayVariables(':host')}
   transition: scale 140ms var(--aff-spring), box-shadow 140ms var(--aff-ease);
   animation: pop-in 200ms var(--aff-spring) both;
 }
+/*
+  With no rail there is nothing between the circle and the edge of the window, and a button
+  touching the frame reads as clipped rather than as placed. The rail supplies that margin when
+  it is there — its own right padding — so only the bare case needs one.
+*/
+.launcher-wrap:not([data-rail="true"]) .launcher { margin-right: 14px; }
 /* Hover says "this is a button" before the click does. Rise, brighten, deepen the shadow. */
 .launcher-wrap:hover .launcher,
 .launcher-wrap[data-near="true"] .launcher {
@@ -127,55 +139,91 @@ ${overlayVariables(':host')}
 .launcher:active { scale: 0.97; }
 .launcher-icon { display: flex; flex: none; }
 .launcher-icon svg { width: 18px; height: 18px; }
-.launcher-progress {
-  display: none;
-  font-size: var(--aff-text-sm);
-  font-weight: 700;
-  line-height: 1;
-  white-space: nowrap;
-}
 
 /*
-  The badge under the icon: the field count when idle, what it is doing while it works.
+  The rail: one line of text, running from behind the circle to the edge of the window.
 
-  Right-aligned to the circle, always, rather than centred under it.
+  This replaced two satellites that hung *below* the circle — a field-count pill and, under
+  that, a red stop button. Both were wider than the 38px they hung from and 16px from the edge
+  of the window, so both spent their lives being special-cased away from falling off it: the
+  pill was right-aligned rather than centred after half of "5 fields" ended up off-screen, and
+  the stop button moved every time the progress count gained a digit.
 
-  Centring it put half the badge past the right edge of the window, because the launcher is
-  pinned 16px from that edge and the badge is wider than the 38px circle it hangs from — "5
-  fields" is about 70px, so 16px of it had nowhere to go. There was a data-wide escape hatch
-  for text longer than eleven characters, which caught "Reading the form…" and missed every
-  field count, so the common case was the broken one.
-
-  Pinning the right edges together is the rule that cannot overflow at any length: the badge
-  grows leftward into the page, where there is always room. It reads as deliberate because the
-  launcher is itself a right-edge object.
+  Running the text sideways into the edge removes the direction it could overflow in. It is
+  square where it meets the frame and round where it meets the circle, so it reads as attached
+  to the window rather than floating on the page — and it tucks under the circle by half its
+  radius, which is what makes the pair one object instead of two.
 */
-.launcher-count {
-  position: absolute;
-  top: calc(100% + 4px);
-  right: 0;
-  max-width: 46vw;
-  padding: 1px 7px;
-  border-radius: 999px;
+.launcher-rail {
+  display: none;
+  align-items: center;
+  gap: 7px;
+  height: 28px;
+  /* Under the circle, then clear of it again. -19px is the circle's radius. */
+  margin-left: -19px;
+  padding: 0 12px 0 26px;
+  border-radius: 999px 0 0 999px;
+  /*
+    A hairline, because surface-raised is oklch(99.3%) and most form pages are white.
+
+    Without it the strip was invisible against the page: the only thing anyone could see was
+    the key cap sitting on it, which read as a chip floating 8px off the circle rather than as
+    a rail running out of it. Nothing on the right — that edge is the window frame, and a line
+    drawn along the frame reads as a seam rather than as an edge.
+  */
+  border: 1px solid var(--aff-border-muted);
+  border-right: 0;
   background: var(--aff-surface-raised);
   color: var(--aff-ink-dim);
   font-size: var(--aff-text-xs);
   font-weight: 600;
-  line-height: 1.6;
+  line-height: 1;
   white-space: nowrap;
+  max-width: 46vw;
+  /* Pointer-transparent, like the badge it replaces: this is a label lying across someone
+     else's page, and only the stop button inside it has any business taking a click. */
   pointer-events: none;
   box-shadow: 0 1px 4px -1px var(--aff-shadow);
+  animation: pop-in 200ms var(--aff-spring) both;
+}
+/* Present only when it has something to say — see setRail in launcher.ts. */
+.launcher-wrap[data-rail="true"] .launcher-rail { display: flex; }
+.launcher-rail-text {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-/* The thinking dot beside that text. The pulse is what says "still working", not the words. */
-.launcher-count-dot {
-  display: inline-block;
+/*
+  The shortcut, as a key cap.
+
+  A struck, bordered chip rather than plain text, because "⌥⇧F" set in the same weight as
+  "Writing your answers…" reads as an abbreviation of something rather than as a thing to
+  press. The label itself comes from chrome.commands, so a rebound key shows the new binding.
+*/
+.launcher-key {
+  flex: none;
+  padding: 3px 6px;
+  border: 1px solid var(--aff-border);
+  border-radius: var(--aff-radius-sm);
+  background: var(--aff-surface);
+  color: var(--aff-ink);
+  font-family: inherit;
+  font-size: var(--aff-text-2xs);
+  font-weight: 700;
+  line-height: 1;
+}
+
+/* The thinking dot. The pulse is what says "still working", not the words beside it. */
+.launcher-rail-dot {
+  flex: none;
   width: 5px;
   height: 5px;
-  margin-right: 5px;
   border-radius: 50%;
   background: linear-gradient(135deg, var(--aff-sparkle), var(--aff-accent));
-  vertical-align: middle;
   animation: count-breathe 1200ms var(--aff-ease) infinite;
 }
 
@@ -184,42 +232,39 @@ ${overlayVariables(':host')}
   50% { opacity: 1; scale: 1.25; }
 }
 
-.launcher-count[data-exhausted="true"] {
+/* The hairline exists to lift a near-white strip off a white page; a gradient needs no help,
+   and a pale line across it reads as a crack. */
+.launcher-rail[data-exhausted="true"] {
+  border-color: transparent;
   background: linear-gradient(135deg, var(--aff-sparkle), var(--aff-accent));
   color: #fff;
   font-weight: 700;
 }
 
-/* The stop button, filling only. Placed below the pill so it stays on screen. */
+/*
+  Stop, inside the rail rather than floating under the circle.
+
+  It used to be a 24px circle absolutely positioned below a pill whose width changed as the
+  count did, so the one control with a deadline on it moved while the user was reaching for it.
+  At the rail's right end it is pinned to the window edge and cannot move at all.
+*/
 .launcher-stop {
-  position: absolute;
-  top: calc(100% + 10px);
-  left: 50%;
-  translate: -50% 0;
   display: none;
   align-items: center;
   justify-content: center;
-  width: 24px;
-  height: 24px;
+  flex: none;
+  width: 20px;
+  height: 20px;
+  margin-right: -4px;
   border: 0;
   border-radius: 50%;
   background: var(--aff-danger);
   color: #fff;
   cursor: pointer;
   pointer-events: auto;
-  box-shadow: 0 2px 8px -2px var(--aff-shadow);
   animation: pop-in 160ms var(--aff-ease) both;
 }
-.launcher-stop svg { width: 12px; height: 12px; }
-
-/* ── Filling state ──────────────────────────────────────────────────────── */
-.launcher-wrap[data-filling="true"] .launcher {
-  width: auto;
-  padding: 0 13px;
-  border-radius: 999px;
-}
-.launcher-wrap[data-filling="true"] .launcher-progress { display: inline; }
-.launcher-wrap[data-filling="true"] .launcher-count { display: none; }
+.launcher-stop svg { width: 10px; height: 10px; }
 .launcher-wrap[data-filling="true"] .launcher-stop { display: flex; }
 
 /*
@@ -262,8 +307,8 @@ ${overlayVariables(':host')}
   60% { scale: 1; rotate: 0deg; }
 }
 
-/* The badge comes with it, so the eye lands on "5 fields" rather than on a bouncing circle. */
-.launcher--attention ~ .launcher-count {
+/* The rail comes with it, so the eye lands on the shortcut rather than on a bouncing circle. */
+.launcher--attention ~ .launcher-rail {
   animation: attention-badge 900ms var(--aff-ease) 3;
 }
 
@@ -1016,7 +1061,7 @@ ${overlayVariables(':host')}
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .launcher, .launcher-icon, .launcher-count, .card, .mark, .answer-tab, .field-trigger,
+  .launcher, .launcher-icon, .launcher-rail, .card, .mark, .answer-tab, .field-trigger,
   .learn-chip {
     animation: none !important;
   }

@@ -9,6 +9,7 @@ import {
   getGetProfileQueryKey,
   useDeleteSource,
   useRenameSource,
+  useReprocessSource,
 } from '../../../generated/endpoints/profile/profile.js'
 import type { Profile, ProfileSourcesItem } from '../../../generated/model/index.js'
 import { openTrial, openUpgrade } from '../../../lib/billing.js'
@@ -25,6 +26,7 @@ import {
   Button,
   ConfirmSheet,
   EmptyState,
+  ErrorNote,
   Input,
   OverflowMenu,
   Screen,
@@ -173,17 +175,20 @@ function SourceCard({
   source,
   onRemove,
   onRename,
-  onRetry,
+  onReprocess,
+  reprocessing,
 }: {
   source: ProfileSourcesItem
   onRemove: () => void
   onRename: (label: string) => void
-  onRetry: () => void
+  onReprocess: () => void
+  /** True while this card's own re-read is in flight, so the row can say so. */
+  reprocessing: boolean
 }) {
   const nav = useNavigation()
   const [renaming, setRenaming] = useState(false)
   const [draft, setDraft] = useState(source.label)
-  const busy = source.status === 'pending' || source.status === 'parsing'
+  const busy = source.status === 'pending' || source.status === 'parsing' || reprocessing
 
   const commit = () => {
     const next = draft.trim()
@@ -244,6 +249,19 @@ function SourceCard({
             ? [{ label: 'Open in a tab', onSelect: () => void openSourceInTab(source) }]
             : []),
         ]),
+    /*
+      "Read again", not "Reprocess".
+
+      It is the same endpoint, and reprocess is what the route is called, but a menu is read by
+      somebody deciding whether to press it — and what they want to know is what happens to their
+      document, not what the server does to a row. "Read again" also names the thing that actually
+      changes: a link whose page has been rewritten, or a résumé whose phone number the first pass
+      missed, gets read as it is now.
+
+      Hidden while the card is busy: pressing it during an in-flight re-read would spend a second
+      action for the same answer.
+    */
+    ...(busy ? [] : [{ label: 'Read again', onSelect: onReprocess }]),
     { label: 'Remove', onSelect: onRemove, tone: 'danger' as const },
   ]
 
@@ -286,7 +304,7 @@ function SourceCard({
             {(busy || source.status === 'failed' || source.extractedChars) && (
               <span className="mt-1.5 flex flex-wrap items-center gap-1.5">
                 {busy ? (
-                  <StatusPill tone="busy">Reading</StatusPill>
+                  <StatusPill tone="busy">{reprocessing ? 'Reading again' : 'Reading'}</StatusPill>
                 ) : source.status === 'failed' ? (
                   <StatusPill tone="bad">Couldn’t read</StatusPill>
                 ) : null}
@@ -318,9 +336,18 @@ function SourceCard({
               <span>{source.error}</span>
             </p>
           )}
-          <Button size="sm" variant="secondary" className="mt-2" onClick={onRetry}>
+          {/*
+            The footer now retries the thing that failed, instead of restarting the user.
+
+            It used to push them back to the file picker — the comment on the old `onRetry` was
+            honest that this was a workaround for there being no reingest endpoint, and that the
+            dead source would sit there occupying a slot until they removed it by hand. There is
+            an endpoint now, so the button does what it says: reads the stored original again,
+            keeping the row, the slot and the file.
+          */}
+          <Button size="sm" variant="secondary" className="mt-2" onClick={onReprocess}>
             <IconRefresh className="size-3.5" />
-            Add it again
+            Read it again
           </Button>
         </div>
       )}
@@ -338,10 +365,31 @@ export function Sources({ profile }: { profile: Profile | undefined }) {
 
   const [pendingRemoval, setPendingRemoval] = useState<ProfileSourcesItem | null>(null)
   const [removeError, setRemoveError] = useState<string | null>(null)
+  /** Which source is being re-read, so only its own card goes busy. */
+  const [rereading, setRereading] = useState<string | null>(null)
+  const [rereadError, setRereadError] = useState<string | null>(null)
 
   const rename = useRenameSource({
     mutation: {
       onSuccess: (updated) => queryClient.setQueryData(getGetProfileQueryKey(), updated),
+    },
+  })
+
+  /**
+   * Re-reading spends an action, so the account has to be refetched afterwards.
+   *
+   * Same reason a fill does it: the meter on Account is the only place the number is shown now,
+   * and a stale one there is worse than none — it is a number the user has no reason to distrust.
+   */
+  const reprocess = useReprocessSource({
+    mutation: {
+      onSuccess: (updated) => {
+        queryClient.setQueryData(getGetProfileQueryKey(), updated)
+        void queryClient.invalidateQueries({ queryKey: getGetAccountQueryKey() })
+        setRereadError(null)
+      },
+      onError: (error) => setRereadError(error.message),
+      onSettled: () => setRereading(null),
     },
   })
 
@@ -411,6 +459,15 @@ export function Sources({ profile }: { profile: Profile | undefined }) {
           />
         ) : (
           <div className="flex flex-col gap-2.5 px-gutter py-3">
+            {/*
+              A failed re-read is reported once, at the top, rather than per card.
+
+              The card it belongs to is back to whatever it was before — nothing was changed by a
+              request that did not land — so putting the message inside it would be claiming a new
+              state the source is not in. The likely message is a quota one, which is about the
+              account and not about this file at all.
+            */}
+            {rereadError && <ErrorNote>{rereadError}</ErrorNote>}
             {sources.map((source) => (
               <SourceCard
                 key={source.id}
@@ -420,21 +477,12 @@ export function Sources({ profile }: { profile: Profile | undefined }) {
                   setRemoveError(null)
                   setPendingRemoval(source)
                 }}
-                /*
-                 * Retry means "add it again", not "re-run the ingest".
-                 *
-                 * There is no server-side reingest endpoint, and inventing one for this would be a
-                 * larger change than the failure warrants. What went wrong is almost always the
-                 * file itself — a password-protected PDF is the fixture case — so the useful move
-                 * is to drop the user back at the picker with the right tab already open. The dead
-                 * source stays until they remove it, which is honest: it is still taking a slot.
-                 */
-                onRetry={() =>
-                  nav.push({
-                    name: 'addInfo',
-                    initial: source.kind === 'link' ? 'link' : 'upload',
-                  })
-                }
+                reprocessing={rereading === source.id}
+                onReprocess={() => {
+                  setRereadError(null)
+                  setRereading(source.id)
+                  reprocess.mutate({ id: source.id })
+                }}
               />
             ))}
 

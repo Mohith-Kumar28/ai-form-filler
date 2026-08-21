@@ -17,7 +17,19 @@ const stub = {
     // returns a full `chrome-extension://` URL, and a bare path throws.
     getURL: (path: string) => new URL(path, location.origin).toString(),
     getManifest: () => ({ version_name: 'gallery' }),
-    sendMessage: resolved({ ok: true, value: null }),
+    /**
+     * Answered per request type, not with one blanket `null`.
+     *
+     * The launcher asks what key is bound before it will draw its rail, and a `null` reply is
+     * indistinguishable from an unbound command — so the whole strip was missing from the very
+     * harness that exists to review it.
+     */
+    sendMessage: (request: { type?: string }) =>
+      Promise.resolve(
+        request?.type === 'overlay/shortcut'
+          ? { ok: true, value: { label: '\u2325\u21e7F' } }
+          : { ok: true, value: null },
+      ),
     connect: () => ({
       postMessage: noop,
       disconnect: noop,

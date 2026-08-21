@@ -1,6 +1,6 @@
 import { PLAN_UPLOAD_LIMITS } from '@aff/shared'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useState } from 'react'
 import { useGetAccount } from '../../../generated/endpoints/account/account.js'
 import {
   addTextSource,
@@ -8,6 +8,7 @@ import {
   uploadSource,
 } from '../../../generated/endpoints/profile/profile.js'
 import { formatBytes } from '../../../lib/source-file.js'
+import { useVoiceNote } from '../../../lib/use-voice-note.js'
 import {
   AutoTextarea,
   Button,
@@ -303,98 +304,13 @@ function TextMode({ onDone }: { onDone: () => Promise<void> }) {
 }
 
 function VoiceMode({ onDone }: { onDone: () => Promise<void> }) {
-  const [recording, setRecording] = useState(false)
-  const [blob, setBlob] = useState<Blob | null>(null)
-  const [seconds, setSeconds] = useState(0)
-  const [denied, setDenied] = useState<string | null>(null)
   const [label, setLabel] = useState('')
-  const [micPermission, setMicPermission] = useState<'unknown' | 'granted' | 'denied'>('unknown')
-
-  const recorder = useRef<MediaRecorder | null>(null)
-  const chunks = useRef<Blob[]>([])
-
-  useEffect(() => {
-    if (!recording) return
-    const timer = setInterval(() => setSeconds((s) => s + 1), 1000)
-    return () => clearInterval(timer)
-  }, [recording])
-
-  useEffect(
-    () => () => {
-      for (const track of recorder.current?.stream.getTracks() ?? []) track.stop()
-    },
-    [],
-  )
-
-  useEffect(() => {
-    if (navigator.permissions?.query) {
-      navigator.permissions
-        .query({ name: 'microphone' as PermissionName })
-        .then((result) => {
-          setMicPermission(result.state as 'granted' | 'denied')
-          result.onchange = () => setMicPermission(result.state as 'granted' | 'denied')
-        })
-        .catch(() => {})
-    }
-  }, [])
-
-  const playbackUrl = useMemo(() => (blob ? URL.createObjectURL(blob) : null), [blob])
-  useEffect(() => {
-    if (!playbackUrl) return
-    return () => URL.revokeObjectURL(playbackUrl)
-  }, [playbackUrl])
-
-  /**
-   * The side panel cannot show the microphone prompt, so the asking happens in a tab.
-   *
-   * `getUserMedia` in a side panel rejects with `NotAllowedError` and never prompts — which is
-   * exactly the reported symptom: it says permission is missing and then offers no way to give
-   * it. "Allow microphone" here used to call `start()` again, so it asked Chrome the same
-   * question that Chrome had already declined to put to the user, and failed identically.
-   *
-   * `microphone.html` is an ordinary top-level extension page, where the prompt does appear.
-   * The grant is scoped to the extension's origin, which the panel shares, so recording works
-   * here the moment that tab is done. `permissions.query` below has an `onchange` hook, so the
-   * panel notices the grant without needing to be reopened.
-   */
-  function openPermissionTab() {
-    void chrome.tabs.create({ url: chrome.runtime.getURL('microphone.html') })
-  }
-
-  async function start() {
-    setDenied(null)
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
-      setMicPermission('granted')
-      const media = new MediaRecorder(stream)
-      chunks.current = []
-      media.ondataavailable = (event) => chunks.current.push(event.data)
-      media.onstop = () => {
-        setBlob(new Blob(chunks.current, { type: 'audio/webm' }))
-        for (const track of stream.getTracks()) track.stop()
-      }
-      media.start()
-      recorder.current = media
-      setSeconds(0)
-      setBlob(null)
-      setRecording(true)
-    } catch (error) {
-      // Worth telling apart: "no microphone" is not something a permission tab can fix.
-      const name = (error as { name?: string } | null)?.name
-      if (name === 'NotFoundError' || name === 'DevicesNotFoundError') {
-        setMicPermission('denied')
-        setDenied('Chrome cannot find a microphone. Connect one and try again.')
-        return
-      }
-      setMicPermission('denied')
-      setDenied('Chrome will not let the side panel ask for your microphone. Grant it once here.')
-    }
-  }
+  const voice = useVoiceNote()
 
   const save = useMutation({
     mutationFn: async () => {
-      if (!blob) return
-      const file = new File([blob], `${label.trim() || 'Voice note'}.webm`, { type: 'audio/webm' })
+      const file = voice.toFile(label)
+      if (!file) return
       await uploadSource({ file, label: label.trim() })
     },
     onSuccess: onDone,
@@ -411,37 +327,30 @@ function VoiceMode({ onDone }: { onDone: () => Promise<void> }) {
       <ScreenBody className="flex flex-col gap-4 p-4">
         <div className="rounded-2xl border border-border-muted bg-surface-raised px-gutter py-6 text-center">
           <p className="font-display text-2xl font-bold leading-none text-ink">
-            {String(Math.floor(seconds / 60)).padStart(2, '0')}:
-            {String(seconds % 60).padStart(2, '0')}
+            {String(Math.floor(voice.seconds / 60)).padStart(2, '0')}:
+            {String(voice.seconds % 60).padStart(2, '0')}
           </p>
           <p className="mt-2 text-xs text-ink-dim">
-            {recording ? 'Recording' : blob ? 'Ready to save' : 'Talk about yourself'}
+            {voice.recording ? 'Recording' : voice.blob ? 'Ready to save' : 'Talk about yourself'}
           </p>
 
           <Button
-            variant={recording ? 'danger' : 'secondary'}
-            onClick={
-              recording
-                ? () => {
-                    recorder.current?.stop()
-                    setRecording(false)
-                  }
-                : start
-            }
+            variant={voice.recording ? 'danger' : 'secondary'}
+            onClick={voice.recording ? voice.stop : () => void voice.start()}
             className="mt-3"
           >
             <IconMic className="size-3.5" />
-            {recording ? 'Stop' : blob ? 'Record again' : 'Start recording'}
+            {voice.recording ? 'Stop' : voice.blob ? 'Record again' : 'Start recording'}
           </Button>
         </div>
 
-        {denied && (
+        {voice.denied && (
           <div className="flex flex-col items-center gap-2">
             <p className="text-xs leading-snug text-danger" role="alert">
-              {denied}
+              {voice.denied}
             </p>
-            {micPermission === 'denied' && (
-              <Button variant="primary" onClick={openPermissionTab}>
+            {voice.permission === 'denied' && (
+              <Button variant="primary" onClick={voice.requestPermission}>
                 <IconMic className="size-3.5" />
                 Allow microphone
               </Button>
@@ -449,10 +358,10 @@ function VoiceMode({ onDone }: { onDone: () => Promise<void> }) {
           </div>
         )}
 
-        {playbackUrl && (
+        {voice.playbackUrl && (
           <>
             {/* biome-ignore lint/a11y/useMediaCaption: a voice note the user recorded themselves */}
-            <audio controls src={playbackUrl} className="w-full" />
+            <audio controls src={voice.playbackUrl} className="w-full" />
             <Field label="Name">
               {({ id, describedBy }) => (
                 <Input
@@ -468,7 +377,11 @@ function VoiceMode({ onDone }: { onDone: () => Promise<void> }) {
         )}
       </ScreenBody>
 
-      <Submit pending={save.isPending} disabled={!blob || label.trim() === ''} error={save.error} />
+      <Submit
+        pending={save.isPending}
+        disabled={!voice.blob || label.trim() === ''}
+        error={save.error}
+      />
     </form>
   )
 }

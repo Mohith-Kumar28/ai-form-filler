@@ -8,7 +8,10 @@ export { PLAN_LIMITS, PLAN_LONGFORM_LIMITS } from './constants.js'
 
 export const QuotaState = z.object({
   plan: Plan,
-  /** AI actions spent this period. One answered field, or one rewrite. Tier 0 is never counted. */
+  /**
+   * AI actions spent this period: one answered field, one rewrite, or one source ingested.
+   * Tier 0 — a lookup with no model call — is never counted. Shown to the user as form fields.
+   */
   used: z.number().int().nonnegative(),
   limit: z.number().int().nonnegative(),
   /**

@@ -21,9 +21,12 @@ export const REVIEW_CONFIDENCE_THRESHOLD = 0.7
    every branch in the panel to say the same thing.                          */
 
 /**
- * AI actions per calendar month, per plan.
+ * AI actions per calendar month, per plan. Reported to the user as *form fields*, which is the
+ * same unit in a word they can price in work.
  *
- * One action is **one field an AI answered, or one rewrite**. Fields resolved from saved info —
+ * One action is **one field an AI answered, one rewrite, or one source ingested** — the last of
+ * those being a multimodal extraction plus a memory write, and the reason a source add and a
+ * reprocess are metered here too. Fields resolved from saved info —
  * tier 0, a lookup with no model call — are free and never counted, because they cost us nothing.
  * In the `fill_log` data behind these numbers that was 32% of all classified fields, so a month's
  * allowance stretches roughly half again as far as the number suggests.
@@ -128,6 +131,23 @@ export const MAX_TEXT_BYTES = 1024 * 1024
 
 /** Length of the Pro trial, in days. Passed to Dodo per checkout session, not set on the product. */
 export const TRIAL_DAYS = 14
+
+/**
+ * Which offer a refused action should make: the trial, or a plan comparison.
+ *
+ * One rule, in one place, because three surfaces ask the question and they must not disagree — the
+ * side panel when Fill is pressed, the page when the launcher is pressed, and the account screen.
+ * A limit of zero is an account that has never subscribed (`PLAN_LIMITS.free` is 0), so there is
+ * nothing to compare and everything to explain; any other limit belongs to somebody already paying
+ * who has run out of a plan they chose, and what they need is the next one up.
+ *
+ * Zod-free and in `constants` so the content script can import it: the page decides this from the
+ * quota it already holds, without a round trip, because opening the side panel needs a live user
+ * gesture and a round trip spends it.
+ */
+export function offerFor(limit: number): 'trial' | 'compare' {
+  return limit <= 0 ? 'trial' : 'compare'
+}
 
 export const FILL_PORT = 'aff:fill' as const
 

@@ -573,6 +573,19 @@ export function mountAnswerCard(spec: AnswerCardSpec): CardHandle {
   let edited = false
   let rewritten = false
   let writeTimer: ReturnType<typeof setTimeout> | null = null
+  /**
+   * The last value the page actually accepted.
+   *
+   * Tracked because `onWrite` can say no — a masked phone input, a select with no matching
+   * option, a React field that snaps back — and until now nothing downstream of a refusal knew
+   * about it. The debounced write set a red note and returned, and `Keep` then reported the
+   * answer and cleared the mark regardless, so the form kept the old text while the card, the
+   * learning loop and the panel's receipt all agreed on the new one. Comparing against this is
+   * how `Keep` tells "already saved" from "never landed".
+   */
+  let written = spec.value
+  /** The newest debounced write, kept so `Keep` can run it now instead of waiting it out. */
+  let pendingWrite: (() => Promise<boolean>) | null = null
   /** Bumped on every rewrite, so a reply that arrives after Stop is discarded. */
   let generation = 0
   let slowTimer: ReturnType<typeof setTimeout> | null = null
@@ -607,25 +620,49 @@ export function mountAnswerCard(spec: AnswerCardSpec): CardHandle {
     edited = true
     setState('dirty')
 
-    const write = () => {
-      void spec.onWrite(next).then((ok) => {
-        if (!ok) {
-          setNote("The page wouldn't take that.", 'bad')
-          return
-        }
-        setNote('saved to the page', 'good')
-        setTimeout(() => {
-          if (note.textContent === 'saved to the page') setNote('')
-        }, 1200)
-      })
+    const write = async (): Promise<boolean> => {
+      const ok = await spec.onWrite(next)
+      if (!ok) {
+        setNote("The page wouldn't take that.", 'bad')
+        return false
+      }
+      written = next
+      setNote('saved to the page', 'good')
+      setTimeout(() => {
+        if (note.textContent === 'saved to the page') setNote('')
+      }, 1200)
+      return true
     }
 
+    // Always the newest closure, immediate or not: `flushWrite` re-runs it when a write was
+    // refused, and re-running a stale one would put an older answer back on the page.
+    pendingWrite = write
+
     if (options.immediate) {
-      write()
+      void write()
       return
     }
     if (writeTimer !== null) clearTimeout(writeTimer)
-    writeTimer = setTimeout(write, WRITE_THROUGH_MS)
+    writeTimer = setTimeout(() => void write(), WRITE_THROUGH_MS)
+  }
+
+  /**
+   * Put whatever the card is showing into the page, and say whether it landed.
+   *
+   * Called by `Keep`, which needs an answer rather than a gesture: reporting a verdict on an
+   * answer the form never took teaches the learning loop something the user cannot see, and takes
+   * the mark off the one field that still needs looking at.
+   */
+  const flushWrite = async (): Promise<boolean> => {
+    if (writeTimer !== null) {
+      clearTimeout(writeTimer)
+      writeTimer = null
+    }
+    if (written === current) return true
+    const write = pendingWrite
+    // No pending closure only happens when nothing was ever committed, in which case
+    // `written === current` above has already returned.
+    return write ? write() : spec.onWrite(current)
   }
 
   if (spec.mode === 'prose') {
@@ -757,14 +794,32 @@ export function mountAnswerCard(spec: AnswerCardSpec): CardHandle {
   keep.addEventListener('click', (event) => {
     event.preventDefault()
     event.stopPropagation()
-    if (writeTimer !== null) {
-      // Never keep a value the page has not been given yet.
-      clearTimeout(writeTimer)
-      writeTimer = null
-      void spec.onWrite(current)
-    }
-    setState('settled')
-    spec.onKeep(current, { edited, rewritten })
+    /*
+      Write first, and only settle if the write landed.
+
+      This used to fire the pending write into the void — `void spec.onWrite(current)` — and settle
+      on the next line regardless. For the ordinary case that is fine, because the flush is what
+      stops Keep reporting a value still sitting in the debounce. For a field that refuses the
+      value it was the worst possible outcome: the card closed, the tab came off, and the answer
+      went to the learning loop, while the form still held the old text. Every surface said the
+      correction had been made except the one that mattered.
+
+      Staying open on failure is the point. The note says what happened and the answer is still
+      in the textarea, so the person can pick a different phrasing — which is exactly what a
+      masked or validated field needs from them.
+    */
+    void flushWrite().then((ok) => {
+      if (!ok) {
+        setState('error')
+        setNote(
+          "The page wouldn't take that, so nothing was saved. Try wording it differently.",
+          'bad',
+        )
+        return
+      }
+      setState('settled')
+      spec.onKeep(current, { edited, rewritten })
+    })
   })
 
   clear.addEventListener('click', (event) => {
@@ -804,11 +859,7 @@ export function mountAnswerCard(spec: AnswerCardSpec): CardHandle {
         somebody typed because they clicked back onto the form is not a dismissal, it is data
         loss.
       */
-      if (writeTimer !== null) {
-        clearTimeout(writeTimer)
-        writeTimer = null
-        void spec.onWrite(current)
-      }
+      if (writeTimer !== null) void flushWrite()
       if (slowTimer !== null) clearTimeout(slowTimer)
       handle.close()
     },

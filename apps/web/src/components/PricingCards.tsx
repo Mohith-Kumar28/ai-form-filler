@@ -54,7 +54,7 @@ export function PricingCards() {
                 plan.highlighted ? 'text-white/90' : 'text-ink-dim',
               )}
             >
-              {plan.actions.toLocaleString('en-US')} AI actions / month
+              {plan.actions.toLocaleString('en-US')} form fields / month
             </p>
             {plan.trialDays > 0 && (
               <p

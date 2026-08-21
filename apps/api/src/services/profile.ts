@@ -231,6 +231,85 @@ export async function getSourceFile(
   return rows[0] ?? null
 }
 
+/** Everything a re-ingest needs in order to redo what the original ingest did. */
+export interface StoredSource {
+  id: string
+  kind: SourceKind
+  label: string
+  url: string | null
+  r2Key: string | null
+  mediaType: string | null
+  memoryId: string | null
+  /** For a text source this *is* the source — nothing else stores the note. */
+  extractedText: string | null
+}
+
+/** One source, whole, scoped to its owner. Throws rather than returning null: every caller needs it. */
+export async function getSource(db: Db, userId: string, sourceId: string): Promise<StoredSource> {
+  const rows = await db
+    .select({
+      id: profileSources.id,
+      kind: profileSources.kind,
+      label: profileSources.label,
+      url: profileSources.url,
+      r2Key: profileSources.r2Key,
+      mediaType: profileSources.mediaType,
+      memoryId: profileSources.memoryId,
+      extractedText: profileSources.extractedText,
+    })
+    .from(profileSources)
+    // Scoped by userId as well as id, for the same reason delete and rename are.
+    .where(and(eq(profileSources.id, sourceId), eq(profileSources.userId, userId)))
+    .limit(1)
+
+  const row = rows[0]
+  if (!row) throw new ApiErrorResponse('INVALID_REQUEST', 'No such source')
+  return { ...row, kind: row.kind as SourceKind }
+}
+
+/**
+ * Records the result of a re-ingest over an existing row.
+ *
+ * Deliberately an update rather than a delete-and-add: the id is what the panel, the R2 key and
+ * every open menu are keyed on, and re-creating the row would move a source to the bottom of the
+ * list for no reason the user could explain. The stored original is untouched — reprocessing
+ * re-reads the same bytes, it does not replace them.
+ *
+ * The structured extraction is merged on the same terms as a first ingest: it fills gaps and never
+ * overwrites. That is the right rule even here. Somebody reprocessing a résumé because the first
+ * pass missed their phone number wants the gap filled; nobody wants the name they corrected by
+ * hand quietly replaced by what a model read off page two.
+ */
+export async function recordReingest(
+  db: Db,
+  userId: string,
+  sourceId: string,
+  result: {
+    memoryId: string | null
+    text: string
+    structured?: StructuredSource | undefined
+    status: SourceStatus
+    error?: string | null
+  },
+): Promise<Profile> {
+  await db
+    .update(profileSources)
+    .set({
+      memoryId: result.memoryId,
+      extractedText: result.text,
+      status: result.status,
+      error: result.error ?? null,
+    })
+    .where(and(eq(profileSources.id, sourceId), eq(profileSources.userId, userId)))
+
+  const current = await loadStructured(db, userId)
+  const merged = result.structured
+    ? mergeStructured(current, result.structured)
+    : { ...current, identity: mergeIdentity(current.identity, extractIdentity(result.text)) }
+
+  return updateStructured(db, userId, merged)
+}
+
 export interface NewSource {
   kind: SourceKind
   label: string

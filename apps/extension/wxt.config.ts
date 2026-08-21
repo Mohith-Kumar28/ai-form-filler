@@ -100,6 +100,33 @@ export default defineConfig({
 
     side_panel: { default_path: 'sidepanel.html' },
     action: { default_title: 'Fillaform' },
+
+    /**
+     * Fill without reaching for the mouse.
+     *
+     * The launcher is a 38px circle pinned to the right edge of a page whose form the user is
+     * already typing in — so the gesture it asks for is "leave the keyboard, cross the window,
+     * hit a small target". The command removes that, and the rail beside the circle exists to
+     * teach it: it reads the binding back out of `chrome.commands`, so what it shows is what is
+     * actually bound.
+     *
+     * `Alt+F` — the shortest thing Chrome will accept. A bare `F` is not on offer: `commands`
+     * entries must carry `Ctrl`, `Alt`, or `Command`, and that requirement is the feature here
+     * rather than a limitation, because the page this fires on is a form somebody is typing
+     * into. A single letter would fill the form every time they typed one.
+     *
+     * Chrome maps `Alt` to Option on macOS, so one suggestion covers both platforms. On
+     * Windows and Linux `Alt+F` is also Chrome's own menu, so Chrome may decline to bind it and
+     * leave the command unbound — the launcher handles that correctly rather than lying about
+     * it: it reads the real binding out of `chrome.commands` and shows no key at all when there
+     * isn't one. Rebinding lives at chrome://extensions/shortcuts, and the label follows.
+     */
+    commands: {
+      'fill-form': {
+        suggested_key: { default: 'Alt+F' },
+        description: 'Fill this form',
+      },
+    },
   },
 
   vite: () => ({

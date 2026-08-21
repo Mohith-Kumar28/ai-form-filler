@@ -1,3 +1,4 @@
+import { offerFor } from '@aff/shared/constants'
 import { useState } from 'react'
 import type { Account, Profile } from '../../../generated/model/index.js'
 import { plural } from '../../../lib/format.js'
@@ -70,7 +71,6 @@ export function Home({
   const readyCount = sources.filter((source) => source.status === 'ready').length
 
   const { used, limit, plan } = account.quota
-  const left = Math.max(0, limit - used)
   const exhausted = used >= limit
   const [showUpgrade, setShowUpgrade] = useState(false)
   const { seen: paywallSeen, markSeen } = usePaywallSeen()
@@ -80,12 +80,18 @@ export function Home({
    *
    * It is not, until the person has tried to fill something. They arrive here having installed an
    * extension, and the honest order is: let them put their résumé in, let them see what it knows,
-   * and ask for a card at the moment they ask it to do the work. A subtitle reading "0 of 0 AI
-   * actions left" before any of that is a price tag on a product they have not seen run.
+   * and ask for a card at the moment they ask it to do the work. A line reading "0 of 0 fields
+   * left" before any of that is a price tag on a product they have not seen run.
    *
-   * A paying account is a different matter — its meter is useful information, so it is always on.
+   * Note what this no longer gates: the running count itself. The header used to carry "596 of 600
+   * fields left this month" on every open, which is a meter on the one screen whose whole job is a
+   * single button — the number is never the reason somebody came here, and a budget quietly
+   * counting down above the action is a reason to hesitate before pressing it. The count lives on
+   * Account, where a person goes *to* look at it. What survives here is the one case where the
+   * number is the answer to a question the user just asked: they pressed Fill and nothing
+   * happened.
    */
-  const showMeter = account.subscription != null || paywallSeen
+  const showMoney = account.subscription != null || paywallSeen
 
   const canFill = page.status === 'ready' && page.fieldCount > 0
 
@@ -119,12 +125,7 @@ export function Home({
             <span>Fillaform</span>
           </span>
         }
-        subtitle={
-          showMeter
-            ? `${left} of ${limit} ${plural(limit, 'AI action')} left this month`
-            : undefined
-        }
-        right={showMeter && plan !== 'free' ? <ProBadge plan={plan} /> : undefined}
+        right={plan !== 'free' ? <ProBadge plan={plan} /> : undefined}
       />
 
       <ScreenBody className="flex flex-col">
@@ -152,11 +153,11 @@ export function Home({
 
             {blockedReason ? (
               <p className="mt-2 text-xs leading-snug text-ink-muted">{blockedReason}</p>
-            ) : exhausted && showMeter ? (
+            ) : exhausted && showMoney ? (
               <p className="mt-2 text-xs leading-snug text-ink-muted">
                 {limit === 0
                   ? 'Start your free trial to fill this form.'
-                  : `You've used all ${limit} AI actions this month.`}{' '}
+                  : `You've filled all ${limit} fields your plan covers this month.`}{' '}
                 <button
                   type="button"
                   onClick={() => {
@@ -196,14 +197,14 @@ export function Home({
       {showUpgrade && (
         <UpgradeSheet
           onClose={() => setShowUpgrade(false)}
-          mode={limit === 0 ? 'trial' : 'compare'}
+          mode={offerFor(limit)}
           reason={
             limit === 0
               ? // Names what they have already built, because that is the reason to say yes.
                 readyCount > 0
                 ? `Start the trial and it will answer this form from the ${readyCount} ${plural(readyCount, 'source')} you added.`
                 : undefined
-              : `You've used all ${limit} AI actions this month. They reset on the 1st.`
+              : `You've filled all ${limit} fields your plan covers this month. They reset on the 1st.`
           }
         />
       )}

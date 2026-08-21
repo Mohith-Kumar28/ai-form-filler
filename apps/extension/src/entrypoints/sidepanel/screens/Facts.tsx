@@ -291,7 +291,18 @@ export function Facts({ profile }: { profile: Profile | undefined }) {
   if (profile === undefined) {
     return (
       <Screen>
-        <ScreenHeader title="Your info" right={<InfoTabs view="facts" />} />
+        <ScreenHeader
+          title="Your info"
+          right={<InfoTabs view="facts" />}
+          /*
+            The loading header keeps the second row, empty.
+
+            Dropping it made the header 52px shorter while the profile was in flight and then
+            taller the instant it landed — the same jolt as the tab switch, just earlier. An empty
+            row of the right height costs nothing and holds the screen still.
+          */
+          search={<span />}
+        />
         <ScreenBody role="status" aria-busy="true" aria-label="Loading your info">
           <div className="px-gutter py-3">
             <SkeletonRow />

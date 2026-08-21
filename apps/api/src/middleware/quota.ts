@@ -104,7 +104,7 @@ export const enforceQuota = createMiddleware<AppEnv>(async (c, next) => {
         ? // Deliberately not "to fill this form": this middleware also guards `/fill/improve`,
           // where the user is rewriting one answer rather than filling anything.
           'Start your free trial to let it answer this.'
-        : `You've used all ${quota.limit} AI actions this month.`,
+        : `You've filled all ${quota.limit} fields your plan covers this month.`,
       {
         quota: { used: quota.used, limit: quota.limit, resetsAt: quota.resetsAt },
       },

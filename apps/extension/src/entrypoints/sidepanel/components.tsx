@@ -12,9 +12,11 @@ import {
   type TextareaHTMLAttributes,
   useEffect,
   useId,
+  useLayoutEffect,
   useRef,
   useState,
 } from 'react'
+import { createPortal } from 'react-dom'
 import { openTrial, openUpgrade } from '../../lib/billing.js'
 import { formatCount, formatResetDate, plural } from '../../lib/format.js'
 import {
@@ -105,7 +107,24 @@ export function ScreenHeader({
         </div>
         {right}
       </div>
-      {search && <div className="px-gutter pb-3">{search}</div>}
+      {/*
+        The second row is a fixed height, whatever is in it.
+
+        Facts and Sources are two tabs of one screen, and the control sitting here differs between
+        them: Facts has a 40px search field, Sources has a 32px button beside a line of 12px text.
+        So switching tabs moved the header — and therefore the entire list under it — by 8px, which
+        reads as the screen flinching. A tab switch is the one navigation that promises nothing
+        moves except the content, so the row is pinned to `control` height and its contents
+        centred, and either tab may hold whatever it needs without the other one paying for it.
+      */}
+      {search && (
+        <div className="px-gutter pb-3">
+          {/* The floor sits on the inner box so the 12px of padding above is not eaten by it. */}
+          <div className="flex min-h-control items-center">
+            <div className="min-w-0 flex-1">{search}</div>
+          </div>
+        </div>
+      )}
     </header>
   )
 }
@@ -114,10 +133,21 @@ export function ScreenHeader({
 export function ScreenBody({
   children,
   className = '',
+  ref,
   ...rest
-}: { children: ReactNode; className?: string } & React.HTMLAttributes<HTMLDivElement>) {
+}: {
+  children: ReactNode
+  className?: string
+  /**
+   * The scroll container itself, for a screen that has to move it.
+   *
+   * A multi-step flow needs this: the *content* remounts between steps, so nothing resets the
+   * scroll offset, and arriving at a short step from a long one starts you below its heading.
+   */
+  ref?: React.Ref<HTMLDivElement>
+} & React.HTMLAttributes<HTMLDivElement>) {
   return (
-    <div className={`min-h-0 flex-1 overflow-y-auto ${className}`} {...rest}>
+    <div ref={ref} className={`min-h-0 flex-1 overflow-y-auto ${className}`} {...rest}>
       {children}
     </div>
   )
@@ -285,9 +315,97 @@ export function AiBadge({ label = 'AI wrote it' }: { label?: string }) {
 
 /* ── The mascot ──────────────────────────────────────────────────────────── */
 
-type Expression = 'happy' | 'think' | 'party' | 'excited'
+type Expression = 'happy' | 'think' | 'party' | 'excited' | 'wink' | 'wow' | 'flat'
 
 export type { Expression }
+
+export const EXPRESSIONS: Expression[] = [
+  'happy',
+  'think',
+  'party',
+  'excited',
+  'wink',
+  'wow',
+  'flat',
+]
+
+/**
+ * The face, on its own, in the mark's own 40-unit space.
+ *
+ * Pulled out of `Mascot` because the onboarding draws the same face on a much larger body that
+ * morphs while it talks (`onboarding/blob.tsx`), and a second hand-copied set of eyes and mouths
+ * is how the brand mark ends up with two slightly different smiles. Anything that wants the face
+ * on its own geometry wraps this in a `scale()` transform.
+ *
+ * `look` moves the eyes, in viewBox units and clamped, so gaze can never wander off the body.
+ */
+export function MascotFace({
+  expression = 'happy',
+  look,
+  blink = false,
+}: {
+  expression?: Expression
+  look?: { x: number; y: number }
+  /** The idle blink. Skipped on tiny marks, where it reads as flicker rather than life. */
+  blink?: boolean
+}) {
+  const stroke = { stroke: '#fff', strokeWidth: 2, strokeLinecap: 'round' as const, fill: 'none' }
+  const lx = look ? Math.max(-3, Math.min(3, look.x)) : 0
+  const ly = look ? Math.max(-2.5, Math.min(2.5, look.y)) : 0
+
+  return (
+    <>
+      <g
+        transform={`translate(${lx} ${ly})`}
+        className={blink ? 'mascot-eyes' : undefined}
+        style={{ transformBox: 'fill-box', transformOrigin: 'center' }}
+      >
+        <circle cx="14.5" cy="16.5" r="2" fill="#fff" />
+        {expression === 'wink' ? (
+          <path d="M23.5 16.8q2 1.8 4 0" {...stroke} strokeWidth={1.8} />
+        ) : (
+          <circle cx="25.5" cy="16.5" r="2" fill="#fff" />
+        )}
+      </g>
+
+      {expression === 'think' ? (
+        <g fill="#fff">
+          <circle cx="15" cy="25" r="1.4" />
+          <circle cx="20" cy="25" r="1.4" />
+          <circle cx="25" cy="25" r="1.4" />
+        </g>
+      ) : expression === 'party' ? (
+        <path d="M13.5 24q6.5 5.5 13 0" {...stroke} />
+      ) : expression === 'excited' ? (
+        <path d="M14 23.5a6 6 0 0 0 12 0z" fill="#fff" />
+      ) : expression === 'wow' ? (
+        <circle cx="20" cy="25.5" r="3.2" fill="#fff" />
+      ) : expression === 'flat' ? (
+        <path d="M15.5 25.5h9" {...stroke} />
+      ) : (
+        <path d="M15 25q5 4.5 10 0" {...stroke} />
+      )}
+    </>
+  )
+}
+
+/**
+ * The sunset gradient, as a paint the mascot's own body can take.
+ *
+ * A component rather than a copied `<defs>` block: two SVGs declaring the same gradient id in one
+ * document is one gradient, and whichever mounted second silently inherits the first one's
+ * coordinates. `useId` per instance is what keeps a 22px header mark and a 200px hero from
+ * sharing a ramp sized for one of them.
+ */
+export function MascotGradient({ id, extent = 40 }: { id: string; extent?: number }) {
+  return (
+    <linearGradient id={id} x1="0" y1="0" x2={extent} y2={extent} gradientUnits="userSpaceOnUse">
+      <stop stopColor="var(--color-sparkle)" />
+      <stop offset="0.55" stopColor="var(--color-accent)" />
+      <stop offset="1" stopColor="var(--color-sun)" />
+    </linearGradient>
+  )
+}
 
 /**
  * The mascot: a rounded blob with the sunset gradient and a face.
@@ -299,10 +417,14 @@ export type { Expression }
 export function Mascot({
   expression = 'happy',
   size = 44,
+  look,
+  blink = false,
   className = '',
 }: {
   expression?: Expression
   size?: number
+  look?: { x: number; y: number }
+  blink?: boolean
   className?: string
 }) {
   const id = useId()
@@ -318,43 +440,10 @@ export function Mascot({
       className={className}
     >
       <defs>
-        <linearGradient id={grad} x1="0" y1="0" x2="40" y2="40" gradientUnits="userSpaceOnUse">
-          <stop stopColor="var(--color-sparkle)" />
-          <stop offset="0.55" stopColor="var(--color-accent)" />
-          <stop offset="1" stopColor="var(--color-sun)" />
-        </linearGradient>
+        <MascotGradient id={grad} />
       </defs>
       <circle cx="20" cy="20" r="19" fill={`url(#${grad})`} />
-      <g fill="#fff">
-        <circle cx="14.5" cy="16.5" r="2" />
-        <circle cx="25.5" cy="16.5" r="2" />
-      </g>
-      {expression === 'happy' && (
-        <path
-          d="M15 25q5 4.5 10 0"
-          stroke="#fff"
-          strokeWidth="2"
-          strokeLinecap="round"
-          fill="none"
-        />
-      )}
-      {expression === 'think' && (
-        <g fill="#fff">
-          <circle cx="15" cy="25" r="1.4" />
-          <circle cx="20" cy="25" r="1.4" />
-          <circle cx="25" cy="25" r="1.4" />
-        </g>
-      )}
-      {expression === 'party' && (
-        <path
-          d="M13.5 24q6.5 5.5 13 0"
-          stroke="#fff"
-          strokeWidth="2"
-          strokeLinecap="round"
-          fill="none"
-        />
-      )}
-      {expression === 'excited' && <path d="M14 23.5a6 6 0 0 0 12 0z" fill="#fff" />}
+      <MascotFace expression={expression} look={look} blink={blink} />
     </svg>
   )
 }
@@ -582,72 +671,151 @@ export interface MenuItem {
   tone?: 'default' | 'danger'
 }
 
+/** Where a portalled menu has been placed, in viewport coordinates. */
+interface MenuPosition {
+  /** Distance from the top of the viewport to the menu's top edge. */
+  top: number
+  /** Distance from the *right* of the viewport, so the menu stays flush with its trigger. */
+  right: number
+}
+
+/** Breathing room kept between the menu and the edge of the panel. */
+const MENU_MARGIN = 8
+
+/**
+ * The three-dot menu, rendered into `document.body` rather than beside its trigger.
+ *
+ * It used to be an `absolute` child of the trigger, which is correct in isolation and wrong
+ * everywhere this component is actually used. A source card is `overflow-hidden` — it has to be,
+ * for the rounded corners to clip the reading shimmer and the failure footer — so the menu was
+ * cropped to the card, and on the first row of the list barely one item of it survived. The
+ * scrolling `ScreenBody` above it clips the rest.
+ *
+ * There is no CSS fix for that: a descendant of a clipping box cannot escape it, whatever its
+ * `position` or `z-index`. So the menu leaves the tree entirely and is positioned from the
+ * trigger's own rectangle, measured at open. That also gets flipping for free — a card near the
+ * bottom of the list opens its menu upward instead of off the end of the panel.
+ */
 export function OverflowMenu({ items, label }: { items: MenuItem[]; label: string }) {
   const [open, setOpen] = useState(false)
-  const container = useRef<HTMLDivElement>(null)
   const triggerRef = useRef<HTMLButtonElement>(null)
+  const menuRef = useRef<HTMLDivElement>(null)
+  const [position, setPosition] = useState<MenuPosition | null>(null)
+
+  /*
+    Measured after layout and before paint, so the menu is never seen at the wrong place.
+
+    Both the trigger and the menu are measured: the menu's own height is what decides whether
+    there is room below, and that is only knowable once it is in the document.
+  */
+  useLayoutEffect(() => {
+    if (!open) return
+    const trigger = triggerRef.current
+    const menu = menuRef.current
+    if (!trigger || !menu) return
+
+    const anchor = trigger.getBoundingClientRect()
+    const height = menu.offsetHeight
+    const below = anchor.bottom + 4
+    const flip = below + height + MENU_MARGIN > window.innerHeight
+
+    setPosition({
+      top: flip ? Math.max(MENU_MARGIN, anchor.top - 4 - height) : below,
+      right: Math.max(MENU_MARGIN, window.innerWidth - anchor.right),
+    })
+  }, [open])
 
   useEffect(() => {
     if (!open) return
 
-    const onPointer = (event: PointerEvent) => {
-      if (!container.current?.contains(event.target as Node)) {
-        setOpen(false)
-        triggerRef.current?.focus()
-      }
-    }
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        setOpen(false)
-        triggerRef.current?.focus()
-      }
+    const close = () => {
+      setOpen(false)
+      triggerRef.current?.focus()
     }
 
+    const onPointer = (event: PointerEvent) => {
+      const target = event.target as Node
+      if (triggerRef.current?.contains(target) || menuRef.current?.contains(target)) return
+      close()
+    }
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') close()
+    }
+    /*
+      Scrolling the list dismisses the menu.
+
+      A portalled menu is fixed to the viewport, so it would otherwise hang in place while the
+      card it belongs to slid away underneath it. Closing is the honest response: re-measuring on
+      every scroll frame keeps a popover glued to a moving row, which is worse to use than one
+      that simply gets out of the way. `capture` because the scroll happens on `ScreenBody`, not
+      on the document.
+    */
     document.addEventListener('pointerdown', onPointer)
     document.addEventListener('keydown', onKey)
+    document.addEventListener('scroll', close, true)
+    window.addEventListener('resize', close)
     return () => {
       document.removeEventListener('pointerdown', onPointer)
       document.removeEventListener('keydown', onKey)
+      document.removeEventListener('scroll', close, true)
+      window.removeEventListener('resize', close)
     }
   }, [open])
 
   return (
-    <div ref={container} className="relative shrink-0">
+    <>
       <button
         ref={triggerRef}
         type="button"
         aria-label={label}
         aria-expanded={open}
         aria-haspopup="menu"
-        onClick={() => setOpen((v) => !v)}
-        className="flex size-9 items-center justify-center rounded-full text-ink-dim transition-colors hover:bg-surface-muted hover:text-ink"
+        onClick={() => {
+          setPosition(null)
+          setOpen((v) => !v)
+        }}
+        className="flex size-9 shrink-0 items-center justify-center rounded-full text-ink-dim transition-colors hover:bg-surface-muted hover:text-ink"
       >
         <IconMore className="size-4" />
       </button>
-      {open && (
-        <div
-          role="menu"
-          className="pop absolute right-0 top-full z-10 mt-1 min-w-[9.5rem] overflow-hidden rounded-xl border border-border bg-surface-raised p-1 shadow-[0_8px_24px_-8px_var(--color-shadow-strong)]"
-        >
-          {items.map((item) => (
-            <button
-              key={item.label}
-              type="button"
-              role="menuitem"
-              onClick={() => {
-                setOpen(false)
-                item.onSelect()
-              }}
-              className={`block min-h-9 w-full rounded-lg px-3 py-2 text-left text-sm transition-colors hover:bg-surface-muted ${
-                item.tone === 'danger' ? 'text-danger' : 'text-ink'
-              }`}
-            >
-              {item.label}
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
+      {open &&
+        createPortal(
+          <div
+            ref={menuRef}
+            role="menu"
+            aria-label={label}
+            className="pop fixed z-50 min-w-[10.5rem] overflow-hidden rounded-xl border border-border bg-surface-raised p-1 shadow-[0_8px_24px_-8px_var(--color-shadow-strong)]"
+            style={
+              /*
+                Hidden for exactly one frame — the one where it is in the document to be measured
+                but has not been told where to go. `visibility` rather than a mount delay so the
+                measurement is real.
+              */
+              position
+                ? { top: position.top, right: position.right }
+                : { top: 0, right: 0, visibility: 'hidden' }
+            }
+          >
+            {items.map((item) => (
+              <button
+                key={item.label}
+                type="button"
+                role="menuitem"
+                onClick={() => {
+                  setOpen(false)
+                  item.onSelect()
+                }}
+                className={`block min-h-9 w-full rounded-lg px-3 py-2 text-left text-sm transition-colors hover:bg-surface-muted ${
+                  item.tone === 'danger' ? 'text-danger' : 'text-ink'
+                }`}
+              >
+                {item.label}
+              </button>
+            ))}
+          </div>,
+          document.body,
+        )}
+    </>
   )
 }
 
@@ -910,7 +1078,18 @@ export function UsageBar({
         <span className={exhausted ? 'text-danger' : ''}>{left}</span>
         <span className="text-ink-dim"> of {limit}</span>
       </p>
-      <p className="mt-0.5 text-sm text-ink-muted">{plural(limit, 'AI action')} left this month</p>
+      {/*
+        "Form fields", not "AI actions".
+
+        An action is our unit of billing, not a thing anybody recognises — it says nothing about
+        what it buys, and a person reading "600 AI actions left" cannot tell whether that is one
+        job application or fifty. One action is one field answered, so the meter says *fields*: a
+        number the user can convert into work they were about to do, in the same word the fill
+        screen already uses when it reports "12 fields found" on a page.
+      */}
+      <p className="mt-0.5 text-sm text-ink-muted">
+        form {plural(limit, 'field')} left to fill this month
+      </p>
 
       <div
         className="mt-3 h-2 overflow-hidden rounded-full bg-surface-muted"
@@ -918,7 +1097,7 @@ export function UsageBar({
         aria-valuenow={used}
         aria-valuemin={0}
         aria-valuemax={limit}
-        aria-label="AI actions used this month"
+        aria-label="Form fields filled this month"
       >
         <div
           className={`h-full rounded-full transition-[width] duration-500 ${
@@ -976,7 +1155,7 @@ export function UsageBar({
 function planRows(plan: 'pro' | 'ultra'): string[] {
   const mb = Math.round(PLAN_UPLOAD_LIMITS[plan] / 1024 / 1024)
   return [
-    `${formatCount(PLAN_LIMITS[plan])} AI actions a month`,
+    `${formatCount(PLAN_LIMITS[plan])} form fields a month`,
     `${PLAN_LONGFORM_LIMITS[plan]} long answers and rewrites`,
     `${PLAN_SOURCE_LIMITS[plan]} sources, ${PLAN_FACT_LIMITS[plan]} facts`,
     `Files up to ${mb} MB`,

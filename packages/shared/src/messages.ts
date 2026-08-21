@@ -86,7 +86,32 @@ export type Request =
    */
   | { type: 'fill/improve'; label: string; value: string; instruction: string }
   | { type: 'sidepanel/open'; tabId: number }
+  /**
+   * The offer, asked for by a page that cannot pay for the fill it just tried to start.
+   *
+   * Opens the side panel on the sender's own tab and leaves a note there saying which offer to
+   * show, so the sheet appears in the panel rather than as a second, smaller paywall drawn over
+   * somebody's form. The in-page card that used to do that job survives only as the fallback for
+   * when Chrome refuses to open the panel — see `openPaywall` in the content script.
+   *
+   * `mode` is decided on the page from the quota it already holds: an account with a limit of
+   * zero has never subscribed and is offered the trial; anything else has run out of a plan it
+   * is paying for and is offered the comparison.
+   */
+  | { type: 'overlay/paywall'; mode: 'trial' | 'compare' }
   | { type: 'account/quota' }
+  /**
+   * What key combination fires the fill, as the user's own browser has it bound.
+   *
+   * Asked for rather than hardcoded because `chrome://extensions/shortcuts` lets anyone rebind
+   * or unbind the command, and the launcher's rail *is* the place people will read the shortcut
+   * off. A label showing the suggested key to somebody who changed it is worse than no label:
+   * they press it, nothing fills, and the launcher is the thing that lied. `null` means the
+   * command is unbound, and the rail then says nothing about keys at all.
+   *
+   * Only the service worker can answer — `chrome.commands` is not exposed to content scripts.
+   */
+  | { type: 'overlay/shortcut' }
   /**
    * Start checkout from the page, without a detour through the side panel.
    *
@@ -105,27 +130,39 @@ export type Request =
  */
 export type ResponseFor<R extends Request> = R extends { type: 'auth/signIn' }
   ? Account
-  : R extends { type: 'feedback/submit' }
+  : R extends { type: 'overlay/paywall' }
     ? /**
-       * How much of what was reported actually landed — identity fields written, answers
-       * stored, rejections recorded.
+       * Whether the panel actually opened.
        *
-       * This used to be discarded. Learning was then unfalsifiable from the outside: the user
-       * corrected an answer, nothing acknowledged it, and the only way to find out whether it
-       * had been remembered was to fill another form days later and see. When it silently
-       * failed — a dead session, a validation error on one entry taking the batch with it — the
-       * product looked like it had simply chosen not to learn.
+       * `chrome.sidePanel.open` needs a user gesture, and the hop from a click in a page to the
+       * service worker is one the browser may decide has spent it. The page has to be told, or a
+       * refused fill would end in nothing at all — which is the failure this message exists to
+       * remove.
        */
-      { recorded: number }
-    : R extends { type: 'fill/improve' }
-      ? { value: string }
-      : R extends { type: 'profile/knownFacts' }
-        ? { identity: Identity; custom: Record<string, string> } | null
-        : R extends { type: 'account/quota' }
-          ? { used: number; limit: number; plan: string; exhausted: boolean }
-          : R extends { type: 'settings/get' }
-            ? Settings
-            : null
+      { opened: boolean }
+    : R extends { type: 'feedback/submit' }
+      ? /**
+         * How much of what was reported actually landed — identity fields written, answers
+         * stored, rejections recorded.
+         *
+         * This used to be discarded. Learning was then unfalsifiable from the outside: the user
+         * corrected an answer, nothing acknowledged it, and the only way to find out whether it
+         * had been remembered was to fill another form days later and see. When it silently
+         * failed — a dead session, a validation error on one entry taking the batch with it — the
+         * product looked like it had simply chosen not to learn.
+         */
+        { recorded: number }
+      : R extends { type: 'fill/improve' }
+        ? { value: string }
+        : R extends { type: 'profile/knownFacts' }
+          ? { identity: Identity; custom: Record<string, string> } | null
+          : R extends { type: 'account/quota' }
+            ? { used: number; limit: number; plan: string; exhausted: boolean }
+            : R extends { type: 'settings/get' }
+              ? Settings
+              : R extends { type: 'overlay/shortcut' }
+                ? { label: string | null }
+                : null
 
 /** Discriminated result so callers never have to guess whether a throw or a value came back. */
 export type Result<T> = { ok: true; value: T } | { ok: false; error: ApiError }
@@ -137,6 +174,15 @@ export type Result<T> = { ok: true; value: T } | { ok: false; error: ApiError }
  */
 export type ContentRequest =
   | { type: 'content/detect' }
+  /**
+   * Fill the whole form, as if the launcher had been clicked.
+   *
+   * Sent when the keyboard command fires. It goes through the worker because
+   * `chrome.commands.onCommand` is only heard there, and it deliberately carries no plan: the
+   * page owns detection, the quota it has cached, and the paywall decision, so the shortcut
+   * lands on exactly the code path the button uses rather than a second one that can drift.
+   */
+  | { type: 'content/fill' }
   | { type: 'content/apply'; plan: FillPlan }
   /**
    * Scroll to a field, flash it, and open its answer card.
@@ -160,7 +206,9 @@ export interface ApplyReport {
 
 export type ContentResponseFor<R extends ContentRequest> = R extends { type: 'content/detect' }
   ? FormSchema | null
-  : R extends { type: 'content/highlight' | 'content/resolved' | 'content/openCard' }
+  : R extends {
+        type: 'content/highlight' | 'content/resolved' | 'content/openCard' | 'content/fill'
+      }
     ? null
     : ApplyReport
 

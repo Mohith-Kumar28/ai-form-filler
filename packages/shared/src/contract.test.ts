@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { Account, PLAN_LIMITS, PLAN_LONGFORM_LIMITS } from './account.js'
 import { ApiErrorResponse } from './api.js'
+import { offerFor } from './constants.js'
 import { FillPlan, FillRequest, REVIEW_CONFIDENCE_THRESHOLD } from './fill.js'
 import { FormSchema, hasAnswer } from './form.js'
 import { Profile } from './profile.js'
@@ -227,5 +228,31 @@ describe('ApiErrorResponse', () => {
     const err = new ApiErrorResponse('RATE_LIMITED', 'Slow down', { retryAfter: 12 })
     expect(err.status).toBe(429)
     expect(err.toJSON().retryAfter).toBe(12)
+  })
+})
+
+describe('offerFor', () => {
+  /*
+    The rule three surfaces share.
+
+    Home asks it when Fill is pressed, the content script asks it when the launcher is pressed with
+    nothing left to spend, and both hand the answer to the same sheet. They used to compute it
+    inline, which is two copies of "a limit of zero means they never subscribed" — and the day one
+    of them drifted, the page would have offered a trial to somebody already paying for Ultra.
+  */
+  it('offers the trial to an account that has never subscribed', () => {
+    expect(offerFor(PLAN_LIMITS.free)).toBe('trial')
+    expect(offerFor(0)).toBe('trial')
+  })
+
+  it('offers a plan comparison to anybody who has run out of a plan they pay for', () => {
+    expect(offerFor(PLAN_LIMITS.pro)).toBe('compare')
+    expect(offerFor(PLAN_LIMITS.ultra)).toBe('compare')
+  })
+
+  it('treats a nonsense negative limit as never having subscribed', () => {
+    // Belt and braces: the quota arrives over the wire, and a trial offer is the safe wrong answer
+    // — it is the one that cannot show a paying user a comparison of plans they already have.
+    expect(offerFor(-1)).toBe('trial')
   })
 })

@@ -275,6 +275,165 @@ body {
   animation: pulse-dot 1400ms cubic-bezier(0.2, 0, 0, 1) infinite;
 }
 
+/* ── The mascot's tics ──────────────────────────────────────────────────────
+ *
+ * The face is the brand mark, so it is never quite still. Same set the site uses
+ * (`apps/web/src/styles/globals.css`) — the two surfaces share one mark, and a blink that is
+ * 5.2s on the site and 3s here reads as two different characters. All of it dies under
+ * `prefers-reduced-motion`, at the bottom of this file.
+ */
+
+/* A blink is a fast squash of the eye group, then a long wait. */
+@keyframes mascot-blink {
+  0%,
+  92%,
+  100% {
+    transform: scaleY(1);
+  }
+  95% {
+    transform: scaleY(0.1);
+  }
+}
+
+.mascot-eyes {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: mascot-blink 5.2s ease-in-out infinite;
+}
+
+@keyframes mascot-breathe {
+  0%,
+  100% {
+    transform: scale(1) rotate(0deg);
+  }
+  50% {
+    transform: scale(1.045) rotate(-1.5deg);
+  }
+}
+
+.breathe {
+  animation: mascot-breathe 3.6s ease-in-out infinite;
+}
+
+/*
+  Onboarding's soft weather.
+
+  Three blurred lozenges drifting behind the mascot, and a slow hue drift on the body. Cheap:
+  transforms and opacity only, nothing that touches layout. `--drift` staggers the phase so
+  three of them never travel in formation.
+*/
+@keyframes blob-drift {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  33% {
+    transform: translate3d(14px, -18px, 0) scale(1.08);
+  }
+  66% {
+    transform: translate3d(-12px, 12px, 0) scale(0.95);
+  }
+}
+
+.blob-drift {
+  animation: blob-drift 14s ease-in-out infinite;
+  animation-delay: var(--drift, 0s);
+}
+
+/* The step's content, arriving. A little further and a little slower than `pop`, because a
+   whole screen changing wants more travel than a chip appearing. */
+@keyframes step-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.step-in {
+  animation: step-in 340ms cubic-bezier(0.2, 0.9, 0.25, 1) both;
+  animation-delay: var(--in, 0s);
+}
+
+/*
+  A caret typing into a demo field, and the ghost text it leaves.
+
+  The width animation is over a `ch`-based track with `steps()`, so the text appears character by
+  character rather than sliding out from under a mask — which is what a person actually recognises
+  as typing.
+*/
+@keyframes type-in {
+  from {
+    width: 0;
+  }
+  to {
+    width: var(--chars, 20ch);
+  }
+}
+
+.type-in {
+  display: inline-block;
+  overflow: hidden;
+  white-space: nowrap;
+  vertical-align: bottom;
+  animation: type-in 1.4s steps(var(--steps, 20), end) infinite alternate;
+}
+
+@keyframes caret {
+  0%,
+  49% {
+    opacity: 1;
+  }
+  50%,
+  100% {
+    opacity: 0;
+  }
+}
+
+.caret {
+  animation: caret 1s steps(1, end) infinite;
+}
+
+/* A chip being swallowed by the knowledge base: it drifts in, shrinks and fades into the blob. */
+@keyframes ingest {
+  0% {
+    opacity: 0;
+    transform: translateY(10px) scale(0.9);
+  }
+  22%,
+  62% {
+    opacity: 1;
+    transform: none;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(var(--to-x, 0), var(--to-y, -34px)) scale(0.55);
+  }
+}
+
+.ingest {
+  animation: ingest 4.2s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+  animation-delay: var(--in, 0s);
+}
+
+/* The counter that ticks up as a source is read. One long sweep, no bounce. */
+@keyframes sweep {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
+.sweep {
+  transform-origin: left;
+  animation: sweep 2.4s cubic-bezier(0.3, 0, 0.2, 1) infinite;
+}
+
 @keyframes fade-in {
   from {
     opacity: 0;
@@ -293,8 +452,26 @@ body {
   .bounce,
   .awaiting,
   .pulse-dot,
-  .animate-fade-in {
+  .animate-fade-in,
+  .mascot-eyes,
+  .breathe,
+  .blob-drift,
+  .step-in,
+  .type-in,
+  .caret,
+  .ingest,
+  .sweep {
     animation: none;
+  }
+
+  /*
+    The typed demo has to be *readable* without its animation, not merely still.
+
+    `type-in` animates from `width: 0`, so switching the animation off alone leaves an empty box
+    where the example answer should be — the one thing the screen exists to show.
+  */
+  .type-in {
+    width: auto;
   }
 
   .awaiting {

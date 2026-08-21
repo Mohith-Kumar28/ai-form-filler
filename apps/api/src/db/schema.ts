@@ -120,7 +120,10 @@ export const quotaUsage = sqliteTable(
       .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),
     period: text('period').notNull(),
-    /** AI actions spent. One answered field, or one rewrite. Tier-0 lookups are never counted. */
+    /**
+     * AI actions spent: one answered field, one rewrite, or one source ingested or reprocessed.
+     * Tier-0 lookups are never counted.
+     */
     used: integer('used').notNull().default(0),
     /**
      * Long answers spent, a subset of `used`.

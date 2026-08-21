@@ -1,12 +1,24 @@
+import { sendMessage } from '../lib/messaging.js'
 import { GLYPH, getOverlayHost } from './host.js'
 import type { Rect } from './scheduler.js'
 
 /**
  * The launcher — the extension's one persistent presence on a form page.
  *
- * Three shapes: a circle icon with a field-count badge below it when idle; an expanded pill
- * with progress text and a red stop button while a fill is running; and a brief pulse while
- * thinking. A dots grabber appears on hover to drag it up and down the right edge.
+ * A circle pinned to the right edge with a rail running from it to the edge of the window. The
+ * circle is the button; the rail is the one place the launcher says anything, and it says one
+ * thing at a time: the keyboard shortcut when idle, what the AI is doing while it thinks, and
+ * `done/total` with a stop button while answers land. A dots grabber appears on hover to drag
+ * the whole thing up and down that edge.
+ *
+ * The rail replaced two floating satellites — a field-count pill hanging below the circle and a
+ * red stop circle hanging below that. Both were centred on a 38px button 16px from the right
+ * edge of the window, so both were wider than the thing they hung from and both had to be
+ * special-cased not to fall off the screen; the stop button also moved the moment the progress
+ * text gained a digit. Running the text sideways into the edge instead means there is no
+ * direction left for it to overflow in, and the count that used to be there is now the button's
+ * tooltip — a number nobody was acting on, in place of the shortcut, which is a number-free
+ * instruction people can act on every time.
  */
 
 const POSITION_KEY = 'aff:launcherPos'
@@ -26,9 +38,8 @@ const NEAR_PAD = 44
 /** How long the launcher stays "near" after the cursor leaves. Long enough to turn around. */
 const NEAR_LINGER_MS = 700
 
-/** Rotating reassurance shown in place of the field count while the AI thinks. */
 /**
- * What the badge says while there is no number worth showing.
+ * What the rail says while there is no number worth showing.
  *
  * Per stage, and every line is true of the stage it belongs to — the previous set rotated
  * "Thinking… / Reading the form… / Writing answers…" regardless of what was actually happening.
@@ -45,15 +56,15 @@ export interface LauncherHandle {
   element: HTMLElement
   anchorRect: () => Rect
   setFieldCount: (count: number) => void
-  /** Switches to the filling pill, sets the progress text, and shows the stop button. */
+  /** Puts progress text and a stop button in the rail. */
   setStage: (stage: string, done: number, total: number) => void
-  /** Pulsing animation while thinking (before the pill appears). */
+  /** Pulsing animation while thinking (before progress text appears). */
   setLoading: (loading: boolean) => void
-  /** Shows an upgrade indicator instead of the field count. */
+  /** Shows an upgrade indicator in place of the shortcut. */
   setExhausted: () => void
   /** A one-off wiggle on detection, so a form on the page is noticed. Plays at most once. */
   playAttention: () => void
-  /** Back to the idle circle + badge. */
+  /** Back to the idle circle + shortcut rail. */
   reset: () => void
   destroy: () => void
 }
@@ -65,50 +76,114 @@ export function mountLauncher(options: { onOpen: () => void; onStop: () => void 
   const wrap = document.createElement('div')
   wrap.className = 'launcher-wrap'
 
-  const body = document.createElement('div')
-  body.className = 'launcher-body'
-
   const button = document.createElement('button')
   button.type = 'button'
   button.className = 'launcher'
-  button.setAttribute('aria-label', 'Fill this form')
-  button.setAttribute('title', 'Fill all fields')
 
   const icon = document.createElement('span')
   icon.className = 'launcher-icon'
   icon.innerHTML = GLYPH.mascot
-
-  const progressText = document.createElement('span')
-  progressText.className = 'launcher-progress'
-
   button.appendChild(icon)
-  button.appendChild(progressText)
 
-  const countBadge = document.createElement('span')
-  countBadge.className = 'launcher-count'
+  const rail = document.createElement('div')
+  rail.className = 'launcher-rail'
 
-  // Field count + loading text. The badge shows "N fields" when idle and a rotating
-  // "Thinking… / Reading the form… / Writing answers…" while the AI works.
+  const railText = document.createElement('span')
+  railText.className = 'launcher-rail-text'
+  rail.appendChild(railText)
+
+  const stopBtn = document.createElement('button')
+  stopBtn.type = 'button'
+  stopBtn.className = 'launcher-stop'
+  stopBtn.setAttribute('aria-label', 'Stop filling')
+  stopBtn.innerHTML = GLYPH.close
+  stopBtn.addEventListener('click', (event) => {
+    event.stopPropagation()
+    options.onStop()
+  })
+  rail.appendChild(stopBtn)
+
+  const grabber = document.createElement('button')
+  grabber.type = 'button'
+  grabber.className = 'launcher-grab'
+  grabber.setAttribute('aria-label', 'Drag to move')
+  grabber.setAttribute('title', 'Drag to move')
+  // Six, in two columns of three — the grabber glyph. Three in a line is a kebab menu.
+  grabber.innerHTML = '<span></span>'.repeat(6)
+
+  wrap.appendChild(grabber)
+  wrap.appendChild(button)
+  wrap.appendChild(rail)
+  root.appendChild(wrap)
+
+  // ── The rail's one line of text ──────────────────────────────────────────
+
   let fieldCount = 0
+  /** The bound shortcut, as the user's own browser reports it. `null` until the worker answers. */
+  let shortcut: string | null = null
+  let exhausted = false
   let loadingTimer: ReturnType<typeof setInterval> | null = null
   let loadingIndex = 0
 
-  const showFieldCount = () => {
-    setBadge(
-      fieldCount === 0 ? '' : `${fieldCount} ${fieldCount === 1 ? 'field' : 'fields'}`,
-      false,
-    )
+  /**
+   * Puts nodes in the rail, and takes the rail away when there is nothing to put in it.
+   *
+   * An empty rectangle running to the edge of the window is worse than no rectangle: it is the
+   * same amount of chrome carrying no information. So the rail is present exactly when it has
+   * something to say — which, before the shortcut lookup comes back and on a browser where the
+   * command has been unbound, is never.
+   */
+  const setRail = (...nodes: Node[]) => {
+    railText.textContent = ''
+    for (const node of nodes) railText.appendChild(node)
+    if (nodes.length > 0) wrap.setAttribute('data-rail', 'true')
+    else wrap.removeAttribute('data-rail')
   }
 
-  /** The badge, with the breathing dot that carries the "still working" signal. */
-  const setBadge = (text: string, thinking: boolean) => {
-    countBadge.textContent = ''
-    if (thinking) {
-      const dot = document.createElement('span')
-      dot.className = 'launcher-count-dot'
-      countBadge.appendChild(dot)
+  /** The breathing dot that carries the "still working" signal. */
+  const thinkingDot = () => {
+    const dot = document.createElement('span')
+    dot.className = 'launcher-rail-dot'
+    return dot
+  }
+
+  const shortcutChip = () => {
+    const kbd = document.createElement('kbd')
+    kbd.className = 'launcher-key'
+    kbd.textContent = shortcut ?? ''
+    return kbd
+  }
+
+  /**
+   * The button's label, which is where the field count went.
+   *
+   * The count used to be the rail's whole job and it was never something anyone did anything
+   * with — "5 fields" does not change whether you press the button. The shortcut does, so the
+   * shortcut gets the pixels and the count gets the tooltip, where it still answers "did it
+   * actually see my form?" for anyone who wonders.
+   */
+  const describeButton = () => {
+    const keys = shortcut ? ` (${shortcut})` : ''
+    button.setAttribute('aria-label', `Fill this form${keys}`)
+    // Zero is the single frame between mount and the count arriving; it is never a real state.
+    const what =
+      fieldCount === 0 ? 'this form' : fieldCount === 1 ? '1 field' : `${fieldCount} fields`
+    button.setAttribute('title', `Fill ${what}${keys}`)
+  }
+
+  /** Idle: the shortcut, or the upgrade nudge if the account cannot afford a fill. */
+  const showIdle = () => {
+    if (exhausted) {
+      rail.setAttribute('data-exhausted', 'true')
+      setRail(document.createTextNode('Upgrade'))
+      return
     }
-    countBadge.appendChild(document.createTextNode(text))
+    rail.removeAttribute('data-exhausted')
+    if (!shortcut) {
+      setRail()
+      return
+    }
+    setRail(shortcutChip())
   }
 
   let loadingStage = 'generating'
@@ -123,11 +198,12 @@ export function mountLauncher(options: { onOpen: () => void; onStop: () => void 
     stopLoadingText()
     loadingStage = stage
     loadingIndex = 0
-    setBadge(messages[0] ?? 'Working…', true)
+    rail.removeAttribute('data-exhausted')
+    setRail(thinkingDot(), document.createTextNode(messages[0] ?? 'Working…'))
     if (messages.length < 2) return
     loadingTimer = setInterval(() => {
       loadingIndex = (loadingIndex + 1) % messages.length
-      setBadge(messages[loadingIndex] ?? 'Working…', true)
+      setRail(thinkingDot(), document.createTextNode(messages[loadingIndex] ?? 'Working…'))
     }, 2600)
   }
 
@@ -153,51 +229,41 @@ export function mountLauncher(options: { onOpen: () => void; onStop: () => void 
     loadingStage = ''
   }
 
-  const stopBtn = document.createElement('button')
-  stopBtn.type = 'button'
-  stopBtn.className = 'launcher-stop'
-  stopBtn.setAttribute('aria-label', 'Stop filling')
-  stopBtn.innerHTML = GLYPH.close
-  stopBtn.addEventListener('click', (event) => {
-    event.stopPropagation()
-    options.onStop()
-  })
+  /**
+   * What key fires a fill, read back out of the browser rather than assumed.
+   *
+   * Asked for once per launcher, and the rail stays bare until the answer lands — showing the
+   * suggested binding to somebody who rebound it, or unbound it, would make the launcher itself
+   * the source of the "I pressed it and nothing happened". Failures are silent by design: a
+   * missing label costs a hint, and there is nothing here worth an error card over.
+   */
+  void sendMessage({ type: 'overlay/shortcut' })
+    .then((result) => {
+      if (!result.ok || !result.value) return
+      shortcut = result.value.label
+      describeButton()
+      // Only if nothing more urgent has taken the rail in the meantime.
+      if (loadingTimer === null && !wrap.hasAttribute('data-filling')) showIdle()
+    })
+    .catch(() => undefined)
 
-  const grabber = document.createElement('button')
-  grabber.type = 'button'
-  grabber.className = 'launcher-grab'
-  grabber.setAttribute('aria-label', 'Drag to move')
-  grabber.setAttribute('title', 'Drag to move')
-  // Six, in two columns of three — the grabber glyph. Three in a line is a kebab menu.
-  grabber.innerHTML = '<span></span>'.repeat(6)
-
-  body.appendChild(button)
-  body.appendChild(countBadge)
-  body.appendChild(stopBtn)
-
-  wrap.appendChild(grabber)
-  wrap.appendChild(body)
-  root.appendChild(wrap)
+  describeButton()
+  showIdle()
 
   // ── Position ─────────────────────────────────────────────────────────────
-  // The wrap is pinned to the right edge; dragging moves it vertically.
+  /*
+    Pinned to the right edge in CSS — `right: 0` — and moved only vertically from here.
 
-  /**
-   * The viewport, *excluding* the scrollbar.
-   *
-   * `window.innerWidth` includes it, so on any page long enough to scroll — which is most pages
-   * with a form on them — the launcher was placed 16px from the outer edge of a viewport whose
-   * last 15px are occupied by the scrollbar. The gap the user actually saw was nearer 1px, and
-   * anything hanging off the launcher, the badge above all, went under the scrollbar or off the
-   * edge entirely. `clientWidth` is the content box.
-   *
-   * Guarded because a quirks-mode document can report 0 here, and 0 would pin the launcher off
-   * the left of the window.
-   */
-  const viewportWidth = () => document.documentElement.clientWidth || window.innerWidth
+    It used to be `left`, computed as `viewportWidth - wrap.offsetWidth - EDGE` and recomputed
+    by hand at every point the launcher changed shape, because that arithmetic is only correct
+    for the width the launcher happened to have when it ran. Every missed call site left the
+    thing pinned at the old width's left edge with the new content hanging off the side of the
+    window — which is what clipped the progress count mid-digit as it went from "0/7" to "10/70".
+    Anchoring the right edge deletes the arithmetic and the failure with it: content now grows
+    leftward into the page, where there is always room.
+  */
   const viewportHeight = () => document.documentElement.clientHeight || window.innerHeight
 
-  const rightX = () => viewportWidth() - wrap.offsetWidth - EDGE
   let pos = { y: Math.round(viewportHeight() * 0.25) }
 
   // Declared up here rather than beside the pointermove handler that uses them: `applyPosition`
@@ -216,22 +282,10 @@ export function mountLauncher(options: { onOpen: () => void; onStop: () => void 
 
   const applyPosition = (y: number) => {
     pos = { y }
-    wrap.style.translate = `${Math.round(rightX())}px ${Math.round(y)}px`
+    wrap.style.translate = `0 ${Math.round(y)}px`
     // The cached proximity rect is now stale — see `onPointerMove`.
     invalidateNear()
   }
-
-  /**
-   * Re-pin to the right edge after the launcher changes shape.
-   *
-   * `rightX` measures the wrap and subtracts, so the x it produces is only correct for the
-   * width the launcher had at the time. The idle circle is ~56px and the filling pill is much
-   * wider — and the pill grows again as the progress text goes from "0/7" to "10/70" — so every
-   * one of those transitions left the element pinned at the *circle's* left edge with the pill
-   * hanging off the right of the viewport, clipped mid-digit. Nothing recomputed it, because
-   * the only thing that ever did was a drag or a window resize.
-   */
-  const reposition = () => applyPosition(clampY(pos.y))
 
   applyPosition(pos.y)
 
@@ -341,7 +395,7 @@ export function mountLauncher(options: { onOpen: () => void; onStop: () => void 
     anchorRect,
     setFieldCount: (count) => {
       fieldCount = count
-      showFieldCount()
+      describeButton()
     },
     /**
      * Where the fill has got to.
@@ -357,22 +411,19 @@ export function mountLauncher(options: { onOpen: () => void; onStop: () => void 
       if (done > 0) {
         settleLoading()
         wrap.setAttribute('data-filling', 'true')
-        progressText.textContent = `${done}/${total}`
-        // The pill is wider than the circle, and wider again with every digit. Re-pin, or it
-        // hangs off the right edge of the window and the count is cut in half.
-        reposition()
+        rail.removeAttribute('data-exhausted')
+        setRail(document.createTextNode(`${done}/${total}`))
         return
       }
 
       wrap.removeAttribute('data-filling')
       button.classList.add('launcher--loading')
       startLoadingText(stage)
-      reposition()
     },
     setExhausted: () => {
       settleLoading()
-      countBadge.textContent = 'Upgrade'
-      countBadge.setAttribute('data-exhausted', 'true')
+      exhausted = true
+      showIdle()
     },
     /**
      * "There is a form here."
@@ -406,20 +457,17 @@ export function mountLauncher(options: { onOpen: () => void; onStop: () => void 
         loadingSafety = setTimeout(() => {
           loadingSafety = null
           settleLoading()
-          showFieldCount()
+          showIdle()
         }, 30000)
       } else {
         settleLoading()
-        showFieldCount()
+        showIdle()
       }
     },
     reset: () => {
       settleLoading()
       wrap.removeAttribute('data-filling')
-      showFieldCount()
-      // Back to the circle: the same re-pin in the other direction, or it sits inset from the
-      // edge by the width the pill used to be.
-      reposition()
+      showIdle()
     },
     destroy: () => {
       settleLoading()

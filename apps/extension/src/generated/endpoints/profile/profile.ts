@@ -613,3 +613,74 @@ export const useDeleteSource = <TError = ErrorType<ApiError>,
       > => {
       return useMutation(getDeleteSourceMutationOptions(options), queryClient);
     }
+    export const getReprocessSourceUrl = (id: string,) => {
+
+
+
+
+  return `/v1/profile/sources/${id}/reprocess`
+}
+
+/**
+ * Re-runs the ingest for an existing source: re-indexes it and re-extracts identity details. The stored original and the source id are unchanged. Costs one action.
+ * @summary Read a source again
+ */
+export const reprocessSource = async (id: string, options?: Parameters<typeof httpClient>[1]): Promise<ProfileResponse> => {
+
+  return httpClient<ProfileResponse>(getReprocessSourceUrl(id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getReprocessSourceMutationOptions = <TError = ErrorType<ApiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof reprocessSource>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof httpClient>}
+): UseMutationOptions<Awaited<ReturnType<typeof reprocessSource>>, TError,{id: string}, TContext> => {
+
+const mutationKey = ['reprocessSource'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof reprocessSource>>, {id: string}> = (props) => {
+          const {id} = props ?? {};
+
+          return  reprocessSource(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ReprocessSourceMutationResult = NonNullable<Awaited<ReturnType<typeof reprocessSource>>>
+
+    export type ReprocessSourceMutationError = ErrorType<ApiError>
+
+    /**
+ * @summary Read a source again
+ */
+export const useReprocessSource = <TError = ErrorType<ApiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof reprocessSource>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof httpClient>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof reprocessSource>>,
+        TError,
+        {id: string},
+        TContext
+      > => {
+      return useMutation(getReprocessSourceMutationOptions(options), queryClient);
+    }

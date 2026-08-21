@@ -54,7 +54,7 @@ function PrivacyPage() {
               </p>
               <p>
                 <strong className="text-ink">Fill logs.</strong> Which forms you filled, and how
-                many AI actions each one used, for enforcing your monthly allowance and for cost
+                many fields each one used, for enforcing your monthly allowance and for cost
                 accounting.
               </p>
             </Section>

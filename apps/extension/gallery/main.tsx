@@ -4,6 +4,7 @@ import { createRoot } from 'react-dom/client'
 import './gallery.css'
 import { TabBar, UpgradeSheet } from '../src/entrypoints/sidepanel/components.js'
 import { NavigationProvider } from '../src/entrypoints/sidepanel/navigation.js'
+import { Onboarding } from '../src/entrypoints/sidepanel/onboarding/index.js'
 import { AddSource } from '../src/entrypoints/sidepanel/screens/AddSource.js'
 import { Facts } from '../src/entrypoints/sidepanel/screens/Facts.js'
 import { Filling } from '../src/entrypoints/sidepanel/screens/Filling.js'
@@ -13,6 +14,8 @@ import { Receipt } from '../src/entrypoints/sidepanel/screens/Receipt.js'
 import { SourceDetail } from '../src/entrypoints/sidepanel/screens/SourceDetail.js'
 import { Sources } from '../src/entrypoints/sidepanel/screens/Sources.js'
 import { Welcome } from '../src/entrypoints/sidepanel/screens/Welcome.js'
+import { getGetAccountQueryKey } from '../src/generated/endpoints/account/account.js'
+import { getGetProfileQueryKey } from '../src/generated/endpoints/profile/profile.js'
 import { cssName, DARK, LIGHT, TOKEN_NAMES } from '../src/lib/tokens.js'
 import './stub-chrome.js'
 import {
@@ -39,6 +42,18 @@ document.body.style.background = scheme.surface
 const queryClient = new QueryClient({
   defaultOptions: { queries: { retry: false, staleTime: Number.POSITIVE_INFINITY } },
 })
+
+/*
+  The fixtures, pre-loaded into the cache the hooks read.
+
+  Most frames take their data as props, but the first-run flow does not: its source step owns its own
+  `useGetProfile` so it can poll while a source is being read, and its upload limit comes from
+  `useGetAccount`. Seeding the cache is what lets those render the fixture account offline instead of
+  an error state — and it costs nothing, because `retry: false` plus an infinite `staleTime` means
+  nothing is ever fetched here.
+*/
+queryClient.setQueryData(getGetProfileQueryKey(), PROFILE)
+queryClient.setQueryData(getGetAccountQueryKey(), ACCOUNT)
 
 const PAGE_WITH_FORM = {
   status: 'ready' as const,
@@ -108,7 +123,7 @@ function SheetHost({ mode }: { mode: 'trial' | 'compare' }) {
         reason={
           mode === 'trial'
             ? 'Start the trial and it will answer this form from the 5 sources you added.'
-            : "You've used all 600 AI actions this month. They reset on the 1st."
+            : "You've filled all 600 fields your plan covers this month. They reset on the 1st."
         }
       />
     </div>
@@ -253,6 +268,56 @@ function Gallery() {
 
           <Frame label="Upgrade sheet" note="compare, from a spent allowance">
             <SheetHost mode="compare" />
+          </Frame>
+
+          {/*
+            First run, one frame per step.
+
+            Eight screens is a lot to hold in your head, and the sequence is the design: five that
+            explain, two that ask for work, one that shows what the work bought. Laid out side by
+            side because that is the only way to see whether it reads as one flow rather than eight
+            screens that happen to share a header.
+          */}
+          {[0, 1, 2, 3, 4].map((step) => (
+            <Frame key={step} label="First run" note={`story ${step + 1} of 5`}>
+              <Onboarding
+                account={ACCOUNT_ONBOARDING}
+                profile={PROFILE}
+                step={step}
+                onStep={() => undefined}
+                onFinish={() => undefined}
+              />
+            </Frame>
+          ))}
+
+          <Frame label="First run" note="the basics — five to continue">
+            <Onboarding
+              account={ACCOUNT_ONBOARDING}
+              profile={PROFILE}
+              step={5}
+              onStep={() => undefined}
+              onFinish={() => undefined}
+            />
+          </Frame>
+
+          <Frame label="First run" note="sources — one ready, one reading, one failed">
+            <Onboarding
+              account={ACCOUNT_ONBOARDING}
+              profile={PROFILE}
+              step={6}
+              onStep={() => undefined}
+              onFinish={() => undefined}
+            />
+          </Frame>
+
+          <Frame label="First run" note="what they built">
+            <Onboarding
+              account={ACCOUNT_ONBOARDING}
+              profile={PROFILE}
+              step={7}
+              onStep={() => undefined}
+              onFinish={() => undefined}
+            />
           </Frame>
 
           {/*

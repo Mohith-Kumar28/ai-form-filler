@@ -11,7 +11,7 @@ import { drizzle } from 'drizzle-orm/d1'
 import { profileSources } from '../db/schema.js'
 import type { AppEnv } from '../env.js'
 import { requireAuth } from '../middleware/auth.js'
-import { rateLimit } from '../middleware/quota.js'
+import { consumeQuota, enforceQuota, rateLimit } from '../middleware/quota.js'
 import {
   AddSourceResponse,
   bearerAuth,
@@ -29,7 +29,9 @@ import {
   addSource,
   deleteSource,
   getProfile,
+  getSource,
   getSourceFile,
+  recordReingest,
   renameSource,
   updateStructured,
 } from '../services/profile.js'
@@ -48,6 +50,29 @@ profileRoutes.use('*', requireAuth)
  */
 profileRoutes.use('/sources', rateLimit)
 profileRoutes.use('/sources/upload', rateLimit)
+profileRoutes.use('/sources/:id/reprocess', rateLimit)
+
+/**
+ * One ingest, one field's worth of allowance.
+ *
+ * Adding a source runs a multimodal extraction call and a memory ingest, both of which we pay
+ * for, and until now neither was counted anywhere. The rate limiter above bounded how *fast*
+ * somebody could do it and nothing bounded how *much* — which is the same hole the fill route
+ * closed by metering, with the added twist that a source ingest is the more expensive of the two.
+ *
+ * Charged at one action, the same as answering one field, and spent only after the ingest
+ * actually succeeded (see `chargeIngest`). A failed upload costs the user nothing.
+ *
+ * What this deliberately does *not* do is call `enforceQuota` on the add-source routes. An account
+ * with no subscription has a limit of zero, so enforcing here would make "add your résumé" the
+ * paywall — and the whole onboarding order depends on it not being: put your information in, see
+ * what it knows, and meet the price at the moment you ask it to fill something. So the first
+ * sources are recorded as spent and are simply free of charge in practice, because at limit zero
+ * there is nothing to spend. Reprocess is the opposite case and does enforce; see its route.
+ */
+async function chargeIngest(env: AppEnv['Bindings'], userId: string): Promise<void> {
+  await consumeQuota(env, userId, 1)
+}
 
 const getProfileRoute = createRoute({
   method: 'get',
@@ -191,6 +216,7 @@ profileRoutes.openapi(addTextSourceRoute, async (c) => {
       ...(memoryId ? { memoryId } : {}),
       structured,
     })
+    await chargeIngest(c.env, userId)
     return c.json({ profile, truncated: page.truncated }, 200)
   }
 
@@ -224,6 +250,7 @@ profileRoutes.openapi(addTextSourceRoute, async (c) => {
       ...(memoryId ? { memoryId } : {}),
       structured,
     })
+    await chargeIngest(c.env, userId)
     return c.json({ profile, truncated: parsed.truncated }, 200)
   }
 
@@ -363,6 +390,7 @@ profileRoutes.openapi(uploadSourceRoute, async (c) => {
      */
     ...(memoryId ? {} : { status: 'failed' as const, error: 'Could not be indexed. Try again.' }),
   })
+  await chargeIngest(c.env, userId)
   return c.json({ profile, truncated: false }, 200)
 })
 
@@ -449,6 +477,163 @@ profileRoutes.openapi(renameSourceRoute, async (c) => {
   const { id } = c.req.valid('param')
   const { label } = c.req.valid('json')
   const profile = await renameSource(drizzle(c.env.DB), c.get('userId'), id, label.trim())
+  return c.json({ profile }, 200)
+})
+
+/**
+ * Read a source again, from scratch.
+ *
+ * Three things make this worth an endpoint rather than the "add it again" the failure footer used
+ * to offer. A re-upload burns a source slot until the dead one is removed by hand; it loses the
+ * id, so the row moves and any link to it breaks; and for a link there is nothing to re-upload at
+ * all — the page changed, which is the whole reason to ask. Reprocessing keeps the row, the slot
+ * and the stored original, and redoes only the part that can go wrong or go stale: the memory
+ * ingest and the identity extraction.
+ *
+ * It is metered, and unlike adding a source it is also **enforced**. The difference is who is
+ * asking. Adding a source is onboarding — refusing it at a limit of zero would put the paywall in
+ * front of the résumé instead of in front of the fill. Reprocessing is only reachable from a
+ * source that already exists, by somebody who has already been through that, and it is the one
+ * endpoint here that can be called an unbounded number of times on unchanged input: a loop over
+ * this would otherwise re-run a multimodal extraction and a memory ingest, on our bill, forever.
+ * The rate limiter caps the rate; the quota caps the total.
+ */
+const reprocessSourceRoute = createRoute({
+  method: 'post',
+  path: '/sources/{id}/reprocess',
+  tags: ['profile'],
+  summary: 'Read a source again',
+  description:
+    'Re-runs the ingest for an existing source: re-indexes it and re-extracts identity details. The stored original and the source id are unchanged. Costs one action.',
+  operationId: 'reprocessSource',
+  security: bearerAuth,
+  middleware: [enforceQuota] as const,
+  request: { params: z.object({ id: z.string() }) },
+  responses: {
+    200: {
+      description: 'Source re-read and profile recompiled',
+      content: { 'application/json': { schema: ProfileResponse } },
+    },
+    ...errorResponses,
+  },
+})
+
+profileRoutes.openapi(reprocessSourceRoute, async (c) => {
+  const { id } = c.req.valid('param')
+  const db = drizzle(c.env.DB)
+  const userId = c.get('userId')
+
+  const source = await getSource(db, userId, id)
+
+  /**
+   * The new document is created before the old one is deleted, and the delete is best-effort.
+   *
+   * Deleting first would mean a failure in the middle leaves the user with a source row pointing
+   * at nothing — indexed content gone, and no way to get it back short of re-uploading. This way
+   * the worst case is one orphaned document in memory, which costs us a little storage and costs
+   * the user nothing. The row always ends up pointing at whichever document actually exists.
+   */
+  let memoryId: string | null = null
+  const text = source.extractedText ?? ''
+  let structured: Awaited<ReturnType<typeof structureSource>>['structured'] | undefined
+
+  if (source.kind === 'link') {
+    if (!source.url) {
+      throw new ApiErrorResponse('INVALID_REQUEST', 'That link has no address stored')
+    }
+    const [documentId, page] = await Promise.all([
+      addUrl(c.env, userId, source.url, { label: source.label }),
+      fetchUrlAsMarkdown(c.env, source.url),
+    ])
+    memoryId = documentId
+    structured = await structureSource(
+      c.env,
+      { kind: 'text', text: page.markdown },
+      source.label,
+      userId,
+    )
+      .then((r) => r.structured)
+      .catch(() => undefined)
+  } else if (source.kind === 'text') {
+    if (!text) {
+      throw new ApiErrorResponse('INVALID_REQUEST', 'That note has no text stored')
+    }
+    const [documentId, extracted] = await Promise.all([
+      addContent(c.env, userId, text, { label: source.label }),
+      structureSource(c.env, { kind: 'text', text }, source.label, userId)
+        .then((r) => r.structured)
+        .catch(() => undefined),
+    ])
+    memoryId = documentId
+    structured = extracted
+  } else {
+    /*
+      A file source is re-read from R2, not from the user.
+
+      This is the case the old "add it again" could not do at all without asking them to find the
+      file a second time — and the common reason to want it is that the first memory ingest
+      returned null, which has nothing to do with the bytes.
+    */
+    if (!source.r2Key) {
+      throw new ApiErrorResponse(
+        'INVALID_REQUEST',
+        'The original file is no longer stored, so it cannot be read again. Remove it and add it again.',
+      )
+    }
+    const object = await c.env.UPLOADS.get(source.r2Key)
+    if (!object) {
+      throw new ApiErrorResponse(
+        'INVALID_REQUEST',
+        'The original file is no longer stored, so it cannot be read again. Remove it and add it again.',
+      )
+    }
+
+    const mediaType = source.mediaType ?? 'application/octet-stream'
+    const bytes = await object.arrayBuffer()
+    const file = new File([bytes], source.label, { type: mediaType })
+
+    memoryId = await addFile(c.env, userId, file, { label: source.label })
+
+    // Same rule as the upload route: extraction reads for contact details, and a voice note or a
+    // photograph has none, so the call would be spent to learn nothing.
+    if (source.kind === 'document') {
+      structured = await structureSource(
+        c.env,
+        { kind: 'file', bytes, mediaType },
+        source.label,
+        userId,
+      )
+        .then((r) => r.structured)
+        .catch(() => undefined)
+    }
+  }
+
+  if (source.memoryId && source.memoryId !== memoryId) {
+    // Best-effort, and never fatal: see above. `deleteDocument` reports rather than throws.
+    const gone = await deleteDocument(c.env, source.memoryId)
+    if (!gone) console.debug('[aff] orphaned memory document after reprocess', source.memoryId)
+  }
+
+  const profile = await recordReingest(db, userId, id, {
+    memoryId,
+    text,
+    structured,
+    // A source that reached no index is not ready, however well the extraction went — the same
+    // judgement the upload route makes, for the same reason.
+    ...(memoryId
+      ? { status: 'ready' as const, error: null }
+      : { status: 'failed' as const, error: 'Could not be indexed. Try again.' }),
+  })
+
+  /*
+    Charged whether or not the index accepted it.
+
+    The provider calls have already been made and paid for by this point, and the ingest is the
+    expensive half. Refunding a failed reprocess would leave the one endpoint that can be retried
+    without limit free to retry without limit, which is the loop this is metered to prevent.
+  */
+  await chargeIngest(c.env, userId)
+
   return c.json({ profile }, 200)
 })
 

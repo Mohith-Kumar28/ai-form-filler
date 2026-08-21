@@ -26,9 +26,11 @@ export const site = {
  * mechanical autofill away and charges $39.99/mo for the AI-written answers that are this product's
  * whole point, so the wedge here is price rather than a free allowance.
  *
- * The unit is an **AI action**: one field an AI answered, or one rewrite. Fields answered from the
- * user's own saved information cost nothing and are not counted — about a third of the fields on a
- * real application. These numbers must match `PLAN_LIMITS` and friends in `@aff/shared`; the site
+ * The unit is one **form field**: a field an AI answered, a rewrite, or a source added or
+ * reprocessed. Fields answered from the user's own saved information cost nothing and are not
+ * counted — about a third of the fields on a real application. The site says "form fields" rather
+ * than "AI actions" because an action is a billing unit nobody can price in work: 600 fields is a
+ * number you can convert into applications, 600 actions is not. These numbers must match `PLAN_LIMITS` and friends in `@aff/shared`; the site
  * cannot import from the workspace, so they are restated here and nowhere else on the site.
  */
 export const pricing = [
@@ -41,7 +43,7 @@ export const pricing = [
     trialDays: 14,
     description: 'For an active job search, or a busy month of forms.',
     features: [
-      '600 AI actions a month',
+      '600 form fields a month',
       '150 long written answers and rewrites',
       'Fields it already knows never count',
       '30 sources, 100 saved facts, 30 MB files',
@@ -59,7 +61,7 @@ export const pricing = [
     trialDays: 0,
     description: 'For recruiters, agencies, and anyone filling forms daily.',
     features: [
-      '2,500 AI actions a month',
+      '2,500 form fields a month',
       '500 long written answers and rewrites',
       'More essays get the frontier model to themselves',
       '100 sources, 400 saved facts, 50 MB files',

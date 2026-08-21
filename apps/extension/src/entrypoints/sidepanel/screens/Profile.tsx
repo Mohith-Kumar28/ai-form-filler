@@ -62,7 +62,21 @@ function subscriptionNote(subscription: Account['subscription']): string | null 
   }
 }
 
-export function Profile({ account }: { account: Account }) {
+export function Profile({
+  account,
+  onReplayTour,
+}: {
+  account: Account
+  /**
+   * Runs the first-run flow again.
+   *
+   * Optional because the state lives in `App`, and because this screen is rendered in the review
+   * gallery with no flow behind it. It is here rather than nowhere for the person who pressed
+   * "Skip the tour" in their first thirty seconds and later wondered what the thing actually does —
+   * the alternative is clearing the extension's storage.
+   */
+  onReplayTour?: () => void
+}) {
   const queryClient = useQueryClient()
   const { plan } = account.quota
   const { seen: paywallSeen } = usePaywallSeen()
@@ -249,6 +263,24 @@ export function Profile({ account }: { account: Account }) {
             />
           </div>
         </div>
+
+        {onReplayTour && (
+          <div className="px-gutter pt-3">
+            <button
+              type="button"
+              onClick={onReplayTour}
+              className="flex min-h-row w-full items-center gap-3 rounded-2xl border border-border-muted bg-surface-raised px-4 text-left transition-colors hover:bg-surface-muted"
+            >
+              <Mascot size={20} className="shrink-0" />
+              <span className="min-w-0 flex-1">
+                <span className="block text-base text-ink">Show me around again</span>
+                <span className="block text-xs text-ink-dim">
+                  The tour, and the setup steps. Nothing you have added is touched.
+                </span>
+              </span>
+            </button>
+          </div>
+        )}
 
         <div className="px-gutter py-4">
           <button

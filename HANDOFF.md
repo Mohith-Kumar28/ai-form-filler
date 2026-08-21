@@ -358,6 +358,51 @@ per fill, drops cleared fields (a rejection is not an answer), and reads a selec
 label rather than its opaque option value — "United States" carries meaning into the answer
 bank, "opt_1" does not.
 
+### First run — the panel's own eight screens
+
+`sidepanel/onboarding/` is the flow a signed-in account with nothing in it gets instead of Home.
+Five screens explain the product (each with a small live demo rather than a screenshot of a 400px
+panel inside a 400px panel), then two ask for work — ten catalogue fields, five of them required,
+and at least one source — and the last shows what was built: facts, sources, characters read.
+
+Three things about it are load-bearing:
+
+- **The asking comes last, and money comes after that.** Nothing in the flow mentions plans or
+  prices; the paywall still lands at the first Fill (§ `usePaywallSeen`, and the note in
+  `paywall.ts`). Somebody who has typed their own notice period and watched their own résumé being
+  read is a different prospect from somebody who has seen a price tag and no product.
+- **Whether to run it at all is `resolveOnboarding` in `lib/onboarding.ts`,** a pure function with
+  its own tests. The flow shipped after the extension did, so an account with facts or sources and
+  no stored record has already onboarded; that decision is written down rather than re-derived, or
+  a user who skipped the tour would meet it again on every open. `step` is persisted too — the
+  panel gets closed constantly, because the form the user came for is behind it.
+- **It is not a screen on the navigation stack.** It owns the whole panel including the tab bar, so
+  it cannot be half-escaped, and both gated steps carry a plain "Later" — a gate with no bypass is
+  a trap.
+
+The hero mark is `onboarding/blob.tsx`: the brand face on a body that morphs between four
+silhouettes. The morph is an SVG `<animate>` on `d` (CSS cannot interpolate a path), which means
+every value must share one command structure — hence `blobPath`, which generates all of them from
+radii. It is also the one animation in the project that `prefers-reduced-motion` cannot switch off
+from the stylesheet, because it is markup: `useReducedMotion` drops the element instead.
+
+### The paywall the *page* asks for
+
+Pressing the launcher with nothing left to spend used to draw a small offer card over the user's
+form. It now opens the side panel and shows the real sheet there (`overlay/paywall` →
+`usePendingPaywall`). Two constraints shaped it:
+
+- `chrome.sidePanel.open` needs a live user gesture, and asking the API for the quota first spends
+  it. So the content script **caches** the quota (`refreshQuota`, on launcher mount, after every
+  fill, and on `visibilitychange` — the last one because checkout happens in another tab) and the
+  click acts on the cached value with nothing awaited.
+- Chrome may refuse anyway. The message answers `{ opened }`, and a `false` falls back to the
+  in-page card, so a refused fill never ends in silence.
+
+Which offer to make is `offerFor(limit)` in `@aff/shared/constants`, shared by the panel and the
+page: a limit of zero has never subscribed and is offered the trial, anything else has run out of a
+plan it pays for and is offered the comparison.
+
 ### 7.10 The content script bundle is a tax on every page
 
 It loads on **every page the user visits**, so its size is not an internal concern.

@@ -102,8 +102,23 @@ const FIELDS: DemoField[] = [
   },
 ]
 
-/** What the launcher badge cycles through while the model works. From `launcher.ts`. */
-const LOADING_MESSAGES = ['Thinking…', 'Reading the form…', 'Writing answers…']
+/**
+ * What the launcher's rail cycles through while the model works. From `STAGE_MESSAGES` in
+ * `launcher.ts` — one line per stage there, flattened here because the demo's clock is fake
+ * and runs through all three whatever the model is doing.
+ */
+const LOADING_MESSAGES = ['Reading the form…', 'Writing your answers…', 'Filling the fields…']
+
+/**
+ * The keyboard shortcut the extension suggests, written the way each platform writes it.
+ *
+ * Set after mount rather than at module scope: this page is server-rendered, and a Mac
+ * visitor would otherwise get "Alt+Shift+F" in the HTML and "⌥⇧F" from the first client
+ * render, which React reports as a hydration mismatch. The extension itself reads the real
+ * binding out of `chrome.commands`, so the demo shows the default it ships with.
+ */
+const SHORTCUT_DEFAULT = 'Alt+Shift+F'
+const SHORTCUT_MAC = '\u2325\u21e7F'
 
 /** The tab's two words. From `TAB_LABEL` in `markers.ts`. */
 const TAB_LABEL: Record<'inferred' | 'unsure', string> = {
@@ -259,7 +274,6 @@ export function ExtensionDemo() {
 
       <Launcher
         phase={phase}
-        fieldCount={FIELDS.length}
         judgedCount={judgedCount}
         progress={progress}
         total={FIELDS.length}
@@ -274,10 +288,15 @@ export function ExtensionDemo() {
 
 /* ── The launcher ─────────────────────────────────────────────────────────────
  *
- * Three shapes, exactly as in `launcher.ts`: an idle circle with a field-count badge
- * beneath it, a pulse while thinking, and a progress pill with a stop button while
- * filling. Pinned to the right edge — on a real page that is the viewport's edge; here
- * it is the demo's own gutter.
+ * A circle with a rail running from it to the right edge, exactly as in `launcher.ts`.
+ * The circle is the button; the rail carries the one thing there is to say — the keyboard
+ * shortcut when idle, the stage while it thinks, `done/total` and a stop button while
+ * answers land, and what is left to check when it finishes.
+ *
+ * The rail replaced a field-count pill and a stop button that hung *below* the circle: both
+ * were wider than the 38px they hung from and both spent their lives being nudged away from
+ * falling off the right of the window. On a real page the rail meets the edge of the viewport;
+ * here it meets the edge of the card, which is that page's stand-in.
  */
 
 /**
@@ -318,9 +337,42 @@ function ClickMe() {
   )
 }
 
+/**
+ * One strip of text, running from the circle to the right edge — the whole of what the
+ * launcher says. Square where it meets the frame, round where it meets the circle, tucked
+ * under it by half a radius so the pair reads as one object rather than two.
+ */
+function Rail({
+  children,
+  tone = 'quiet',
+}: {
+  children: React.ReactNode
+  tone?: 'quiet' | 'loud'
+}) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, x: 6 }}
+      animate={{ opacity: 1, x: 0 }}
+      transition={{ duration: 0.2 }}
+      className={cn(
+        'flex h-7 items-center gap-1.5 whitespace-nowrap rounded-l-full py-0 pr-3 pl-7 text-[11px] font-semibold shadow-card',
+        // -ml-6 puts its left end under the circle; pl-7 brings the text back out again.
+        '-ml-6',
+        tone === 'loud'
+          ? 'bg-[linear-gradient(135deg,var(--sparkle),var(--accent))] font-bold text-white'
+          : // The hairline is what stops the strip disappearing into a light page — see the
+            // same note on `.launcher-rail` in the extension's `host.ts`. Nothing on the right:
+            // that edge is the frame, and a line along it reads as a seam.
+            'border border-r-0 border-border-muted bg-surface-raised text-ink-dim',
+      )}
+    >
+      {children}
+    </motion.div>
+  )
+}
+
 function Launcher({
   phase,
-  fieldCount,
   judgedCount,
   progress,
   total,
@@ -330,7 +382,6 @@ function Launcher({
   onReset,
 }: {
   phase: Phase
-  fieldCount: number
   judgedCount: number
   progress: number
   total: number
@@ -343,70 +394,83 @@ function Launcher({
   const thinking = phase === 'thinking'
   const done = phase === 'done'
 
-  const badge = thinking
-    ? message
-    : filling
-      ? null
-      : done
-        ? `${judgedCount} to check`
-        : `${fieldCount} fields`
+  // See SHORTCUT_DEFAULT — set after mount so server and first client render agree.
+  const [shortcut, setShortcut] = useState(SHORTCUT_DEFAULT)
+  useEffect(() => {
+    if (/mac/i.test(navigator.platform || navigator.userAgent)) setShortcut(SHORTCUT_MAC)
+  }, [])
 
   return (
-    <div className="absolute top-16 right-2 z-20 flex flex-col items-end gap-1.5 md:-right-20">
+    <div className="absolute top-16 right-0 z-20 flex items-center">
+      <AnimatePresence>{phase === 'idle' && <ClickMe key="nudge" />}</AnimatePresence>
+
       {/* The grabber. Decorative here — on a real page it drags the launcher up and down. */}
-      <span className="mr-3 flex gap-[3px] opacity-40" aria-hidden>
-        <span className="size-[3px] rounded-full bg-ink-dim" />
-        <span className="size-[3px] rounded-full bg-ink-dim" />
-        <span className="size-[3px] rounded-full bg-ink-dim" />
+      <span className="mr-1 grid grid-cols-2 gap-[3px] opacity-40" aria-hidden>
+        {/* Six, in two columns of three — the grabber glyph. Three in a line is a kebab menu. */}
+        {['a', 'b', 'c', 'd', 'e', 'f'].map((dot) => (
+          <span key={dot} className="size-[3px] rounded-full bg-ink-dim" />
+        ))}
       </span>
 
-      <div className="flex items-center gap-1.5">
-        <AnimatePresence>{phase === 'idle' && <ClickMe key="nudge" />}</AnimatePresence>
+      <button
+        type="button"
+        onClick={done ? onReset : filling || thinking ? undefined : onFill}
+        disabled={filling || thinking}
+        aria-label={
+          done ? 'Fill again' : filling || thinking ? 'Filling this form' : 'Fill this form'
+        }
+        title={done ? 'Fill again' : `Fill all fields (${shortcut})`}
+        className={cn(
+          'relative z-10 flex size-11 shrink-0 items-center justify-center rounded-full text-white shadow-card transition-all duration-200',
+          thinking && 'animate-pulse-soft',
+          // Idle, the ring breathes so the eye lands on the one thing worth clicking.
+          phase === 'idle' && 'ring-4 ring-accent/25 animate-pulse-soft',
+          !filling && !thinking && 'hover:brightness-110',
+        )}
+        style={{ background: 'linear-gradient(135deg, var(--sparkle), var(--accent))' }}
+      >
+        <IconMascot className={cn('size-5 shrink-0', thinking && 'animate-spin-slow')} />
+      </button>
 
-        {filling && (
-          <motion.button
+      {thinking && (
+        <Rail>
+          <span
+            className="size-[5px] shrink-0 animate-pulse rounded-full"
+            style={{ background: 'linear-gradient(135deg, var(--sparkle), var(--accent))' }}
+            aria-hidden
+          />
+          {message}
+        </Rail>
+      )}
+
+      {filling && (
+        <Rail>
+          <span className="font-display tabular-nums">
+            {progress}/{total}
+          </span>
+          {/* Stop, at the rail's right end, where it is pinned to the frame and cannot move.
+              It used to hang below a pill whose width changed with every digit of the count. */}
+          <button
             type="button"
-            initial={{ opacity: 0, scale: 0.6 }}
-            animate={{ opacity: 1, scale: 1 }}
             onClick={onStop}
             aria-label="Stop filling"
-            className="flex size-6 items-center justify-center rounded-full bg-danger text-white shadow-glow transition-[filter] hover:brightness-110"
+            className="-mr-1 flex size-5 shrink-0 items-center justify-center rounded-full bg-danger text-white transition-[filter] hover:brightness-110"
           >
-            <IconClose className="size-3" />
-          </motion.button>
-        )}
+            <IconClose className="size-2.5" />
+          </button>
+        </Rail>
+      )}
 
-        <button
-          type="button"
-          onClick={done ? onReset : filling || thinking ? undefined : onFill}
-          disabled={filling || thinking}
-          aria-label={
-            done ? 'Fill again' : filling || thinking ? 'Filling this form' : 'Fill this form'
-          }
-          title={done ? 'Fill again' : 'Fill all fields'}
-          className={cn(
-            'flex h-11 items-center justify-center gap-2 rounded-full text-white shadow-card transition-all duration-200',
-            filling ? 'px-4' : 'w-11',
-            thinking && 'animate-pulse-soft',
-            // Idle, the ring breathes so the eye lands on the one thing worth clicking.
-            phase === 'idle' && 'ring-4 ring-accent/25 animate-pulse-soft',
-            !filling && !thinking && 'hover:brightness-110',
-          )}
-          style={{ background: 'linear-gradient(135deg, var(--sparkle), var(--accent))' }}
-        >
-          <IconMascot className={cn('size-5 shrink-0', thinking && 'animate-spin-slow')} />
-          {filling && (
-            <span className="font-display text-[14px] font-bold tabular-nums">
-              {progress}/{total}
-            </span>
-          )}
-        </button>
-      </div>
+      {done && <Rail>{judgedCount} to check</Rail>}
 
-      {badge && (
-        <span className="mr-0.5 max-w-[104px] text-right text-[11px] font-semibold text-ink-dim">
-          {badge}
-        </span>
+      {/* Idle: the shortcut, as a key cap. A number of fields is not something anyone acts on;
+          a key is, so the key gets the pixels and the count goes to the button's tooltip. */}
+      {phase === 'idle' && (
+        <Rail>
+          <kbd className="rounded-[5px] border border-border bg-surface px-1.5 py-[3px] font-sans text-[10.5px] font-bold text-ink">
+            {shortcut}
+          </kbd>
+        </Rail>
       )}
     </div>
   )

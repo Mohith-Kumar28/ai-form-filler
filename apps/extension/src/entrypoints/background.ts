@@ -6,6 +6,7 @@ import { hasSession, signIn, signOut } from '../lib/auth.js'
 import { openTrial, openUpgrade } from '../lib/billing.js'
 import { LAST_FILL_KEY, registerFillPort } from '../lib/fill-port.js'
 import { toResult } from '../lib/messaging.js'
+import { PAYWALL_KEY } from '../lib/storage.js'
 
 const SETTINGS_KEY = 'aff:settings'
 const DEFAULT_SETTINGS = { inlineAutofill: true, showLauncher: true }
@@ -54,8 +55,55 @@ async function recordVerdict(
     .catch(() => undefined)
 }
 
+/** The manifest command that fills the active tab's form. See `commands` in wxt.config.ts. */
+const FILL_COMMAND = 'fill-form'
+
+/**
+ * How macOS writes a Chrome shortcut string.
+ *
+ * `chrome.commands.getAll` reports the binding in Chrome's own vocabulary — "Alt+F" —
+ * on every platform, including the one where every other piece of UI writes it "⌥⇧F". A
+ * modifier spelled out in words beside a Mac form reads as a Windows tooltip somebody forgot
+ * to localise, so the words are swapped for the glyphs and the separators dropped.
+ */
+const MAC_KEYS: Record<string, string> = {
+  Command: '\u2318',
+  Cmd: '\u2318',
+  Ctrl: '\u2303',
+  MacCtrl: '\u2303',
+  Alt: '\u2325',
+  Option: '\u2325',
+  Shift: '\u21e7',
+}
+
+function shortcutLabel(shortcut: string, isMac: boolean): string {
+  if (!isMac) return shortcut
+  return shortcut
+    .split('+')
+    .map((key) => MAC_KEYS[key] ?? key)
+    .join('')
+}
+
 export default defineBackground(() => {
   registerFillPort()
+
+  /**
+   * The keyboard route into a fill.
+   *
+   * It forwards to the content script rather than starting the fill here, so the shortcut and
+   * the launcher click end up in the same function on the page — the one that already knows the
+   * detected form, the cached quota, and what to do when there is no quota left. A tab with no
+   * content script in it (a chrome:// page, the Web Store, a tab open from before the extension
+   * loaded) simply rejects the message, and there is nothing to fill there anyway.
+   */
+  chrome.commands?.onCommand.addListener((command) => {
+    if (command !== FILL_COMMAND) return
+    void (async () => {
+      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true })
+      if (tab?.id === undefined) return
+      await chrome.tabs.sendMessage(tab.id, { type: 'content/fill' }).catch(() => undefined)
+    })()
+  })
 
   // Clicking the toolbar icon opens the side panel rather than a popup — the review UI
   // needs to stay open while the user reads the page behind it.
@@ -201,6 +249,33 @@ export default defineBackground(() => {
         ).then(sendResponse)
         return true
 
+      /**
+       * The page asked for the offer. Leave the note, then open the panel.
+       *
+       * Written before the panel opens, and to `session` storage rather than `local`, because the
+       * panel reads it on mount: a note that arrived after the first render would be a sheet that
+       * never appears, and one that survived the browser restart would be a sheet nobody asked
+       * for. `at` is what makes two refusals in a row two events — the panel keys its effect on
+       * it, so a second press with the same `mode` still shows the sheet it dismissed.
+       */
+      case 'overlay/paywall':
+        void toResult(async () => {
+          const tabId = _sender.tab?.id
+          await chrome.storage.session
+            .set({ [PAYWALL_KEY]: { mode: request.mode, at: Date.now() } })
+            .catch(() => undefined)
+          if (tabId === undefined) return { opened: false }
+          try {
+            await chrome.sidePanel.open({ tabId })
+            return { opened: true }
+          } catch {
+            // Chrome refused, almost always because it decided the click's gesture was spent on
+            // the way here. The page falls back to its own card, so the offer is never lost.
+            return { opened: false }
+          }
+        }).then(sendResponse)
+        return true
+
       case 'sidepanel/open':
         void toResult(async () => {
           await chrome.sidePanel.open({ tabId: request.tabId })
@@ -231,6 +306,17 @@ export default defineBackground(() => {
           // the service worker can do too — and must, since the content script cannot.
           await (request.trial ? openTrial() : openUpgrade())
           return null
+        }).then(sendResponse)
+        return true
+
+      case 'overlay/shortcut':
+        void toResult(async () => {
+          const commands = await chrome.commands.getAll()
+          const bound = commands.find((command) => command.name === FILL_COMMAND)?.shortcut
+          // An unbound command reports an empty string, not a missing one.
+          if (!bound) return { label: null }
+          const platform = await chrome.runtime.getPlatformInfo().catch(() => null)
+          return { label: shortcutLabel(bound, platform?.os === 'mac') }
         }).then(sendResponse)
         return true
 
