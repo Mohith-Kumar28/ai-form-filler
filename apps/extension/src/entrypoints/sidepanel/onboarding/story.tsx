@@ -127,7 +127,7 @@ function LearnDemo() {
   const beat = useCycle(4, 1500)
 
   return (
-    <Demo caption="Corrections are the strongest signal there is. Nothing you fix is asked twice.">
+    <Demo caption="Nothing you fix is ever asked twice.">
       <MockField label="Notice period · greenhouse.io">
         {beat === 0 ? (
           <span className="text-ink-dim">1 month</span>
@@ -173,7 +173,7 @@ function LearnDemo() {
 /* ── 4 · everything you can feed it ───────────────────────────────────────── */
 
 const FEED = [
-  { icon: <IconDocument className="size-3.5" />, label: 'Résumé.pdf', read: 18431 },
+  { icon: <IconDocument className="size-3.5" />, label: 'Your document.pdf', read: 18431 },
   { icon: <IconLink className="size-3.5" />, label: 'your-site.com/about', read: 6120 },
   { icon: <IconAudio className="size-3.5" />, label: 'Voice note · 0:42', read: 1980 },
   { icon: <IconText className="size-3.5" />, label: 'Pasted notes', read: 3240 },
@@ -194,7 +194,7 @@ function SourcesDemo() {
   const read = FEED.slice(0, shown).reduce((total, item) => total + item.read, 0)
 
   return (
-    <Demo caption="Files, links, voice notes, anything pasted. It keeps the contents, not the address.">
+    <Demo caption="It keeps the contents, not the address.">
       <div className="flex flex-wrap gap-1.5">
         {FEED.map((item, index) => (
           <span
@@ -225,7 +225,7 @@ function SourcesDemo() {
         <span className="font-display text-lg font-bold tabular-nums text-ink">
           {formatCount(read)}
         </span>{' '}
-        characters read into what it knows about you
+        characters read
       </p>
     </Demo>
   )
@@ -251,14 +251,14 @@ function HonestyDemo() {
       </MockField>
 
       <div className="mt-3">
-        <MockField label="Why do you want this role?" tone="guessed">
+        <MockField label="Tell us about yourself" tone="guessed">
           <span className="truncate text-ink">I have spent four years shipping…</span>
         </MockField>
         <div className="mt-2 flex items-center gap-2">
           <AiBadge />
           <span className="flex items-center gap-1 text-2xs font-semibold text-accent">
             <IconSparkle className="size-3" />
-            Not sure — worth a look
+            Not sure, worth a look
           </span>
         </div>
       </div>
@@ -282,37 +282,37 @@ export const STORY: StoryStep[] = [
     expression: 'excited',
     title: (
       <>
-        Hi — I’m <span className="sunset-text">Fillaform</span>.
+        Hi, I’m <span className="sunset-text">Fillaform</span>.
       </>
     ),
-    body: 'Job applications, visa forms, sign-ups — the same twelve questions you have answered a hundred times, and the long written ones too.',
+    body: 'Job forms, visa forms, sign-ups. The same questions over and over, and the long written ones too.',
   },
   {
     key: 'inline',
     expression: 'happy',
     title: 'Your answers, already in the field',
-    body: 'Click into a field and your answer is waiting there. Press Tab to take it — no button, no waiting. It is your own information.',
+    body: 'Click into a field and your answer is waiting. Press Tab to take it.',
     demo: <InlineDemo />,
   },
   {
     key: 'learn',
     expression: 'wink',
     title: 'Fix me once and I keep it',
-    body: 'Every answer you change teaches me. Fix “1 month” to “2 months”, and the next form to ask already says two — in your words.',
+    body: 'Every answer you change teaches me. Fix it once and the next form to ask already says it.',
     demo: <LearnDemo />,
   },
   {
     key: 'sources',
     expression: 'wow',
     title: 'Feed me anything about you',
-    body: 'A résumé, a portfolio link, a voice note, notes you paste in. I read what is inside each one and keep the contents — not the address.',
+    body: 'A document, a link, a voice note, pasted notes. I keep what is inside them, not the address.',
     demo: <SourcesDemo />,
   },
   {
     key: 'honesty',
     expression: 'think',
     title: 'And I tell you when I guessed',
-    body: 'Green means I read it straight off your info. Pink with a sparkle means I wrote it — and if I was not sure, I say so.',
+    body: 'Green means I read it off your info. Pink with a sparkle means I wrote it.',
     demo: <HonestyDemo />,
   },
 ]

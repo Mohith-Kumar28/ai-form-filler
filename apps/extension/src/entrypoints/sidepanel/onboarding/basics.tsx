@@ -5,43 +5,39 @@ import {
   usePatchProfile,
 } from '../../../generated/endpoints/profile/profile.js'
 import type { Account, Profile } from '../../../generated/model/index.js'
-import { type CatalogField, fieldFor, reconcile, toPatch } from '../../../lib/fact-catalog.js'
-import { FieldRow } from '../components.js'
+import {
+  type CatalogField,
+  type FactSection,
+  FIELDS_BY_SECTION,
+  reconcile,
+  SECTIONS,
+  sectionProgress,
+  toPatch,
+} from '../../../lib/fact-catalog.js'
+import { FieldRow, Section } from '../components.js'
 import { IconCheck } from '../icons.js'
 
 /**
- * The ten questions every form asks, in the order a person can answer them without thinking.
+ * The catalogue, in its own sections, on the first-run screen.
  *
- * Not a section of the catalogue and not the whole of it: the catalogue has thirty-eight fields and
- * six sections, which is a data-entry job, and the point here is the first five minutes. These are
- * the fields that (a) almost every form wants and (b) somebody can answer from memory while a
- * browser tab waits. Everything else lives in My info, where there is a search box and no pressure.
+ * This used to be a hand-picked list of ten keys in one flat scroll, and that was the wrong shape
+ * twice over: it hid twenty-eight fields somebody may well have wanted to fill while they were
+ * already typing, and it threw away the grouping "Your info" spends its whole design on. Same
+ * `SECTIONS`, same `Section` cards, same `FieldRow`, same `n/m` counters, same catalogue order.
+ * One editor, in two places.
  *
- * Pulled through `fieldFor` rather than written out, so the label, type, placeholder and hint are
- * the catalogue's — one catalogue, one spelling of "Notice period", matched by the same matcher the
- * fill path uses.
+ * Collapsed is what keeps it from being a data-entry job: six shut cards with a count each fit on
+ * one screen and say exactly how much there is, and only "About you" opens on arrival, because
+ * that is where the five that matter live.
  */
-const KEYS = [
-  'fullName',
-  'email',
-  'phone',
-  'location',
-  'Current job title',
-  'Current company',
-  'linkedin',
-  'website',
-  'Total experience',
-  'Notice period',
-]
+const SHOWN = SECTIONS.filter((section) => section.section !== 'extra')
 
-/** How many of them have to be answered before the flow will move on. */
+const FIELDS: CatalogField[] = SHOWN.flatMap((section) => FIELDS_BY_SECTION[section.section])
+
+/** How many answers the flow will move on for. */
 export const BASICS_REQUIRED = 5
 
-const FIELDS: CatalogField[] = KEYS.map((key) => fieldFor(key)).filter(
-  (field): field is CatalogField => field !== undefined,
-)
-
-/** Which of the asked-for fields already hold something. Drives the counter and the gate. */
+/** Which catalogue fields already hold something. Drives the counter and the gate. */
 export function countBasics(profile: Profile | undefined): number {
   if (!profile) return 0
   const { values } = reconcile(profile)
@@ -53,9 +49,9 @@ export function countBasics(profile: Profile | undefined): number {
  *
  * Everything about it is arranged around not being abandoned: the fields the account already knows
  * are filled in and counted (signing in with Google hands over a name and an email, so nobody
- * starts at zero), the goal is five rather than ten, and the counter says how many are left rather
- * than how many exist. Saving happens on the way out of each field, so closing the panel
- * mid-address loses nothing — this surface gets closed constantly, because the form the user came
+ * starts at zero), the goal is five rather than everything, and the counter says how many are left
+ * rather than how many exist. Saving happens on the way out of each field, so closing the panel
+ * mid-address loses nothing. This surface gets closed constantly, because the form the user came
  * for is behind it.
  */
 export function Basics({
@@ -78,12 +74,15 @@ export function Basics({
   const stored = useMemo(() => reconcile(profile ?? { identity: {}, custom: {} }), [profile])
   const [draft, setDraft] = useState<Record<string, string>>({})
 
+  /* Shut, except "About you". The same rule `Facts` follows, minus the search box it overrides. */
+  const [open, setOpen] = useState<Partial<Record<FactSection, boolean>>>({ about: true })
+
   /**
    * The server's copy is adopted once per field, and only into fields nobody has touched.
    *
-   * A source finishing parsing rewrites the profile — extraction fills in exactly these fields —
-   * and if that landed on top of the draft it would overwrite a half-typed phone number with an
-   * older one. So `draft` wins wherever it has a value.
+   * A source finishing parsing rewrites the profile, and if that landed on top of the draft it
+   * would overwrite a half-typed phone number with an older one. So `draft` wins wherever it has
+   * a value.
    */
   const values = useMemo(() => {
     const merged: Record<string, string> = {}
@@ -96,7 +95,7 @@ export function Basics({
   const filled = FIELDS.filter((field) => (values[field.key] ?? '').trim() !== '').length
 
   // The count is state the footer needs and this screen owns, so it is reported rather than
-  // recomputed there — two counters over one draft is how a "Continue" button ends up disabled
+  // recomputed there. Two counters over one draft is how a "Continue" button ends up disabled
   // next to five filled fields.
   const report = useRef(onCountChange)
   report.current = onCountChange
@@ -107,9 +106,10 @@ export function Basics({
   /**
    * Saves the whole set, not the one field.
    *
-   * `toPatch` needs the complete reconciled profile — it rebuilds `identity`, `links` and `custom`
-   * from it — and sending one field would not be smaller anyway: the server recompiles the prompt
-   * document on any write. Fired on blur, which for a keyboard user is every field they finish.
+   * `toPatch` needs the complete reconciled profile: it rebuilds `identity`, `links` and `custom`
+   * from it, and sending one field would not be smaller anyway, because the server recompiles the
+   * prompt document on any write. Fired on blur, which for a keyboard user is every field they
+   * finish.
    */
   const save = () => {
     const next = { ...stored, values: { ...stored.values, ...values } }
@@ -126,7 +126,7 @@ export function Basics({
    *
    * Google has already told us a name and an email; asking for them again is the product admitting
    * it was not paying attention. Saved rather than merely shown, because a value sitting in a draft
-   * nobody focuses is a value that is never written — and the counter above would then be counting
+   * nobody focuses is a value that is never written, and the counter above would then be counting
    * something the server does not have.
    *
    * Once, and only into empty fields: somebody whose forms want a different name from their Google
@@ -150,6 +150,8 @@ export function Basics({
   }, [profile, stored, account, queryClient])
 
   const left = Math.max(0, BASICS_REQUIRED - filled)
+  /** What the section counters count against. `sectionProgress` also wants extras. */
+  const counted = { values, extras: {} }
 
   return (
     <div>
@@ -158,10 +160,10 @@ export function Basics({
           {left === 0 ? (
             <span className="inline-flex items-center gap-1 text-positive">
               <IconCheck className="size-3.5" />
-              {filled} answered — that is plenty to start
+              {filled} answered
             </span>
           ) : (
-            `${filled} of ${BASICS_REQUIRED} — ${left} more to go`
+            `${filled} of ${BASICS_REQUIRED}`
           )}
         </p>
         {patch.isPending && <span className="text-2xs text-ink-dim">Saving…</span>}
@@ -170,8 +172,8 @@ export function Basics({
       {/*
         A goal, not a total.
 
-        The bar fills against five, so answering five fills it — a bar against ten would sit at
-        half full at the exact moment the screen says "that is plenty", which reads as failure.
+        The bar fills against five, so answering five fills it. A bar against thirty-eight would sit
+        near empty at the exact moment the screen says that is plenty, which reads as failure.
       */}
       <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-surface-muted">
         <div
@@ -186,20 +188,30 @@ export function Basics({
         />
       </div>
 
-      <div className="mt-2 divide-y divide-border-muted">
-        {FIELDS.map((field, index) => (
-          <FieldRow
-            key={field.key}
-            label={field.label}
-            hint={field.hint}
-            type={field.type}
-            placeholder={field.placeholder}
-            sensitive={field.sensitive}
-            autoFocus={index === 0 && filled === 0}
-            value={values[field.key] ?? ''}
-            onChange={(next) => setDraft((current) => ({ ...current, [field.key]: next }))}
-            onCommit={save}
-          />
+      <div className="mt-3 flex flex-col gap-2.5">
+        {SHOWN.map((section) => (
+          <Section
+            key={section.section}
+            title={section.title}
+            count={sectionProgress(section.section, counted)}
+            open={open[section.section] === true}
+            onToggle={(next) => setOpen((current) => ({ ...current, [section.section]: next }))}
+          >
+            {FIELDS_BY_SECTION[section.section].map((field, index) => (
+              <FieldRow
+                key={field.key}
+                label={field.label}
+                hint={field.hint}
+                type={field.type}
+                placeholder={field.placeholder}
+                sensitive={field.sensitive}
+                autoFocus={section.section === 'about' && index === 0 && filled === 0}
+                value={values[field.key] ?? ''}
+                onChange={(next) => setDraft((current) => ({ ...current, [field.key]: next }))}
+                onCommit={save}
+              />
+            ))}
+          </Section>
         ))}
       </div>
 
@@ -210,8 +222,7 @@ export function Basics({
       )}
 
       <p className="mt-3 text-2xs leading-relaxed text-ink-dim">
-        Saved as you go. Everything here is editable later in My info, along with twenty-eight other
-        fields — addresses, IDs, salary, whatever your forms ask for.
+        Saved as you go. All of it is editable later in Your info.
       </p>
     </div>
   )

@@ -106,8 +106,8 @@ export type Request =
    *
    * Opens the side panel on the sender's own tab and leaves a note there saying which offer to
    * show, so the sheet appears in the panel rather than as a second, smaller paywall drawn over
-   * somebody's form. The in-page card that used to do that job survives only as the fallback for
-   * when Chrome refuses to open the panel — see `openPaywall` in the content script.
+   * somebody's form. There is no in-page card behind it any more: one press, one offer, in the one
+   * surface with room to make it. See `openPaywall` in the content script.
    *
    * `mode` is decided on the page from the quota it already holds: an account with a limit of
    * zero has never subscribed and is offered the trial; anything else has run out of a plan it
@@ -127,14 +127,12 @@ export type Request =
    * Only the service worker can answer — `chrome.commands` is not exposed to content scripts.
    */
   | { type: 'overlay/shortcut' }
-  /**
-   * Start checkout from the page, without a detour through the side panel.
-   *
-   * The in-page prompt used to offer "Upgrade to Pro" and "Open panel" as two buttons that ran
-   * byte-identical code — both opened the panel — so the offer took two more clicks to accept than
-   * it appeared to. The service worker owns the call because only it holds the session token.
+  /*
+   * `billing/checkout` was here: start checkout straight from the page, for the in-page paywall
+   * card's primary button. That card is gone — the offer is made once, in the panel, where there
+   * is room to say what is being bought — and nothing sent this any more. The panel reaches
+   * checkout directly through `openTrial`/`openUpgrade`, which is the same call without a hop.
    */
-  | { type: 'billing/checkout'; trial: boolean }
   | { type: 'settings/get' }
   | { type: 'settings/set'; settings: Settings }
 
@@ -151,39 +149,29 @@ export type ResponseFor<R extends Request> = R extends { type: 'auth/signIn' }
        * no longer exists, so what comes back here is the only account of what happened.
        */
       DeletionReport
-    : R extends { type: 'overlay/paywall' }
+    : R extends { type: 'feedback/submit' }
       ? /**
-         * Whether the panel actually opened.
+         * How much of what was reported actually landed — identity fields written, answers
+         * stored, rejections recorded.
          *
-         * `chrome.sidePanel.open` needs a user gesture, and the hop from a click in a page to the
-         * service worker is one the browser may decide has spent it. The page has to be told, or a
-         * refused fill would end in nothing at all — which is the failure this message exists to
-         * remove.
+         * This used to be discarded. Learning was then unfalsifiable from the outside: the user
+         * corrected an answer, nothing acknowledged it, and the only way to find out whether it
+         * had been remembered was to fill another form days later and see. When it silently
+         * failed — a dead session, a validation error on one entry taking the batch with it — the
+         * product looked like it had simply chosen not to learn.
          */
-        { opened: boolean }
-      : R extends { type: 'feedback/submit' }
-        ? /**
-           * How much of what was reported actually landed — identity fields written, answers
-           * stored, rejections recorded.
-           *
-           * This used to be discarded. Learning was then unfalsifiable from the outside: the user
-           * corrected an answer, nothing acknowledged it, and the only way to find out whether it
-           * had been remembered was to fill another form days later and see. When it silently
-           * failed — a dead session, a validation error on one entry taking the batch with it — the
-           * product looked like it had simply chosen not to learn.
-           */
-          { recorded: number }
-        : R extends { type: 'fill/improve' }
-          ? { value: string }
-          : R extends { type: 'profile/knownFacts' }
-            ? { identity: Identity; custom: Record<string, string> } | null
-            : R extends { type: 'account/quota' }
-              ? { used: number; limit: number; plan: string; exhausted: boolean }
-              : R extends { type: 'settings/get' }
-                ? Settings
-                : R extends { type: 'overlay/shortcut' }
-                  ? { label: string | null }
-                  : null
+        { recorded: number }
+      : R extends { type: 'fill/improve' }
+        ? { value: string }
+        : R extends { type: 'profile/knownFacts' }
+          ? { identity: Identity; custom: Record<string, string> } | null
+          : R extends { type: 'account/quota' }
+            ? { used: number; limit: number; plan: string; exhausted: boolean }
+            : R extends { type: 'settings/get' }
+              ? Settings
+              : R extends { type: 'overlay/shortcut' }
+                ? { label: string | null }
+                : null
 
 /** Discriminated result so callers never have to guess whether a throw or a value came back. */
 export type Result<T> = { ok: true; value: T } | { ok: false; error: ApiError }

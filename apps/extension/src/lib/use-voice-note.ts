@@ -14,6 +14,15 @@ export interface VoiceNote {
   permission: MicPermission
   start: () => Promise<void>
   stop: () => void
+  /**
+   * Throws the finished take away.
+   *
+   * For the caller that keeps the recorder mounted after saving. The first-run flow does: its
+   * composer stays on screen so the new source can appear in the list under it, and without this
+   * the saved blob was still sitting in `blob`, so the footer went on offering to add the same
+   * recording a second time.
+   */
+  reset: () => void
   /** Opens the extension page where Chrome will actually show the microphone prompt. */
   requestPermission: () => void
   toFile: (label: string) => File | null
@@ -112,6 +121,12 @@ export function useVoiceNote(): VoiceNote {
     stop() {
       recorder.current?.stop()
       setRecording(false)
+    },
+
+    reset() {
+      setBlob(null)
+      setSeconds(0)
+      setDenied(null)
     },
 
     /**

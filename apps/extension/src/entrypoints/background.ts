@@ -3,7 +3,6 @@ import { getAccount } from '../generated/endpoints/account/account.js'
 import { improveAnswer, submitFeedback } from '../generated/endpoints/fill/fill.js'
 import { getProfile } from '../generated/endpoints/profile/profile.js'
 import { deleteAccount, hasSession, signIn, signOut } from '../lib/auth.js'
-import { openTrial, openUpgrade } from '../lib/billing.js'
 import { LAST_FILL_KEY, registerFillPort } from '../lib/fill-port.js'
 import { toResult } from '../lib/messaging.js'
 import { PAYWALL_KEY } from '../lib/storage.js'
@@ -260,29 +259,35 @@ export default defineBackground(() => {
         return true
 
       /**
-       * The page asked for the offer. Leave the note, then open the panel.
+       * The page asked for the offer. Open the panel, then leave the note.
        *
-       * Written before the panel opens, and to `session` storage rather than `local`, because the
-       * panel reads it on mount: a note that arrived after the first render would be a sheet that
-       * never appears, and one that survived the browser restart would be a sheet nobody asked
-       * for. `at` is what makes two refusals in a row two events — the panel keys its effect on
-       * it, so a second press with the same `mode` still shows the sheet it dismissed.
+       * The open comes first, and it is the whole reason this handler is written the way it is.
+       * `chrome.sidePanel.open` needs a live user gesture, and awaiting anything at all spends
+       * it — so the previous order, which wrote the note and *then* opened, reliably lost the
+       * gesture and left the offer to a fallback card drawn over the user's own form. The call is
+       * made synchronously, before the first `await`, which is what keeps the click alive across
+       * the hop from the page.
+       *
+       * The note still lands in time. It goes to `session` storage rather than `local` — a note
+       * surviving a browser restart is a sheet nobody asked for — and the panel takes it by two
+       * routes: on mount, and from `storage.onChanged` if it mounted first. A write that loses the
+       * race to a mounting panel is therefore still delivered. `at` is what makes two refusals in
+       * a row two events: the panel keys its effect on it, so a second press with the same `mode`
+       * still shows the sheet it dismissed.
        */
       case 'overlay/paywall':
         void toResult(async () => {
           const tabId = _sender.tab?.id
+          // Invoked, not awaited. See above: the await is what would kill it.
+          const opening = tabId === undefined ? null : chrome.sidePanel.open({ tabId })
           await chrome.storage.session
             .set({ [PAYWALL_KEY]: { mode: request.mode, at: Date.now() } })
             .catch(() => undefined)
-          if (tabId === undefined) return { opened: false }
-          try {
-            await chrome.sidePanel.open({ tabId })
-            return { opened: true }
-          } catch {
-            // Chrome refused, almost always because it decided the click's gesture was spent on
-            // the way here. The page falls back to its own card, so the offer is never lost.
-            return { opened: false }
-          }
+          // Swallowed rather than reported. There is nothing useful the page can do with a
+          // refusal now that it no longer draws a paywall of its own, and the launcher is still
+          // sitting there saying "Upgrade" for a second press with a fresh gesture.
+          await opening?.catch(() => undefined)
+          return null
         }).then(sendResponse)
         return true
 
@@ -307,15 +312,6 @@ export default defineBackground(() => {
           } catch {
             return null
           }
-        }).then(sendResponse)
-        return true
-
-      case 'billing/checkout':
-        void toResult(async () => {
-          // `openTrial`/`openUpgrade` live in the panel's lib and call `chrome.tabs.create`, which
-          // the service worker can do too — and must, since the content script cannot.
-          await (request.trial ? openTrial() : openUpgrade())
-          return null
         }).then(sendResponse)
         return true
 

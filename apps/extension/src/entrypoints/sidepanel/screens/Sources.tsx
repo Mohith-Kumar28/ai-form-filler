@@ -102,7 +102,7 @@ function formatLabel(source: ProfileSourcesItem): string {
  * scaled into a 48px box is both expensive on a list of twenty and worse-looking than the format
  * name set properly. Links keep the favicon they already had.
  */
-function SourceTile({ source }: { source: ProfileSourcesItem }) {
+export function SourceTile({ source }: { source: ProfileSourcesItem }) {
   const [preview, setPreview] = useState<string | null>(null)
   const [failed, setFailed] = useState(false)
   const isImage = source.kind === 'image' && source.hasFile

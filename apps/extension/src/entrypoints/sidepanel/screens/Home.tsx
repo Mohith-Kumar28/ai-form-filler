@@ -242,7 +242,7 @@ export function Home({
               }
               body={
                 page.status === 'unavailable'
-                  ? 'This kind of page cannot be read. Browser pages and the Web Store are off limits.'
+                  ? 'This kind of page cannot be read.'
                   : `Nothing to fill on ${page.origin ?? 'this page'}. Open a form and it shows up here.`
               }
               action={

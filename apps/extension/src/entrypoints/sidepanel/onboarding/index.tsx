@@ -1,4 +1,5 @@
 import { type ReactNode, useEffect, useRef, useState } from 'react'
+import { useGetProfile } from '../../../generated/endpoints/profile/profile.js'
 import type { Account, Profile } from '../../../generated/model/index.js'
 import { factCount, reconcile } from '../../../lib/fact-catalog.js'
 import { formatCount, plural } from '../../../lib/format.js'
@@ -6,27 +7,26 @@ import { Button, type Expression, Mascot, Screen, ScreenBody, ScreenFooter } fro
 import { IconBack, IconCheck, IconMascot, IconSparkle } from '../icons.js'
 import { BASICS_REQUIRED, Basics, countBasics } from './basics.js'
 import { BlobBackdrop, BlobMascot, useMascotGaze } from './blob.js'
-import { Sources } from './sources.js'
+import { type SourceDraft, Sources } from './sources.js'
 import { STORY } from './story.js'
 
 /*
   First run, in eight screens.
 
-  The order is the argument. Five screens explain what the thing does — with the features
-  demonstrated rather than listed — and then two ask the user to do the work: answer the questions
+  The order is the argument. Five screens explain what the thing does, with the features
+  demonstrated rather than listed, and then two ask the user to do the work: answer the questions
   every form asks, and hand over something to read. The last one shows them what they have built.
 
-  Why in this order, and why the asking comes last: nobody hands over a résumé to a tool they have
-  not seen work, and nobody presses "Fill" on an empty profile and gets anything worth having. So
-  the flow spends its first half earning the right to ask, and its second half being asked. By the
-  end the account holds facts and sources, which is exactly the state in which the product's one
-  action — Fill — does something impressive rather than nothing.
+  Why in this order, and why the asking comes last: nobody hands over their own documents to a tool
+  they have not seen work, and nobody presses "Fill" on an empty profile and gets anything worth
+  having. So the flow spends its first half earning the right to ask, and its second half being
+  asked. By the end the account holds facts and sources, which is exactly the state in which the
+  product's one action does something impressive rather than nothing.
 
   It is also, deliberately, work the user does themselves. Someone who has typed their own notice
-  period and watched their own résumé being read has a profile they are attached to; that is the
+  period and watched their own document being read has a profile they are attached to; that is the
   same reason a flat-pack wardrobe you assembled is harder to throw out than one you bought built.
-  Nothing here is busywork — every field is one a form will ask — but the effort is the point as
-  much as the data is.
+  Nothing here is busywork, but the effort is the point as much as the data is.
 
   Money is not mentioned anywhere in here. Not once, not in passing: the panel says nothing about
   plans or prices until the first fill is attempted (see `usePaywallSeen`), and this flow ends one
@@ -112,14 +112,22 @@ function Tally({ value, label, tone }: { value: string; label: string; tone?: 'a
  * The last screen: what they built, in three numbers, and the one button that spends it.
  *
  * The numbers are read off the profile rather than counted as the user goes, so they are the same
- * numbers My info will show a minute from now. `characters read` is the one people react to — it is
- * the difference between "I gave it a link" and "it read my site".
+ * numbers Your info will show a minute from now. `read` is the one people react to: it is the
+ * difference between "I gave it a link" and "it read my site".
+ *
+ * Which is exactly why it may not say zero. An ingest takes several seconds and this screen is one
+ * button press away from the upload, so the honest answer while a source is still parsing is that
+ * we are reading it, not that we read nothing. The poll in `Onboarding` is what makes the number
+ * arrive here on its own.
  */
 function Done({ profile }: { profile: Profile | undefined }) {
   const reconciled = reconcile(profile ?? { identity: {}, custom: {} })
   const facts = factCount(reconciled)
   const sources = profile?.sources ?? []
   const read = sources.reduce((total, source) => total + (source.extractedChars ?? 0), 0)
+  const reading = sources.some(
+    (source) => source.status === 'pending' || source.status === 'parsing',
+  )
 
   return (
     <div className="text-center">
@@ -128,22 +136,25 @@ function Done({ profile }: { profile: Profile | undefined }) {
       <h1 className="mt-3 font-display text-xl font-bold tracking-[-0.02em] text-ink">
         That is everything I need
       </h1>
-      <p className="mx-auto mt-2 max-w-[32ch] text-sm leading-relaxed text-ink-muted">
-        Open a form and press Fill. I will answer what I can from this, mark anything I guessed, and
-        learn from whatever you change.
+      <p className="mx-auto mt-2 max-w-[30ch] text-sm leading-relaxed text-ink-muted">
+        Open a form and press Fill. I mark anything I guessed and learn from what you change.
       </p>
 
       <div className="mt-4 grid grid-cols-3 gap-2">
         <Tally value={String(facts)} label={plural(facts, 'fact', 'facts')} />
         <Tally value={String(sources.length)} label={plural(sources.length, 'source')} />
-        <Tally value={formatCount(read)} label="characters read" tone="accent" />
+        <Tally
+          value={reading && read === 0 ? '…' : formatCount(read)}
+          label={reading ? 'still reading' : 'characters read'}
+          tone="accent"
+        />
       </div>
 
       <ul className="mt-4 space-y-2 text-left">
         {[
-          'Click any field on any form — your answer is already there',
+          'Click any field and your answer is already there',
           'Press Fill for the whole form, long answers included',
-          'Add more about yourself any time in My info',
+          'Add more about yourself any time in Your info',
         ].map((line) => (
           <li key={line} className="flex items-start gap-2.5">
             <span className="mt-0.5 flex size-4 shrink-0 items-center justify-center rounded-full bg-positive-muted text-positive">
@@ -156,6 +167,8 @@ function Done({ profile }: { profile: Profile | undefined }) {
     </div>
   )
 }
+
+const NO_DRAFT: SourceDraft = { action: null, pending: false, submit: () => undefined }
 
 export function Onboarding({
   account,
@@ -178,6 +191,28 @@ export function Onboarding({
   const look = useMascotGaze(stage)
 
   /**
+   * The poll lives here, not on the step that starts the reading.
+   *
+   * A source takes several seconds to parse, and the screen that added it is one button press from
+   * the last screen, which puts the character count on a pedestal. While the poll belonged to the
+   * sources step it stopped the moment that step unmounted, so the count froze at whatever it was
+   * when the user moved on: nearly always zero, on a screen whose whole point is that number.
+   *
+   * Same query key the panel already holds, so this adds an interval rather than a request, and
+   * only while something is actually being read.
+   */
+  useGetProfile({
+    query: {
+      refetchInterval: (query) =>
+        (query.state.data?.sources ?? []).some(
+          (source) => source.status === 'pending' || source.status === 'parsing',
+        )
+          ? 2000
+          : false,
+    },
+  })
+
+  /**
    * How many of the basics are answered, as its own screen reports it.
    *
    * Held here because the footer is here: the button that gates on five filled fields cannot live
@@ -185,6 +220,15 @@ export function Onboarding({
    * profile so a returning user is not told to answer five questions they answered yesterday.
    */
   const [basicsFilled, setBasicsFilled] = useState(() => countBasics(profile))
+
+  /**
+   * The half-finished source on the sources step, so the footer can be the button that commits it.
+   *
+   * Every kind of source used to carry its own primary action inside its own card, directly above
+   * the flow's primary action in the footer. Two buttons, a few pixels apart, both asking to be
+   * pressed next.
+   */
+  const [draft, setDraft] = useState<SourceDraft>(NO_DRAFT)
 
   // Scroll to the top on every step. Without this, arriving at a short screen from a long one
   // starts you halfway down a blank page.
@@ -198,26 +242,44 @@ export function Onboarding({
 
   const next = () => (index === STEPS.length - 1 ? onFinish() : onStep(index + 1))
 
-  /** What the footer's one button says and whether it can be pressed. */
-  const action: { label: string; disabled?: boolean; note?: ReactNode } =
+  /** What the footer's one button says, whether it can be pressed, and what it does. */
+  const action: {
+    label: string
+    disabled?: boolean
+    loading?: boolean
+    note?: ReactNode
+    onClick?: () => void
+  } =
     current.kind === 'basics'
       ? {
           label: 'Next: something to read',
           disabled: basicsFilled < BASICS_REQUIRED,
           note:
             basicsFilled < BASICS_REQUIRED
-              ? `${BASICS_REQUIRED - basicsFilled} more ${plural(BASICS_REQUIRED - basicsFilled, 'answer')} and we are through the typing.`
+              ? `${BASICS_REQUIRED - basicsFilled} more to go.`
               : undefined,
         }
       : current.kind === 'sources'
-        ? {
-            label: sourceCount > 0 ? 'Done — see what I know' : 'Add one thing to carry on',
-            disabled: sourceCount === 0,
-            note:
-              sourceCount === 0
-                ? 'One file, link or note. Without something to read I can only answer the fields you typed above.'
-                : undefined,
-          }
+        ? /*
+            Adding comes before moving on.
+
+            While something is staged the footer adds it; once anything is added it moves on. The
+            two never compete, because there is only ever one button.
+          */
+          draft.action
+          ? {
+              label: draft.action,
+              loading: draft.pending,
+              onClick: draft.submit,
+              note: draft.error,
+            }
+          : {
+              label: sourceCount > 0 ? 'Done, see what I know' : 'Add one thing to carry on',
+              disabled: sourceCount === 0,
+              note:
+                draft.error ??
+                (sourceCount === 0 ? 'A file, a link, a note or a voice note.' : undefined),
+            }
         : current.kind === 'done'
           ? { label: 'Take me to my first form' }
           : { label: index === 0 ? 'Show me' : 'Next' }
@@ -240,10 +302,10 @@ export function Onboarding({
         {/*
           A way out that is not a dead end.
 
-          The two working steps gate their Continue button, and a gate with no bypass is a trap —
-          somebody who does not want to type their phone number into a browser panel on first
+          The two working steps gate their Continue button, and a gate with no bypass is a trap.
+          Somebody who does not want to type their phone number into a browser panel on first
           meeting is a user, not an obstacle. "Later" ends the flow and drops them on Fill, where
-          My info is one tab away. The story steps get "Skip" for the same reason.
+          Your info is one tab away. The story steps get "Skip" for the same reason.
         */}
         {current.kind !== 'done' && (
           <button
@@ -279,7 +341,7 @@ export function Onboarding({
               <h1 className="mt-4 text-center font-display text-2xl font-bold leading-tight tracking-[-0.02em] text-ink">
                 {story.title}
               </h1>
-              <p className="mx-auto mt-2.5 max-w-[34ch] text-center text-base leading-relaxed text-ink-muted">
+              <p className="mx-auto mt-2.5 max-w-[32ch] text-center text-base leading-relaxed text-ink-muted">
                 {story.body}
               </p>
               {story.demo}
@@ -290,8 +352,8 @@ export function Onboarding({
             <>
               <StepHeading
                 expression="happy"
-                title="Now — who are you?"
-                body="These are the questions every form asks. Answer five and I can start; the rest can wait."
+                title="Who are you?"
+                body="The questions every form asks. Five is enough to start."
               />
               <div className="mt-4">
                 <Basics account={account} profile={profile} onCountChange={setBasicsFilled} />
@@ -304,10 +366,10 @@ export function Onboarding({
               <StepHeading
                 expression="wow"
                 title="Give me something to read"
-                body="Your résumé is the best one. I pull out your history, your writing and how you describe your work — and use it for the questions no field can answer on its own."
+                body="Anything about you. I use it for the questions no field can answer."
               />
               <div className="mt-4">
-                <Sources />
+                <Sources onDraftChange={setDraft} />
               </div>
             </>
           )}
@@ -327,7 +389,8 @@ export function Onboarding({
           size="lg"
           block
           disabled={action.disabled}
-          onClick={next}
+          loading={action.loading}
+          onClick={action.onClick ?? next}
           autoFocus={current.kind === 'story'}
         >
           {current.kind === 'done' ? (

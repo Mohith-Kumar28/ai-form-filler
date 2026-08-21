@@ -640,66 +640,28 @@ export default defineContentScript({
     // into a progress pill with a stop button.
 
     /**
-     * The offer, in the page, at the moment it was refused.
+     * The offer, in the panel, and nowhere else.
      *
-     * Two things were wrong here. Its buttons were "Upgrade to Pro" and "Open panel", and both ran
-     * the same line of code — the upgrade took two further clicks that the label did not admit to.
-     * And it said "Monthly limit reached" to everyone, including somebody who has never had a plan
-     * and whose limit was therefore always zero: nothing was reached, they simply have not started.
-     */
-    function showUpgradePrompt(neverSubscribed: boolean) {
-      closeCard()
-      const anchor = launcher?.anchorRect() ?? firstFieldRect()
-      if (!anchor) return
-
-      card = mountMenuCard({
-        kind: 'menu',
-        anchor,
-        actions: [
-          {
-            id: 'checkout',
-            label: neverSubscribed ? 'Start 14-day free trial' : 'See plans',
-            glyph: 'sparkle',
-          },
-          { id: 'panel', label: 'Open panel', glyph: 'sparkle' },
-        ],
-        note: {
-          text: neverSubscribed
-            ? 'Your answers are ready. Start the free trial and it will fill this form.'
-            : 'No form fields left this month. Move up a plan to keep going.',
-          bad: true,
-        },
-        onSelect: (id) => {
-          closeCard()
-          if (id === 'checkout') {
-            void chrome.runtime
-              .sendMessage({ type: 'billing/checkout', trial: neverSubscribed })
-              .catch(() => undefined)
-          } else {
-            void chrome.runtime.sendMessage({ type: 'overlay/openPanel' }).catch(() => undefined)
-          }
-        },
-        onClose: closeCard,
-      })
-    }
-
-    /**
-     * The offer, in the panel, where there is room to make it.
+     * One press, one place. This used to hedge: it asked the worker to open the panel and, if the
+     * answer came back saying it had not, drew a second paywall over the user's own form — a card
+     * offering "Start free trial" *and* "Open panel", the second of which opened the panel that
+     * then showed the same offer again. So the common path was two prompts for one decision, and
+     * the in-page one asked the user to choose between two routes to the same screen.
      *
-     * `chrome.sidePanel.open` needs a user gesture, and a gesture does not survive a round trip
-     * to the API — so this must be reachable **without awaiting anything**, which is why the
-     * quota is cached in `quota` above rather than fetched on the click. If Chrome refuses to
-     * open the panel anyway, the in-page card is still there to catch the offer.
+     * The hedge existed because the panel often failed to open, and that was our bug rather than
+     * Chrome's: the worker wrote its note before calling `sidePanel.open`, and the await spent the
+     * click's gesture. Fixed there, so this can be what it always should have been: fire the
+     * request and let the panel say the rest.
+     *
+     * Still nothing is awaited before sending. `chrome.sidePanel.open` needs a live gesture, which
+     * is why the quota is cached in `quota` above rather than fetched on the click.
      */
     function openPaywall(): void {
       launcher?.reset()
-      const mode = offerFor(quota?.limit ?? 0)
+      closeCard()
       void chrome.runtime
-        .sendMessage({ type: 'overlay/paywall', mode })
-        .then((result: { ok?: boolean; value?: { opened?: boolean } } | undefined) => {
-          if (!result?.ok || !result.value?.opened) showUpgradePrompt(mode === 'trial')
-        })
-        .catch(() => showUpgradePrompt(mode === 'trial'))
+        .sendMessage({ type: 'overlay/paywall', mode: offerFor(quota?.limit ?? 0) })
+        .catch(() => undefined)
     }
 
     /**
