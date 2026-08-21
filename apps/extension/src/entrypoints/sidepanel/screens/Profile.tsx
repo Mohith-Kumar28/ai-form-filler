@@ -1,4 +1,4 @@
-import type { Settings } from '@aff/shared'
+import type { DeletionReport, Settings } from '@aff/shared'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useState } from 'react'
 import type { Account } from '../../../generated/model/index.js'
@@ -8,6 +8,7 @@ import { sendMessage } from '../../../lib/messaging.js'
 import { usePaywallSeen } from '../../../lib/paywall.js'
 import {
   Button,
+  DeleteAccountSheet,
   Mascot,
   ProBadge,
   SaveState,
@@ -19,7 +20,7 @@ import {
   Toggle,
   UsageBar,
 } from '../components.js'
-import { IconCrown, IconSignOut } from '../icons.js'
+import { IconCrown, IconSignOut, IconTrash } from '../icons.js'
 
 const PLAN_LABEL: Record<string, string> = { free: 'Free', pro: 'Pro', ultra: 'Ultra' }
 
@@ -64,9 +65,18 @@ function subscriptionNote(subscription: Account['subscription']): string | null 
 
 export function Profile({
   account,
+  sourceCount = 0,
   onReplayTour,
+  onDeleted,
 }: {
   account: Account
+  /**
+   * How many sources are on the account, for the deletion dialog's itemised list.
+   *
+   * Passed down rather than queried here: `Stack` already holds the profile, and a second
+   * subscription to it would only exist to count an array this screen is handed anyway.
+   */
+  sourceCount?: number
   /**
    * Runs the first-run flow again.
    *
@@ -76,6 +86,15 @@ export function Profile({
    * the alternative is clearing the extension's storage.
    */
   onReplayTour?: () => void
+  /**
+   * Hands the deletion receipt up to `App`, which renders it above the signed-in gate.
+   *
+   * It has to leave this screen to be seen at all: a successful deletion clears the session
+   * token, and every context watching that key — see `onSessionEnded` — swaps to the welcome
+   * screen, taking this component and its dialog with it. Optional for the same reason
+   * `onReplayTour` is: the review gallery renders this screen with no app behind it.
+   */
+  onDeleted?: (report: DeletionReport) => void
 }) {
   const queryClient = useQueryClient()
   const { plan } = account.quota
@@ -99,6 +118,28 @@ export function Profile({
     onSuccess: () => {
       queryClient.setQueryData(['session'], false)
       queryClient.clear()
+    },
+  })
+
+  const [confirmingDelete, setConfirmingDelete] = useState(false)
+
+  const deleteAccount = useMutation({
+    mutationFn: async (confirmEmail: string) => {
+      const result = await sendMessage({ type: 'account/delete', confirmEmail })
+      if (!result.ok) throw Object.assign(new Error(result.error.message), result.error)
+      return result.value
+    },
+    onSuccess: (report) => {
+      /*
+        The sheet closes and the caches go before the receipt is handed up, so nothing repaints
+        the deleted account in the frame between the two. The token is already gone by now — the
+        service worker cleared storage — so this tree is about to be replaced regardless; doing it
+        in this order means it is never replaced by a stale copy of what was just deleted.
+      */
+      setConfirmingDelete(false)
+      queryClient.setQueryData(['session'], false)
+      queryClient.clear()
+      onDeleted?.(report)
     },
   })
 
@@ -299,8 +340,47 @@ export function Profile({
               {signOut.error.message}
             </p>
           )}
+
+          {/*
+            Below sign-out, and visibly quieter than it.
+            
+            Sign-out is the thing almost everybody who opens this section actually wants, and the
+            two are one careless click apart. So this one is set off by its own divider and reads
+            as a different kind of action rather than the next item in a list — the ordering and the
+            gap are the first line of defence, before the three-step dialog is ever reached.
+          */}
+          <div className="mt-4 border-t border-border-muted pt-4">
+            <button
+              type="button"
+              onClick={() => setConfirmingDelete(true)}
+              className="flex min-h-row w-full items-center gap-3 rounded-2xl px-4 text-left transition-colors hover:bg-danger-muted"
+            >
+              <IconTrash className="size-4 shrink-0 text-danger" />
+              <span className="min-w-0 flex-1">
+                <span className="block text-base font-medium text-danger">Delete account</span>
+                <span className="block text-xs text-ink-dim">
+                  Erases everything, permanently. This cannot be undone.
+                </span>
+              </span>
+            </button>
+          </div>
         </div>
       </ScreenBody>
+
+      {confirmingDelete && (
+        <DeleteAccountSheet
+          email={account.email}
+          sourceCount={sourceCount}
+          hasSubscription={account.subscription != null}
+          pending={deleteAccount.isPending}
+          error={deleteAccount.error?.message}
+          onConfirm={(confirmEmail) => deleteAccount.mutate(confirmEmail)}
+          onCancel={() => {
+            setConfirmingDelete(false)
+            deleteAccount.reset()
+          }}
+        />
+      )}
     </Screen>
   )
 }

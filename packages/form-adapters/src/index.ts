@@ -2,12 +2,14 @@ import type { FormSchema } from '@aff/shared'
 import { AtsAdapter } from './ats.js'
 import { GenericAdapter } from './generic.js'
 import { GoogleFormsAdapter } from './google-forms.js'
+import { isActualForm } from './substance.js'
 import type { DetectionResult, FormAdapter } from './types.js'
 
 export { AtsAdapter } from './ats.js'
 export { GenericAdapter } from './generic.js'
 export { GoogleFormsAdapter } from './google-forms.js'
 export * from './label.js'
+export * from './substance.js'
 export * from './types.js'
 export * from './write.js'
 
@@ -71,5 +73,5 @@ export function detectPageForm(doc: Document, url: URL): DetectionResult | null 
     fields: primary.fields.map((f) => f.schema),
   }
 
-  return { form, elements, adapter }
+  return { form, elements, adapter, actualForm: isActualForm(primary.fields) }
 }

@@ -210,3 +210,30 @@ export const learnedPointers = sqliteTable(
   },
   (t) => [primaryKey({ columns: [t.userId, t.questionHash] })],
 )
+
+/**
+ * Subscriptions left running at Dodo after the account behind them was deleted.
+ *
+ * A deletion is never blocked by a failed cancellation — see the migration, and
+ * `cancelSubscriptionForDeletion`. That decision is only defensible because of this table: the
+ * user is told they will not be charged again, and this is what makes that true rather than
+ * hopeful. A row here is money still leaving somebody's card, so it is worth checking:
+ *
+ *   pnpm db:query "SELECT * FROM abandoned_subscriptions"
+ *
+ * No `userId`, and no foreign key. The user row is already gone when this is written, so a key
+ * would make the insert fail — and holding Dodo's identifiers rather than anything about the
+ * person is what lets the row outlive the deletion without being a copy of it.
+ */
+export const abandonedSubscriptions = sqliteTable(
+  'abandoned_subscriptions',
+  {
+    dodoSubscriptionId: text('dodo_subscription_id').primaryKey(),
+    dodoCustomerId: text('dodo_customer_id').notNull(),
+    /** Dodo's refusal, verbatim, so the failure can be diagnosed rather than guessed at. */
+    lastError: text('last_error').notNull(),
+    attempts: integer('attempts').notNull().default(1),
+    createdAt: integer('created_at').notNull(),
+  },
+  (t) => [index('abandoned_subscriptions_created_idx').on(t.createdAt)],
+)

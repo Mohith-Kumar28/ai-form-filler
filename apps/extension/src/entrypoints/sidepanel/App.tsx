@@ -1,6 +1,7 @@
+import type { DeletionReport } from '@aff/shared'
 import { isAuthError } from '@aff/shared/constants'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useGetAccount } from '../../generated/endpoints/account/account.js'
 import { useGetProfile } from '../../generated/endpoints/profile/profile.js'
 import type { Account } from '../../generated/model/index.js'
@@ -12,6 +13,7 @@ import { onSessionEnded } from '../../lib/session.js'
 import { useActivePage } from '../../lib/use-active-page.js'
 import { useFill } from '../../lib/use-fill.js'
 import {
+  DeletedFarewell,
   Screen,
   ScreenBody,
   ScreenHeader,
@@ -118,7 +120,7 @@ function PageRequestedPaywall({
   )
 }
 
-function Stack() {
+function Stack({ onAccountDeleted }: { onAccountDeleted: (report: DeletionReport) => void }) {
   const nav = useNavigation()
   const account = useGetAccount({
     query: { refetchInterval: 5000 },
@@ -199,7 +201,14 @@ function Stack() {
   function render() {
     switch (screen.name) {
       case 'account':
-        return <Profile account={accountData} onReplayTour={onboarding.restart} />
+        return (
+          <Profile
+            account={accountData}
+            sourceCount={profile.data?.sources?.length ?? 0}
+            onReplayTour={onboarding.restart}
+            onDeleted={onAccountDeleted}
+          />
+        )
 
       case 'yourInfo':
         // Facts is the default half: what it knows is what people come here to check.
@@ -277,12 +286,27 @@ function Stack() {
 export function App() {
   const session = useSignedIn()
 
+  /**
+   * The deletion receipt, held here and nowhere lower down.
+   *
+   * A finished deletion clears the session token, which every context watching that key reads as
+   * the session ending — so the signed-in tree, including the dialog that asked for the deletion,
+   * is replaced by `Welcome` in the same tick the request succeeds. `App` survives that swap
+   * because it is the component doing the swapping, which makes it the only place a message about
+   * what just happened can outlive the thing that caused it.
+   *
+   * Checked before the signed-out branch on purpose: by the time there is a report to show, the
+   * session is already gone, so a `Welcome` screen returned first would win every time.
+   */
+  const [farewell, setFarewell] = useState<DeletionReport | null>(null)
+
   if (session.isPending) return <div className="h-full bg-surface" />
+  if (farewell) return <DeletedFarewell report={farewell} onDismiss={() => setFarewell(null)} />
   if (!session.data) return <Welcome />
 
   return (
     <NavigationProvider>
-      <Stack />
+      <Stack onAccountDeleted={setFarewell} />
     </NavigationProvider>
   )
 }

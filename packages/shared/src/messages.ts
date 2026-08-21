@@ -1,4 +1,4 @@
-import type { Account } from './account.js'
+import type { Account, DeletionReport } from './account.js'
 import type { ApiError } from './api.js'
 import type { FeedbackRequest, FillPlan } from './fill.js'
 import type { FormSchema } from './form.js'
@@ -32,6 +32,21 @@ export type Request =
    *
    * A port cannot fail that way. Its disconnect *is* the signal, and cancelling is closing it.
    */
+  /**
+   * Delete the account and everything in it, permanently.
+   *
+   * Routed through the service worker rather than called from the panel, for the same reason
+   * sign-out is: the local teardown afterwards involves `chrome.identity`, which the panel
+   * cannot reach. It is also the ordering that makes the operation survivable — the API call and
+   * the local wipe have to happen in that order and without a surface in between that can close
+   * mid-flight, and a side panel closes whenever the user clicks the page.
+   *
+   * `confirmEmail` is the user's typed confirmation, forwarded untouched. The worker does not
+   * check it and neither does the panel's dialog alone — the server compares it against the
+   * account it is about to erase, so the check cannot be skipped by anything that reaches the
+   * endpoint another way.
+   */
+  | { type: 'account/delete'; confirmEmail: string }
   /** The chip's Review action, opening the panel on the judgement calls. */
   | { type: 'overlay/openPanel' }
   /** Request known facts (identity + custom) for instant inline suggestions. */
@@ -130,39 +145,45 @@ export type Request =
  */
 export type ResponseFor<R extends Request> = R extends { type: 'auth/signIn' }
   ? Account
-  : R extends { type: 'overlay/paywall' }
+  : R extends { type: 'account/delete' }
     ? /**
-       * Whether the panel actually opened.
-       *
-       * `chrome.sidePanel.open` needs a user gesture, and the hop from a click in a page to the
-       * service worker is one the browser may decide has spent it. The page has to be told, or a
-       * refused fill would end in nothing at all — which is the failure this message exists to
-       * remove.
+       * The receipt. See `DeletionReport` — the account that could answer any follow-up question
+       * no longer exists, so what comes back here is the only account of what happened.
        */
-      { opened: boolean }
-    : R extends { type: 'feedback/submit' }
+      DeletionReport
+    : R extends { type: 'overlay/paywall' }
       ? /**
-         * How much of what was reported actually landed — identity fields written, answers
-         * stored, rejections recorded.
+         * Whether the panel actually opened.
          *
-         * This used to be discarded. Learning was then unfalsifiable from the outside: the user
-         * corrected an answer, nothing acknowledged it, and the only way to find out whether it
-         * had been remembered was to fill another form days later and see. When it silently
-         * failed — a dead session, a validation error on one entry taking the batch with it — the
-         * product looked like it had simply chosen not to learn.
+         * `chrome.sidePanel.open` needs a user gesture, and the hop from a click in a page to the
+         * service worker is one the browser may decide has spent it. The page has to be told, or a
+         * refused fill would end in nothing at all — which is the failure this message exists to
+         * remove.
          */
-        { recorded: number }
-      : R extends { type: 'fill/improve' }
-        ? { value: string }
-        : R extends { type: 'profile/knownFacts' }
-          ? { identity: Identity; custom: Record<string, string> } | null
-          : R extends { type: 'account/quota' }
-            ? { used: number; limit: number; plan: string; exhausted: boolean }
-            : R extends { type: 'settings/get' }
-              ? Settings
-              : R extends { type: 'overlay/shortcut' }
-                ? { label: string | null }
-                : null
+        { opened: boolean }
+      : R extends { type: 'feedback/submit' }
+        ? /**
+           * How much of what was reported actually landed — identity fields written, answers
+           * stored, rejections recorded.
+           *
+           * This used to be discarded. Learning was then unfalsifiable from the outside: the user
+           * corrected an answer, nothing acknowledged it, and the only way to find out whether it
+           * had been remembered was to fill another form days later and see. When it silently
+           * failed — a dead session, a validation error on one entry taking the batch with it — the
+           * product looked like it had simply chosen not to learn.
+           */
+          { recorded: number }
+        : R extends { type: 'fill/improve' }
+          ? { value: string }
+          : R extends { type: 'profile/knownFacts' }
+            ? { identity: Identity; custom: Record<string, string> } | null
+            : R extends { type: 'account/quota' }
+              ? { used: number; limit: number; plan: string; exhausted: boolean }
+              : R extends { type: 'settings/get' }
+                ? Settings
+                : R extends { type: 'overlay/shortcut' }
+                  ? { label: string | null }
+                  : null
 
 /** Discriminated result so callers never have to guess whether a throw or a value came back. */
 export type Result<T> = { ok: true; value: T } | { ok: false; error: ApiError }

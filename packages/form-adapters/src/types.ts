@@ -59,4 +59,12 @@ export interface DetectionResult {
    * navigated in between.
    */
   adapter: FormAdapter
+  /**
+   * Whether this is a form a person would call a form, rather than a stray control.
+   *
+   * Separate from `form.fields.length > 0` on purpose, and consulted only by the parts of the
+   * UI that appear **uninvited**. A fill the user asked for should still reach a lone field;
+   * the launcher must not show up beside one. See `isActualForm`.
+   */
+  actualForm: boolean
 }

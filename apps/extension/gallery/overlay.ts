@@ -24,6 +24,10 @@ import './stub-chrome.js'
  *   `?only=marks` mounts the field marks and nothing else. The cards are anchored to the very
  *               fields the judged marks sit on, so with everything up at once the provenance
  *               tabs are underneath a popover and cannot be reviewed at all.
+ *   `?only=answer` mounts the answer card without the launcher's menu over its top corner. The
+ *               menu is anchored two fields above and its shadow lands on the card, which is
+ *               harmless when you are reviewing behaviour and not when something is cropping
+ *               to the card's own bounds — see `window.__overlayRects` below.
  */
 
 const params = new URLSearchParams(location.search)
@@ -34,9 +38,13 @@ const rectOf = (element: HTMLElement) => {
   return { top: box.top, left: box.left, width: box.width, height: box.height }
 }
 
+/** What got mounted, by name. Read back out through `window.__overlayRects` at the bottom. */
+const mounted = new Map<string, HTMLElement>()
+
 const only = params.get('only')
 const marksOnly = only === 'marks'
 const suggestOnly = only === 'suggest'
+const answerOnly = only === 'answer'
 
 /**
  * The inline suggestion, on the one empty field.
@@ -69,20 +77,23 @@ const launcher = mountLauncher({
 launcher.setFieldCount(12)
 
 // The launcher's menu, anchored near a field.
-if (!marksOnly && !suggestOnly)
-  mountMenuCard({
-    kind: 'menu',
-    anchor: rectOf(field('auth')),
-    question: 'Do you require visa sponsorship?',
-    actions: [
-      { id: 'field', label: 'Fill this field', glyph: 'sparkle' },
-      { id: 'form', label: 'Fill all 12 fields', glyph: 'form' },
-      { id: 'panel', label: 'Open the panel', glyph: 'panel' },
-      { id: 'mute', label: 'Not on this site', glyph: 'mute' },
-    ],
-    onSelect: () => undefined,
-    onClose: () => undefined,
-  })
+if (!marksOnly && !suggestOnly && !answerOnly)
+  mounted.set(
+    'menu',
+    mountMenuCard({
+      kind: 'menu',
+      anchor: rectOf(field('auth')),
+      question: 'Do you require visa sponsorship?',
+      actions: [
+        { id: 'field', label: 'Fill this field', glyph: 'sparkle' },
+        { id: 'form', label: 'Fill all 12 fields', glyph: 'form' },
+        { id: 'panel', label: 'Open the panel', glyph: 'panel' },
+        { id: 'mute', label: 'Not on this site', glyph: 'mute' },
+      ],
+      onSelect: () => undefined,
+      onClose: () => undefined,
+    }).element,
+  )
 
 /**
  * Field marks, one per state.
@@ -128,7 +139,7 @@ if (marksOnly || suggestOnly) {
       ? Array.from({ length: 40 }, (_, index) => `Option ${index + 1}`)
       : ['iOS', 'Android', 'Web']
 
-  mountAnswerCard({
+  const chooser = mountAnswerCard({
     kind: 'answer',
     anchor: rectOf(field('hear')),
     anchorElement: field('hear'),
@@ -144,6 +155,7 @@ if (marksOnly || suggestOnly) {
     onClear: () => undefined,
     onClose: () => undefined,
   })
+  mounted.set('answer', chooser.element)
 } else {
   const card = mountAnswerCard({
     kind: 'answer',
@@ -164,6 +176,7 @@ if (marksOnly || suggestOnly) {
     onClear: () => undefined,
     onClose: () => undefined,
   })
+  mounted.set('answer', card.element)
 
   // Drive the card into the requested state, the same way a person would.
   const press = (selector: string) =>
@@ -188,3 +201,23 @@ if (marksOnly || suggestOnly) {
 for (const delay of [0, 120, 400]) {
   setTimeout(() => positionScheduler.requestMeasure(), delay)
 }
+
+/**
+ * Where everything ended up, published for whatever is holding the camera.
+ *
+ * The overlay mounts into a **closed** shadow root, which is correct — a card injected into
+ * somebody else's application form should not be reachable from that page's own scripts. The
+ * cost is that nothing outside this module can measure what was mounted, so a tool that wants
+ * to crop an image to the answer card's exact bounds has no way to ask where the card is, and
+ * has to guess from the anchor field instead. Those guesses go stale silently: the crop still
+ * produces a picture, just one with half a card in it.
+ *
+ * So the harness says. Read from `store-assets/build.mjs`, which crops the store listing's
+ * artwork to these rectangles. Nothing in the extension reads it and nothing should — this is
+ * a review harness talking to a build script, on a page that never ships.
+ */
+setTimeout(() => {
+  const rects: Record<string, DOMRect> = {}
+  for (const [name, element] of mounted) rects[name] = element.getBoundingClientRect()
+  Object.assign(window as unknown as Record<string, unknown>, { __overlayRects: rects })
+}, 700)

@@ -222,17 +222,31 @@ export function Sources() {
         <p className="mt-1 text-2xs leading-snug text-ink-dim">
           PDF, Word, slides, images, audio. It is read once and kept as text.
         </p>
-        <input
-          type="file"
-          aria-label="Choose a file"
-          accept={ACCEPT}
-          disabled={add.isPending}
-          onChange={(event) => {
-            const file = event.currentTarget.files?.[0]
-            if (file) add.mutate(file)
-          }}
-          className="mt-3 w-full text-xs text-ink-muted file:mr-2 file:rounded-full file:border file:border-border file:bg-surface-raised file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-ink"
-        />
+        {/*
+          Our own button, with the native control hidden inside it — see the same pattern, and
+          the reasoning, in `AddSource.tsx`. A native file input renders a "No file chosen"
+          label beside its button and a box wider than both, so it cannot be centred under a
+          centred heading; here it was `w-full` and sat hard against the left edge.
+        */}
+        <label
+          className={`mt-3 inline-flex min-h-8 items-center rounded-full border border-border bg-surface-raised px-3.5 text-xs font-semibold text-ink transition-colors focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-accent ${
+            add.isPending
+              ? 'pointer-events-none opacity-45'
+              : 'cursor-pointer hover:border-ink/30 hover:bg-surface-muted'
+          }`}
+        >
+          {add.isPending ? 'Reading…' : 'Choose file'}
+          <input
+            type="file"
+            accept={ACCEPT}
+            disabled={add.isPending}
+            onChange={(event) => {
+              const file = event.currentTarget.files?.[0]
+              if (file) add.mutate(file)
+            }}
+            className="sr-only"
+          />
+        </label>
       </div>
 
       <div className="mt-2.5 grid grid-cols-3 gap-2">

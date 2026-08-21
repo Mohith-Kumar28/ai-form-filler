@@ -34,6 +34,7 @@ import {
   IconMore,
   IconSearch,
   IconSparkle,
+  IconTrash,
   IconUser,
 } from './icons.js'
 import { type TabName, useNavigation } from './navigation.js'
@@ -891,14 +892,21 @@ export function ConfirmSheet({
         aria-label={title}
         className="pop relative rounded-t-2xl border-t border-border bg-surface-raised px-gutter pb-4 pt-4 shadow-[0_-8px_24px_-12px_var(--color-shadow-strong)]"
       >
-        <h2 className="font-display text-lg font-bold text-ink">{title}</h2>
+        <h2 className="font-display text-lg font-bold break-words text-ink">{title}</h2>
         <div className="mt-1.5 text-sm leading-relaxed text-ink-muted">{body}</div>
         {error && (
           <p role="alert" className="mt-2.5 text-xs leading-snug text-danger">
             {error}
           </p>
         )}
-        <div className="mt-4 flex gap-2">
+        {/*
+          A grid, not a flex row. `block` on a Button is `w-full`, and the base class is
+          `shrink-0` — so two of them side by side in a flex row each demanded the full width and
+          refused to give any back, overflowing the sheet by its own width and leaving a
+          horizontal scrollbar with the confirm button hanging off the right edge. Grid tracks
+          size the buttons instead of the buttons sizing the row.
+        */}
+        <div className="mt-4 grid grid-cols-2 gap-2">
           <Button variant="ghost" block onClick={onCancel} disabled={pending} data-autofocus>
             Cancel
           </Button>
@@ -907,6 +915,367 @@ export function ConfirmSheet({
           </Button>
         </div>
       </div>
+    </div>
+  )
+}
+
+/* ── Delete account ──────────────────────────────────────────────────────── */
+
+/**
+ * The three gates in front of deleting an account, and why there are three of them.
+ *
+ * Every other destructive action in this product is one `ConfirmSheet` away, which is the right
+ * weight for removing a source: the user can add it back. This one cannot be undone by anybody —
+ * not by us, not by support, not by signing in again — so the friction is the feature. Each step
+ * asks for something different, which is what stops it being the same question three times:
+ *
+ *   1. **`warn`** — do you mean this? Dismissible by anything, including Escape and the backdrop.
+ *   2. **`detail`** — do you know what it includes? An itemised list of what goes, drawn from the
+ *      real account rather than written in the abstract, and a box to tick. A checkbox because it
+ *      cannot be satisfied by the muscle memory that carried them through step 1.
+ *   3. **`confirm`** — type your own email address. Slow, specific to this account, and
+ *      impossible to complete by accident. The server checks it again for the same reason.
+ *
+ * Back is available at every step and cancel never stops being available, including while the
+ * request is in flight — the button disables, the exit does not.
+ */
+type DeleteStep = 'warn' | 'detail' | 'confirm'
+
+export function DeleteAccountSheet({
+  email,
+  sourceCount,
+  hasSubscription,
+  pending = false,
+  error,
+  onConfirm,
+  onCancel,
+}: {
+  email: string
+  /** Sources on the account, so step 2 counts what is actually there rather than gesturing. */
+  sourceCount: number
+  /** Whether there is a subscription to cancel, which decides one line of step 2. */
+  hasSubscription: boolean
+  pending?: boolean
+  error?: string
+  onConfirm: (confirmEmail: string) => void
+  onCancel: () => void
+}) {
+  const panel = useRef<HTMLDivElement>(null)
+  const [step, setStep] = useState<DeleteStep>('warn')
+  const [understood, setUnderstood] = useState(false)
+  const [typed, setTyped] = useState('')
+
+  /**
+   * The same comparison the server makes, and it has to stay that way: a panel that enables the
+   * button on a stricter rule than the API's would reject what the API would accept, and on a
+   * looser one would send a request that comes back as an error the user cannot see the cause of.
+   */
+  const matches = typed.trim().toLowerCase() === email.trim().toLowerCase()
+
+  useEffect(() => {
+    const previous = document.activeElement as HTMLElement | null
+
+    const onKey = (event: KeyboardEvent) => {
+      /*
+        Escape closes, but not mid-request. The request is already with the server by then and
+        cannot be recalled; closing would only take away the surface that reports what happened.
+      */
+      if (event.key === 'Escape' && !pending) {
+        event.stopPropagation()
+        onCancel()
+        return
+      }
+      if (event.key !== 'Tab') return
+
+      const focusable = panel.current?.querySelectorAll<HTMLElement>(
+        'button:not([disabled]), input:not([disabled])',
+      )
+      if (!focusable?.length) return
+
+      const first = focusable[0]
+      const last = focusable[focusable.length - 1]
+      if (!first || !last) return
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault()
+        last.focus()
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault()
+        first.focus()
+      }
+    }
+
+    document.addEventListener('keydown', onKey, true)
+    return () => {
+      document.removeEventListener('keydown', onKey, true)
+      previous?.focus?.()
+    }
+  }, [onCancel, pending])
+
+  /**
+   * Focus moves to the *safe* control on every step, not the destructive one.
+   *
+   * Step 3 is the exception and takes the text field instead, because there the destructive
+   * button is unreachable until something has been typed into it — so the field is both the
+   * safe target and the only useful one.
+   */
+  useEffect(() => {
+    const node = panel.current
+    if (!node) return
+    const target =
+      step === 'confirm'
+        ? node.querySelector<HTMLElement>('input')
+        : node.querySelector<HTMLElement>('[data-autofocus]')
+    target?.focus()
+  }, [step])
+
+  const title =
+    step === 'warn'
+      ? 'Delete your account?'
+      : step === 'detail'
+        ? 'What gets deleted'
+        : 'Confirm with your email'
+
+  return (
+    <div className="absolute inset-0 z-20 flex flex-col justify-end">
+      <button
+        type="button"
+        aria-label="Cancel"
+        tabIndex={-1}
+        onClick={() => {
+          if (!pending) onCancel()
+        }}
+        className="absolute inset-0 cursor-default bg-ink/35"
+      />
+      <div
+        ref={panel}
+        role="alertdialog"
+        aria-modal="true"
+        aria-label={title}
+        className="pop relative max-h-full overflow-y-auto rounded-t-2xl border-t border-border bg-surface-raised px-gutter pb-4 pt-4 shadow-[0_-8px_24px_-12px_var(--color-shadow-strong)]"
+      >
+        <div className="flex items-center gap-2.5">
+          <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-danger-muted">
+            <IconAlert className="size-4 text-danger" />
+          </span>
+          <div className="min-w-0">
+            <h2 className="font-display text-lg font-bold tracking-[-0.02em] break-words text-ink">
+              {title}
+            </h2>
+            {/*
+              A step counter, because "how many more of these are there" is the question a
+              multi-step confirmation otherwise leaves the user guessing at — and guessing makes
+              people click faster, which is the opposite of the point.
+            */}
+            <p className="text-xs text-ink-dim">
+              Step {step === 'warn' ? 1 : step === 'detail' ? 2 : 3} of 3
+            </p>
+          </div>
+        </div>
+
+        {step === 'warn' && (
+          <div className="mt-3 space-y-2 text-sm leading-relaxed text-ink-muted">
+            <p>
+              This deletes <span className="font-semibold text-ink">{email}</span> and everything in
+              it, everywhere. It cannot be undone, and we cannot get any of it back for you.
+            </p>
+            <p>
+              If you only want to stop using Fillaform for a while, signing out leaves everything
+              exactly as it is.
+            </p>
+          </div>
+        )}
+
+        {step === 'detail' && (
+          <>
+            <ul className="mt-3 space-y-2 text-sm leading-relaxed text-ink-muted">
+              <DeleteItem>
+                {sourceCount > 0
+                  ? `Your ${plural(sourceCount, 'source')} and the original files behind them — résumés, recordings, links, everything uploaded.`
+                  : 'Any sources and original files on the account.'}
+              </DeleteItem>
+              <DeleteItem>
+                Your profile, your facts, and every answer Fillaform has learned from you.
+              </DeleteItem>
+              <DeleteItem>
+                Your history: which forms were filled, when, and what they cost.
+              </DeleteItem>
+              <DeleteItem>
+                {hasSubscription
+                  ? 'Your subscription, cancelled immediately. You will not be charged again.'
+                  : 'Your billing record. There is no active subscription to cancel.'}
+              </DeleteItem>
+              <DeleteItem>
+                Your sign-in, on this browser and every other device you are signed in on.
+              </DeleteItem>
+            </ul>
+
+            {/*
+              A real checkbox, not a styled div: it has to be reachable by Tab and toggleable by
+              Space in a dialog whose whole purpose is to be hard to get through without reading.
+            */}
+            <label className="mt-3.5 flex cursor-pointer items-start gap-2.5 rounded-xl border border-border-muted bg-surface p-3">
+              <input
+                type="checkbox"
+                checked={understood}
+                onChange={(event) => setUnderstood(event.target.checked)}
+                className="mt-0.5 size-4 shrink-0 accent-[var(--color-danger)]"
+              />
+              <span className="text-sm leading-snug text-ink">
+                I understand this is permanent and cannot be undone.
+              </span>
+            </label>
+          </>
+        )}
+
+        {step === 'confirm' && (
+          <div className="mt-3">
+            <p className="text-sm leading-relaxed text-ink-muted">
+              Type <span className="font-semibold text-ink">{email}</span> to confirm.
+            </p>
+            <Input
+              type="email"
+              value={typed}
+              onChange={(event) => setTyped(event.target.value)}
+              disabled={pending}
+              placeholder={email}
+              autoComplete="off"
+              autoCapitalize="off"
+              spellCheck={false}
+              aria-label="Your email address"
+              className="mt-2.5"
+            />
+          </div>
+        )}
+
+        {error && (
+          <p role="alert" className="mt-2.5 text-xs leading-snug text-danger">
+            {error}
+          </p>
+        )}
+
+        {/*
+          Grid, not a flex row — `Button block` is `w-full` and `shrink-0`, so two side by side in
+          a flex row each demand the full width and overflow the sheet. Same reason as
+          `ConfirmSheet`, which learned it the hard way.
+        */}
+        <div className="mt-4 grid grid-cols-2 gap-2">
+          {step === 'warn' ? (
+            <>
+              <Button variant="ghost" block onClick={onCancel} data-autofocus>
+                Keep my account
+              </Button>
+              <Button variant="danger" block onClick={() => setStep('detail')}>
+                Continue
+              </Button>
+            </>
+          ) : step === 'detail' ? (
+            <>
+              <Button variant="ghost" block onClick={() => setStep('warn')} data-autofocus>
+                Back
+              </Button>
+              <Button
+                variant="danger"
+                block
+                disabled={!understood}
+                onClick={() => setStep('confirm')}
+              >
+                Continue
+              </Button>
+            </>
+          ) : (
+            <>
+              <Button variant="ghost" block onClick={() => setStep('detail')} disabled={pending}>
+                Back
+              </Button>
+              <Button
+                variant="danger"
+                block
+                disabled={!matches}
+                loading={pending}
+                onClick={() => onConfirm(typed)}
+              >
+                {pending ? 'Deleting…' : 'Delete everything'}
+              </Button>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function DeleteItem({ children }: { children: ReactNode }) {
+  return (
+    <li className="flex items-start gap-2">
+      <IconTrash className="mt-0.5 size-3.5 shrink-0 text-danger" />
+      <span>{children}</span>
+    </li>
+  )
+}
+
+/**
+ * The receipt, shown once the account is gone.
+ *
+ * Rendered above the signed-in gate rather than inside the panel it came from, because by the
+ * time it has anything to say the session is over and the whole signed-in tree has been replaced
+ * by the welcome screen. Without that hoist, the moment of success is the moment the dialog
+ * reporting it gets unmounted — the user clicks "Delete everything" and lands on a sign-in
+ * screen, with no way to tell a completed deletion from a crash.
+ *
+ * It states counts because they are the only evidence the user will ever be able to get. The
+ * account that could answer a follow-up question no longer exists.
+ */
+export function DeletedFarewell({
+  report,
+  onDismiss,
+}: {
+  report: { documents: number; files: number; subscription: 'none' | 'cancelled' | 'pending' }
+  onDismiss: () => void
+}) {
+  return (
+    <div className="flex h-full flex-col items-center justify-center gap-4 bg-surface px-8 text-center">
+      <Mascot size={56} expression="flat" />
+      <div>
+        <h1 className="font-display text-xl font-bold tracking-[-0.02em] text-ink">
+          Your account is deleted
+        </h1>
+        <p className="mt-1.5 text-sm leading-relaxed text-ink-muted">
+          Nothing of yours is left on our servers.
+        </p>
+      </div>
+
+      <ul className="w-full space-y-1.5 rounded-2xl border border-border-muted bg-surface-raised p-3.5 text-left text-sm text-ink-muted">
+        <li>
+          {report.documents} stored {plural(report.documents, 'document')} deleted
+        </li>
+        <li>
+          {report.files} uploaded {plural(report.files, 'file')} deleted
+        </li>
+        {/*
+          Billing gets a line only when there is something reassuring to say, and never a line
+          about our own plumbing.
+
+          `none` prints nothing: telling somebody who never subscribed that they had no
+          subscription to cancel is a sentence that exists purely because the code had a third
+          branch. `pending` promises the outcome rather than describing the fault — the user does
+          not need to hear that a PATCH to our payment provider failed, they need to know they are
+          not going to be charged, and finishing that is our job.
+        */}
+        {report.subscription === 'cancelled' && (
+          <li>Subscription cancelled — you will not be charged again</li>
+        )}
+        {report.subscription === 'pending' && (
+          <li>Your subscription is being cancelled — you will not be charged again</li>
+        )}
+      </ul>
+
+      <p className="text-xs leading-relaxed text-ink-dim">
+        You are welcome back any time. Signing in again starts a new, empty account.
+      </p>
+
+      <Button variant="secondary" onClick={onDismiss}>
+        Close
+      </Button>
     </div>
   )
 }

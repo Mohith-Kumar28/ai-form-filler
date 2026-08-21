@@ -2,7 +2,7 @@ import type { Request } from '@aff/shared'
 import { getAccount } from '../generated/endpoints/account/account.js'
 import { improveAnswer, submitFeedback } from '../generated/endpoints/fill/fill.js'
 import { getProfile } from '../generated/endpoints/profile/profile.js'
-import { hasSession, signIn, signOut } from '../lib/auth.js'
+import { deleteAccount, hasSession, signIn, signOut } from '../lib/auth.js'
 import { openTrial, openUpgrade } from '../lib/billing.js'
 import { LAST_FILL_KEY, registerFillPort } from '../lib/fill-port.js'
 import { toResult } from '../lib/messaging.js'
@@ -124,6 +124,16 @@ export default defineBackground(() => {
           await signOut()
           return null
         }).then(sendResponse)
+        return true
+
+      /**
+       * Erase the account. The worker owns it because the teardown afterwards touches
+       * `chrome.identity`, which the side panel cannot reach — and because the panel can close
+       * mid-flight, which is not a thing that should be able to happen between deleting an
+       * account and forgetting its credentials.
+       */
+      case 'account/delete':
+        void toResult(() => deleteAccount(request.confirmEmail)).then(sendResponse)
         return true
 
       /**

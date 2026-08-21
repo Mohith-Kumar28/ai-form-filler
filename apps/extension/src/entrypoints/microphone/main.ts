@@ -38,7 +38,7 @@ function render(state: State) {
     },
     granted: {
       title: 'Microphone allowed',
-      detail: 'You can close this tab and record your voice note in the side panel.',
+      detail: 'Closing this tab — your voice note is waiting in the side panel.',
       action: null,
     },
     blocked: {
@@ -55,6 +55,10 @@ function render(state: State) {
   }
 
   const { title, detail, action } = body[state]
+
+  // The grant is the only thing this page exists to collect, so once it has it the tab is
+  // litter. See `dismiss`.
+  if (state === 'granted') dismiss()
 
   mount.innerHTML = ''
   mount.className = 'flex min-h-screen items-center justify-center bg-surface px-6 py-16'
@@ -87,6 +91,34 @@ function render(state: State) {
   }
 
   mount.append(card)
+}
+
+/** Set once the tab is on its way out, so a second `render('granted')` cannot queue a second timer. */
+let closing = false
+
+/**
+ * Closes this tab once the permission is in hand.
+ *
+ * Nothing here needs to report back: the panel watches `PermissionStatus.onchange`, so it has
+ * already noticed the grant by the time this runs. Leaving the tab open made the user close a
+ * page whose entire job was done, having read a sentence telling them to do it.
+ *
+ * A beat's delay rather than closing on the spot — a tab that vanishes the instant Chrome's
+ * prompt disappears reads as a crash, and the confirmation is worth the glimpse.
+ *
+ * `chrome.tabs.remove` rather than `window.close()` alone: `window.close()` is only reliable on
+ * a window script opened, and this tab was opened by the side panel, not by this page.
+ */
+function dismiss() {
+  if (closing) return
+  closing = true
+
+  setTimeout(() => {
+    chrome.tabs?.getCurrent((tab) => {
+      if (tab?.id !== undefined) chrome.tabs.remove(tab.id)
+      else window.close()
+    })
+  }, 900)
 }
 
 async function request() {

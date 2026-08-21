@@ -369,3 +369,112 @@ export async function getDodoCustomerId(
 
   return rows[0]?.dodoCustomerId ?? null
 }
+
+/* ── Cancellation, for account deletion ──────────────────────────────────── */
+
+/**
+ * What happened when we tried to stop the subscription.
+ *
+ * `already` and `cancelled` are separate facts for the log and the same fact for the user: no
+ * further charge. `failed` carries Dodo's own words, because the caller has to write them down —
+ * see `abandonedSubscriptions`.
+ */
+export type CancellationOutcome =
+  | { outcome: 'none' }
+  | { outcome: 'already'; status: string }
+  | { outcome: 'cancelled' }
+  | { outcome: 'failed'; reason: string; dodoSubscriptionId: string; dodoCustomerId: string }
+
+/** Statuses that are already over. Nothing here can produce another charge. */
+const TERMINAL_STATUSES = new Set(['cancelled', 'expired', 'failed'])
+
+/**
+ * Ends a subscription immediately, on the way to deleting the account behind it.
+ *
+ * Immediately rather than at the end of the paid period: `cancel_at_next_billing_date` would leave
+ * a subscription pointing at a user who no longer exists, and the webhook eventually reporting it
+ * would find no row to update.
+ *
+ * **A failure here does not stop the deletion.** It used to, and that was wrong — somebody asking
+ * to be forgotten was shown a red error and told to go and cancel their own subscription in the
+ * billing portal first. Our billing integration is not their errand. So this reports rather than
+ * throws, and the caller records what it could not cancel instead of refusing to continue.
+ *
+ * Retried once, because the difference between the two common failures matters: a timeout or a 502
+ * is transient and a second attempt usually settles it, while a bad id or the wrong Dodo
+ * environment will fail identically twice and belongs in `abandoned_subscriptions` where somebody
+ * can look at it. One retry separates those two without turning a deletion into a long wait.
+ */
+export async function cancelSubscriptionForDeletion(
+  env: AppEnv['Bindings'],
+  userId: string,
+): Promise<CancellationOutcome> {
+  const db = drizzle(env.DB)
+
+  const rows = await db
+    .select({
+      dodoSubscriptionId: subscriptions.dodoSubscriptionId,
+      dodoCustomerId: subscriptions.dodoCustomerId,
+      status: subscriptions.status,
+    })
+    .from(subscriptions)
+    .where(eq(subscriptions.userId, userId))
+    .limit(1)
+
+  const row = rows[0]
+  if (!row) return { outcome: 'none' }
+  if (TERMINAL_STATUSES.has(row.status)) return { outcome: 'already', status: row.status }
+
+  /**
+   * No subscription id means Dodo never told us a subscription exists — the id arrives with the
+   * `subscription.active` webhook, so a row without one is a checkout that was started and never
+   * completed. There is nothing at Dodo to address.
+   */
+  if (!row.dodoSubscriptionId) {
+    console.warn('[billing] deleting account with an unidentified subscription', {
+      userId,
+      status: row.status,
+    })
+    return { outcome: 'none' }
+  }
+
+  let lastError = 'unknown'
+  for (let attempt = 1; attempt <= 2; attempt++) {
+    try {
+      await dodoFetch(env, `/subscriptions/${row.dodoSubscriptionId}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ status: 'cancelled' }),
+      })
+
+      /**
+       * Written here rather than left to `subscription.cancelled` to arrive, because the row is
+       * about to be deleted and the webhook would find nothing. It also makes a retry of the whole
+       * deletion cheap: the status is now terminal, so the branch above returns before asking Dodo
+       * to cancel something it already cancelled.
+       */
+      await db
+        .update(subscriptions)
+        .set({ status: 'cancelled', onHoldAt: null, trialEndsAt: null })
+        .where(eq(subscriptions.userId, userId))
+
+      return { outcome: 'cancelled' }
+    } catch (cause) {
+      lastError = cause instanceof Error ? cause.message : String(cause)
+      // `dodoFetch` puts the status and the response body in the message, so this is Dodo's own
+      // explanation rather than ours — which is the only thing that makes the failure diagnosable.
+      console.error('[billing] cancel failed before account deletion', {
+        userId,
+        attempt,
+        dodoSubscriptionId: row.dodoSubscriptionId,
+        error: lastError,
+      })
+    }
+  }
+
+  return {
+    outcome: 'failed',
+    reason: lastError,
+    dodoSubscriptionId: row.dodoSubscriptionId,
+    dodoCustomerId: row.dodoCustomerId,
+  }
+}

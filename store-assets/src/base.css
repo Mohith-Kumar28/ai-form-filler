@@ -1,0 +1,434 @@
+/*
+  The marketing surfaces, on the product's own palette.
+
+  Every colour here is a literal from `apps/extension/src/lib/tokens.ts`. It is restated rather
+  than imported because these pages are rendered by a headless browser against the repo root over
+  plain HTTP, with no bundler in the path — so there is nothing to resolve a TS import with. If a
+  token moves, `tokens.ts` is still the authority and this file follows it.
+
+  Sizes are absolute pixels on purpose: each page is exactly one Chrome Web Store asset, and the
+  store rejects anything that is off by a pixel. Nothing here is responsive and nothing should be.
+*/
+
+:root {
+  --surface: oklch(97.2% 0.006 320);
+  --surface-raised: oklch(99.3% 0.003 320);
+  --surface-muted: oklch(93.5% 0.007 320);
+  --ink: oklch(20% 0.02 300);
+  --ink-muted: oklch(44% 0.02 300);
+  --ink-dim: oklch(60% 0.015 300);
+  --accent: oklch(55% 0.24 350);
+  --accent-muted: oklch(93% 0.04 350);
+  --positive: oklch(58% 0.16 145);
+  --positive-muted: oklch(93% 0.055 145);
+  --sparkle: oklch(52% 0.24 290);
+  --sun: oklch(68% 0.18 45);
+  --border: oklch(87% 0.008 320);
+  --border-muted: oklch(92% 0.006 320);
+  --shadow: oklch(25% 0.02 300 / 0.08);
+  --shadow-strong: oklch(25% 0.02 300 / 0.16);
+
+  --d-surface: oklch(15% 0.022 300);
+  --d-surface-raised: oklch(19.5% 0.024 300);
+  --d-ink: oklch(96% 0.008 320);
+  --d-ink-muted: oklch(74% 0.014 320);
+  --d-ink-dim: oklch(58% 0.012 320);
+  --d-border: oklch(30% 0.02 300);
+
+  --sunset: linear-gradient(135deg, var(--sparkle), var(--accent), var(--sun));
+}
+
+@font-face {
+  font-family: "Bricolage Grotesque";
+  src: url("/apps/extension/public/fonts/bricolage-grotesque-var.woff2") format("woff2-variations");
+  font-weight: 200 800;
+  font-display: block;
+}
+
+@font-face {
+  font-family: "Inter";
+  src: url("/apps/extension/public/fonts/inter-var.woff2") format("woff2-variations");
+  font-weight: 100 900;
+  font-display: block;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: "Inter", system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: geometricPrecision;
+  color: var(--ink);
+  overflow: hidden;
+}
+
+/*
+  The canvas is the asset.
+
+  `position: relative` and `overflow: hidden` together are what let the artwork bleed past an
+  edge — a browser window that runs off the bottom of the frame reads as a real window someone
+  is working in, where the same window floating fully inside the frame reads as a stock photo of
+  one. Several of these compositions depend on it.
+*/
+.canvas {
+  position: relative;
+  overflow: hidden;
+  background: var(--surface);
+}
+
+/*
+  The sunset wash, and the mascot's face repeated behind it.
+
+  A real element rather than `::before` / `::after` on the canvas, so that DOM order alone
+  decides what paints over what. Pseudo-element grounds put the artwork *under* nothing: the
+  first build drew the face pattern straight across a browser window that was supposed to be
+  the subject of the slide, because the content had no stacking context of its own to sit in.
+  One `.bg` first child and every block after it is on top by default.
+
+  Two radials rather than a linear gradient: a linear one lands as a diagonal band that fights
+  whatever sits on top of it, where an off-canvas radial reads as light coming from somewhere.
+  The face pattern is set at a few percent — a texture you notice second, after the headline,
+  and never a thing you read.
+*/
+.bg {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(110% 80% at 92% -12%, oklch(52% 0.24 290 / 0.2), transparent 62%),
+    radial-gradient(90% 70% at 4% 108%, oklch(68% 0.18 45 / 0.16), transparent 60%),
+    radial-gradient(70% 60% at 62% 6%, oklch(55% 0.24 350 / 0.1), transparent 65%);
+}
+
+.bg::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image: var(--face-pattern);
+  background-size: 152px 152px;
+  opacity: 0.034;
+}
+
+.canvas.dark {
+  background: var(--d-surface);
+  color: var(--d-ink);
+}
+
+.dark .bg {
+  background:
+    radial-gradient(110% 80% at 92% -12%, oklch(52% 0.24 290 / 0.42), transparent 62%),
+    radial-gradient(90% 70% at 2% 106%, oklch(68% 0.18 45 / 0.22), transparent 58%),
+    radial-gradient(70% 60% at 58% 4%, oklch(55% 0.24 350 / 0.22), transparent 65%);
+}
+
+.dark .bg::after {
+  opacity: 0.05;
+}
+
+/* The spine. Six pixels of the signature gradient across the top of every slide, so five
+   screenshots in a carousel read as one set rather than five separate posters. */
+.spine {
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 6px;
+  background: var(--sunset);
+  z-index: 10;
+}
+
+/* ── Type ─────────────────────────────────────────────────────────────────────────────── */
+
+.kicker {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+.dark .kicker {
+  color: oklch(70% 0.22 350);
+}
+
+h1 {
+  font-family: "Bricolage Grotesque", system-ui, sans-serif;
+  font-weight: 700;
+  font-size: 58px;
+  line-height: 1.01;
+  letter-spacing: -0.037em;
+  text-wrap: balance;
+}
+
+.sub {
+  font-size: 20px;
+  line-height: 1.45;
+  color: var(--ink-muted);
+  letter-spacing: -0.006em;
+}
+
+.dark .sub {
+  color: var(--d-ink-muted);
+}
+
+.wordmark {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  font-family: "Bricolage Grotesque", system-ui, sans-serif;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+}
+
+/* ── The panel, as an object ──────────────────────────────────────────────────────────── */
+
+/*
+  A frame around a real screenshot of the real panel.
+
+  The images are captured from `gallery/` at 3x, so they can be scaled to any width here and
+  still resolve. `object-position: top` matters: the panel is 400 x variable, and cropping a
+  short screen from the bottom is correct where squashing it is not.
+*/
+.panel {
+  position: relative;
+  border-radius: 18px;
+  border: 1px solid var(--border);
+  background: var(--surface-raised);
+  overflow: hidden;
+  box-shadow:
+    0 2px 4px var(--shadow),
+    0 40px 80px -28px var(--shadow-strong),
+    0 12px 28px -16px var(--shadow-strong);
+}
+
+.dark .panel {
+  border-color: var(--d-border);
+  background: var(--d-surface-raised);
+  box-shadow:
+    0 2px 4px oklch(0% 0 0 / 0.4),
+    0 44px 90px -26px oklch(0% 0 0 / 0.66);
+}
+
+.panel img {
+  display: block;
+  width: 100%;
+  object-fit: cover;
+  object-position: top;
+}
+
+/* ── The browser window ───────────────────────────────────────────────────────────────── */
+
+.browser {
+  position: relative;
+  border-radius: 16px;
+  overflow: hidden;
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
+  box-shadow:
+    0 2px 4px var(--shadow),
+    0 60px 110px -34px var(--shadow-strong),
+    0 18px 40px -20px var(--shadow-strong);
+}
+
+.dark .browser {
+  border-color: var(--d-border);
+  background: var(--d-surface-raised);
+  box-shadow:
+    0 2px 4px oklch(0% 0 0 / 0.4),
+    0 60px 120px -30px oklch(0% 0 0 / 0.7);
+}
+
+.chrome {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  height: 44px;
+  padding: 0 16px;
+  background: var(--surface-muted);
+  border-bottom: 1px solid var(--border);
+}
+
+.dark .chrome {
+  background: oklch(24% 0.02 300);
+  border-bottom-color: var(--d-border);
+}
+
+.dots {
+  display: flex;
+  gap: 7px;
+}
+
+.dots i {
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  background: var(--border);
+}
+
+.dark .dots i {
+  background: oklch(38% 0.02 300);
+}
+
+.urlbar {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 26px;
+  padding: 0 12px;
+  border-radius: 999px;
+  background: var(--surface-raised);
+  border: 1px solid var(--border-muted);
+  font-size: 12px;
+  color: var(--ink-dim);
+  letter-spacing: -0.002em;
+  max-width: 60%;
+}
+
+.dark .urlbar {
+  background: oklch(17% 0.02 300);
+  border-color: var(--d-border);
+  color: var(--d-ink-dim);
+}
+
+/* The pinned extension, in the toolbar. Small, and the only branded thing in the chrome.
+   `margin-left: auto` because Chrome's own extension area is hard against the window's right
+   edge, and a pinned icon floating in the middle of the toolbar is the detail that makes a
+   drawn browser read as drawn. */
+.pinned {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  flex: none;
+  margin-left: auto;
+}
+
+.viewport {
+  display: flex;
+  align-items: stretch;
+  background: #fff;
+}
+
+.dark .viewport {
+  background: #0d1117;
+}
+
+.page {
+  flex: 1;
+  overflow: hidden;
+  position: relative;
+}
+
+.page img {
+  display: block;
+  width: 100%;
+  object-fit: cover;
+  object-position: left top;
+}
+
+/* The docked panel: no radius, no shadow, a single hairline against the page. That is what a
+   Chrome side panel actually looks like, and rounding it here would be a lie the store sees. */
+.docked {
+  width: 340px;
+  flex: none;
+  border-left: 1px solid var(--border);
+  background: var(--surface);
+  overflow: hidden;
+}
+
+.dark .docked {
+  border-left-color: var(--d-border);
+  background: var(--d-surface);
+}
+
+.docked img {
+  display: block;
+  width: 100%;
+  object-fit: cover;
+  object-position: top;
+}
+
+/* ── Callouts and chips ───────────────────────────────────────────────────────────────── */
+
+/*
+  A label pointing at one thing in the artwork.
+
+  The store shows these at half size, so a callout is 15px here to survive as 7.5px there —
+  which is the floor. Anything smaller is decoration that reads as noise.
+*/
+.callout {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 9px 15px 9px 13px;
+  border-radius: 999px;
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.011em;
+  color: var(--ink);
+  box-shadow:
+    0 2px 3px var(--shadow),
+    0 14px 30px -12px var(--shadow-strong);
+  white-space: nowrap;
+  z-index: 6;
+}
+
+.dark .callout {
+  background: var(--d-surface-raised);
+  border-color: var(--d-border);
+  color: var(--d-ink);
+  box-shadow: 0 16px 34px -12px oklch(0% 0 0 / 0.6);
+}
+
+.callout .swatch {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  flex: none;
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.chip {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 10px 16px;
+  border-radius: 999px;
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: -0.012em;
+  color: var(--ink);
+  box-shadow: 0 2px 3px var(--shadow);
+}
+
+.dark .chip {
+  background: oklch(22% 0.024 300);
+  border-color: var(--d-border);
+  color: var(--d-ink);
+  box-shadow: none;
+}
+
+.chip .tick {
+  color: var(--positive);
+  flex: none;
+}
+
+.dark .chip .tick {
+  color: oklch(72% 0.17 145);
+}

@@ -369,9 +369,18 @@ export function Sources({ profile }: { profile: Profile | undefined }) {
   const [rereading, setRereading] = useState<string | null>(null)
   const [rereadError, setRereadError] = useState<string | null>(null)
 
+  /*
+   * `updated.profile`, not `updated`.
+   *
+   * Rename, re-read and remove answer with `{ profile }`, whereas `GET /profile` answers with the
+   * profile itself — so writing the envelope into the profile cache slot replaced the whole
+   * profile with `{ profile: ... }`. Every read off it (`profile.sources`, the identity fields,
+   * the fact count) then came back undefined, and the panel looked like every source and every
+   * fact had just been deleted until a refetch put it back.
+   */
   const rename = useRenameSource({
     mutation: {
-      onSuccess: (updated) => queryClient.setQueryData(getGetProfileQueryKey(), updated),
+      onSuccess: (updated) => queryClient.setQueryData(getGetProfileQueryKey(), updated.profile),
     },
   })
 
@@ -384,7 +393,7 @@ export function Sources({ profile }: { profile: Profile | undefined }) {
   const reprocess = useReprocessSource({
     mutation: {
       onSuccess: (updated) => {
-        queryClient.setQueryData(getGetProfileQueryKey(), updated)
+        queryClient.setQueryData(getGetProfileQueryKey(), updated.profile)
         void queryClient.invalidateQueries({ queryKey: getGetAccountQueryKey() })
         setRereadError(null)
       },
@@ -396,7 +405,7 @@ export function Sources({ profile }: { profile: Profile | undefined }) {
   const remove = useDeleteSource({
     mutation: {
       onSuccess: (updated) => {
-        queryClient.setQueryData(getGetProfileQueryKey(), updated)
+        queryClient.setQueryData(getGetProfileQueryKey(), updated.profile)
         void queryClient.invalidateQueries({ queryKey: getGetAccountQueryKey() })
         setPendingRemoval(null)
         setRemoveError(null)

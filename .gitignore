@@ -25,3 +25,7 @@ playwright-report/
 
 graphify-out/
 .gallery/
+
+# Intermediate captures for the store artwork. Rebuilt by `pnpm assets:store`; the finished
+# PNGs beside them are committed, these are not.
+store-assets/.raw/

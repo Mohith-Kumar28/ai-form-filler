@@ -202,6 +202,44 @@
           "accessToken"
         ]
       },
+      "DeleteAccountResponse": {
+        "type": "object",
+        "properties": {
+          "documents": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "files": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "subscription": {
+            "type": "string",
+            "enum": [
+              "none",
+              "cancelled",
+              "pending"
+            ]
+          }
+        },
+        "required": [
+          "documents",
+          "files",
+          "subscription"
+        ]
+      },
+      "DeleteAccountRequest": {
+        "type": "object",
+        "properties": {
+          "confirmEmail": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "confirmEmail"
+        ]
+      },
       "Profile": {
         "type": "object",
         "properties": {
@@ -998,6 +1036,93 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/Account"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Request failed validation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid, or expired credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "402": {
+            "description": "Monthly quota exhausted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/me/delete": {
+      "post": {
+        "tags": [
+          "account"
+        ],
+        "summary": "Permanently delete the account and everything in it",
+        "description": "Irreversible. Cancels the subscription, deletes every stored document and uploaded file, and removes every row belonging to the user. Existing session tokens stop working immediately, on every device.",
+        "operationId": "deleteAccount",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeleteAccountRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The account and all its data are gone",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeleteAccountResponse"
                 }
               }
             }

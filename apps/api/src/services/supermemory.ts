@@ -41,7 +41,17 @@ interface SupermemoryDocument {
 async function call<T>(
   env: Env,
   path: string,
-  init: { method: string; body?: unknown; formData?: FormData },
+  init: {
+    method: string
+    body?: unknown
+    formData?: FormData
+    /**
+     * Read a 404 as "already in the desired state" rather than as a failure.
+     *
+     * Only deletes set this, and only the account-wide one needs it. See `purgeDocument`.
+     */
+    missingIsSuccess?: boolean
+  },
 ): Promise<T | null> {
   const key = env.SUPERMEMORY_API_KEY
   if (!key) return null
@@ -64,6 +74,7 @@ async function call<T>(
       ...(body !== undefined ? { body } : {}),
       signal: AbortSignal.timeout(60_000),
     })
+    if (response.status === 404 && init.missingIsSuccess) return {} as T
     if (!response.ok) return null
 
     /**
@@ -370,4 +381,26 @@ export async function searchMemory(
  */
 export async function deleteDocument(env: Env, documentId: string): Promise<boolean> {
   return (await call(env, `/v3/documents/${documentId}`, { method: 'DELETE' })) !== null
+}
+
+/**
+ * Deletes a document, counting one that is already gone as deleted.
+ *
+ * `deleteDocument` cannot do this, because `call` collapses every non-2xx into `null` — so a
+ * 404 is indistinguishable from an outage. That distinction does not matter when a single
+ * source is removed: the id is in hand, and a retry is one fresh request either way.
+ *
+ * It decides whether **account deletion can ever finish**. That runs over every document a
+ * user has and refuses to drop the rows unless all of them are gone, so a run that deletes
+ * nine of ten and then hits a timeout leaves nine ids that now answer 404. Reading those as
+ * failures would make a half-finished deletion permanently unfinishable — the user asking to
+ * be forgotten would get "try again" forever, with their data still there.
+ */
+export async function purgeDocument(env: Env, documentId: string): Promise<boolean> {
+  return (
+    (await call(env, `/v3/documents/${documentId}`, {
+      method: 'DELETE',
+      missingIsSuccess: true,
+    })) !== null
+  )
 }

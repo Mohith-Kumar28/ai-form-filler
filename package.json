@@ -22,6 +22,8 @@
     "build:web": "pnpm --filter @fillaform/web run build",
     "zip": "pnpm --filter @aff/extension run zip",
     "ext:reveal": "node scripts/reveal-extension.mjs",
+    "//2b-assets": "─────────────── store artwork ───────────────",
+    "assets:store": "node store-assets/build.mjs",
     "//3-ship": "─────────────── ship ───────────────",
     "ship": "pnpm check && pnpm db:migrate:prod && pnpm --filter @aff/api run deploy",
     "ship:staging": "pnpm check && pnpm db:migrate:staging && pnpm --filter @aff/api run deploy:staging",
@@ -65,7 +67,8 @@
   "devDependencies": {
     "@biomejs/biome": "^2.2.0",
     "@dodopayments/opencode-plugin": "^0.5.0",
-    "typescript": "^5.9.2"
+    "typescript": "^5.9.2",
+    "playwright": "1.62.1"
   },
   "pnpm": {
     "onlyBuiltDependencies": [

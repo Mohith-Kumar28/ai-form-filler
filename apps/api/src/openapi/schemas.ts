@@ -1,6 +1,7 @@
 import {
   Account as AccountBase,
   ApiError as ApiErrorBase,
+  DeletionReport as DeletionReportBase,
   FeedbackRequest as FeedbackRequestBase,
   FillPlan as FillPlanBase,
   FillRequest as FillRequestBase,
@@ -67,6 +68,22 @@ export const TextSourceRequest = z
 export const AddSourceResponse = z
   .object({ profile: Profile, truncated: z.boolean() })
   .openapi('AddSourceResponse')
+
+export const DeleteAccountRequest = z
+  .object({
+    /**
+     * The account's own email address, typed out by the user.
+     *
+     * Re-checked on the server, not merely collected by the panel. A confirmation only the
+     * client enforces is decoration — the request is one `fetch` away from being sent without
+     * it — and this is the request that cannot be undone. Matching is case- and
+     * whitespace-insensitive; see `confirmationMatches`.
+     */
+    confirmEmail: z.string().min(1),
+  })
+  .openapi('DeleteAccountRequest')
+
+export const DeleteAccountResponse = DeletionReportBase.openapi('DeleteAccountResponse')
 
 export const ProfileResponse = z.object({ profile: Profile }).openapi('ProfileResponse')
 

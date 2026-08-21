@@ -161,13 +161,31 @@ function UploadMode({ onDone }: { onDone: () => Promise<void> }) {
           <p className="mt-1 text-xs text-ink-dim">
             {file ? formatBytes(file.size) : `PDF, Word, slides, images, audio, up to ${maxMB} MB`}
           </p>
-          <input
-            type="file"
-            aria-label="Choose a file"
-            accept={ACCEPT}
-            onChange={(event) => accept(event.currentTarget.files?.[0] ?? null)}
-            className="mt-3 w-full text-xs text-ink-muted file:mr-2 file:rounded-full file:border file:border-border file:bg-surface-raised file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-ink"
-          />
+          {/*
+            Our own button, with the native control hidden inside it.
+
+            The native `<input type="file">` cannot be centred, and every attempt to was
+            treating the symptom. It renders a button followed by a "No file chosen" label, and
+            its box is wider still than those two — so centring the box (`mx-auto w-fit`) left
+            the button visibly short of the middle, and centring its contents is not something
+            the element exposes. The text is dead weight anyway: the line above already says
+            either the chosen file's name or "Drop a file here, or choose one", so the native
+            label's only contribution was to drag the button off-centre.
+
+            `sr-only` rather than `hidden` — the input keeps its place in the tab order and
+            stays the accessible control; the label lends it a name and picks up the focus ring
+            on its behalf, which `display: none` would have thrown away along with the
+            keyboard's ability to reach it at all.
+          */}
+          <label className="mt-3 inline-flex min-h-8 cursor-pointer items-center rounded-full border border-border bg-surface-raised px-3.5 text-xs font-semibold text-ink transition-colors hover:border-ink/30 hover:bg-surface-muted focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-accent">
+            {file ? 'Choose another' : 'Choose file'}
+            <input
+              type="file"
+              accept={ACCEPT}
+              onChange={(event) => accept(event.currentTarget.files?.[0] ?? null)}
+              className="sr-only"
+            />
+          </label>
         </div>
 
         <Field

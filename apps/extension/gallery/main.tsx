@@ -2,7 +2,12 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { type ReactNode, StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import './gallery.css'
-import { TabBar, UpgradeSheet } from '../src/entrypoints/sidepanel/components.js'
+import {
+  DeleteAccountSheet,
+  DeletedFarewell,
+  TabBar,
+  UpgradeSheet,
+} from '../src/entrypoints/sidepanel/components.js'
 import { NavigationProvider } from '../src/entrypoints/sidepanel/navigation.js'
 import { Onboarding } from '../src/entrypoints/sidepanel/onboarding/index.js'
 import { AddSource } from '../src/entrypoints/sidepanel/screens/AddSource.js'
@@ -71,6 +76,15 @@ const PAGE_WITHOUT_FORM = {
   form: null,
 }
 
+/** A `chrome://` page or the Web Store — no content script, so no origin either. */
+const PAGE_UNAVAILABLE = {
+  status: 'unavailable' as const,
+  tabId: 1,
+  origin: null,
+  fieldCount: 0,
+  form: null,
+}
+
 function Frame({
   label,
   note,
@@ -130,6 +144,29 @@ function SheetHost({ mode }: { mode: 'trial' | 'compare' }) {
   )
 }
 
+/**
+ * The deletion dialog, over the screen it is opened from.
+ *
+ * One frame rather than three, even though there are three steps: the sheet owns its own step
+ * state, so a reviewer clicks through it here exactly as a user would. That is the point of
+ * having it in the gallery at all — the question is not what step 2 looks like in isolation, it
+ * is whether getting to step 3 feels like enough work.
+ */
+function DeleteSheetHost() {
+  return (
+    <div className="relative h-full">
+      <Profile account={ACCOUNT} />
+      <DeleteAccountSheet
+        email={ACCOUNT.email}
+        sourceCount={5}
+        hasSubscription
+        onConfirm={() => undefined}
+        onCancel={() => undefined}
+      />
+    </div>
+  )
+}
+
 function Gallery() {
   return (
     <QueryClientProvider client={queryClient}>
@@ -154,6 +191,16 @@ function Gallery() {
               account={ACCOUNT_LOW_QUOTA}
               profile={PROFILE}
               page={PAGE_WITHOUT_FORM}
+              hasLastFill={false}
+              onFill={() => undefined}
+            />
+          </Frame>
+
+          <Frame label="Home" note="page cannot be read">
+            <Home
+              account={ACCOUNT}
+              profile={PROFILE}
+              page={PAGE_UNAVAILABLE}
               hasLastFill={false}
               onFill={() => undefined}
             />
@@ -260,6 +307,17 @@ function Gallery() {
 
           <Frame label="Account" note="payment failed">
             <Profile account={ACCOUNT_ON_HOLD} />
+          </Frame>
+
+          <Frame label="Delete account" note="three gates — click through all of them">
+            <DeleteSheetHost />
+          </Frame>
+
+          <Frame label="Deleted" note="the receipt, shown after the session is already gone">
+            <DeletedFarewell
+              report={{ documents: 7, files: 3, subscription: 'cancelled' }}
+              onDismiss={() => undefined}
+            />
           </Frame>
 
           <Frame label="Upgrade sheet" note="trial, from a first fill attempt">

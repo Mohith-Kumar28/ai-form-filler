@@ -176,7 +176,9 @@ export function SourceDetail({
   const remove = useDeleteSource({
     mutation: {
       onSuccess: (updated) => {
-        queryClient.setQueryData(getGetProfileQueryKey(), updated)
+        // `updated.profile` — the delete answers with a `{ profile }` envelope, and writing the
+        // envelope itself into the profile cache slot blanked the whole panel. See Sources.tsx.
+        queryClient.setQueryData(getGetProfileQueryKey(), updated.profile)
         void queryClient.invalidateQueries({ queryKey: getGetAccountQueryKey() })
         nav.back()
       },

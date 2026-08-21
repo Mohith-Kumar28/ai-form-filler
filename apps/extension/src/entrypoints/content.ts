@@ -740,9 +740,21 @@ export default defineContentScript({
       requestFill('form')
     }
 
+    /**
+     * The launcher appears only where there is an actual form.
+     *
+     * It used to appear wherever `detectForms` found anything at all, and "anything at all"
+     * includes site furniture. On an Instagram profile — no inputs, nothing to fill — the one
+     * detected control was the `<select aria-label="Switch Display Language">` in the footer,
+     * so the launcher sat there offering to fill a form that did not exist.
+     *
+     * `actualForm` is the narrower question, and only the uninvited surfaces ask it. A fill the
+     * user deliberately starts — the shortcut, the panel, the icon inside a focused field — is
+     * still free to write to a lone control, because at that point they have said which one.
+     */
     function ensureLauncher() {
       if (!settings.showLauncher) return
-      const count = !muted && detection ? detection.form.fields.length : 0
+      const count = !muted && detection?.actualForm ? detection.form.fields.length : 0
       if (count === 0) {
         launcher?.destroy()
         launcher = null
