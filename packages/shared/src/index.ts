@@ -1,6 +1,7 @@
 export * from './account.js'
 export * from './api.js'
 export * from './constants.js'
+export * from './deployment.js'
 export * from './fill.js'
 export * from './form.js'
 export * from './messages.js'

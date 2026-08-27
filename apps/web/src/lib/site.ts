@@ -1,3 +1,5 @@
+import { CHROME_WEB_STORE_URL, EXTENSION_ID } from '@aff/shared/deployment'
+
 /**
  * Single source of truth for marketing-site facts: name, domain, links, pricing.
  * Every page reads from here so a domain or price change is a one-line edit.
@@ -18,9 +20,13 @@ export const site = {
   tagline: 'AI form filler for any web form',
   description:
     'Fillaform is an AI-powered form filler for Chrome. It answers any web form for you: job applications, Google Forms, registrations, surveys. Add your CV and a few notes once, then the AI writes every answer in your own words. It labels the answers it guessed, so you know what to check.',
-  /** Pinned extension ID. The Web Store URL goes live once the listing is published. */
-  chromeExtensionId: 'bkjmijloddfiilopdckanmnpmiimpcho',
-  chromeWebStoreUrl: 'https://chromewebstore.google.com/detail/bkjmijloddfiilopdckanmnpmiimpcho',
+  /**
+   * Not literals: the extension's identity is defined once in `@aff/shared/deployment`, which
+   * the manifest and the Worker read from too. The site had its own copy and the copy was
+   * stale, so the install button pointed at a listing that does not exist.
+   */
+  chromeExtensionId: EXTENSION_ID,
+  chromeWebStoreUrl: CHROME_WEB_STORE_URL,
   supportEmail: 'support@fillaform.in',
   twitter: '@fillaform',
   ogImage: '/og-default.png',

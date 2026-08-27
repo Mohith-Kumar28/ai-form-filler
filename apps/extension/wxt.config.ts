@@ -1,5 +1,6 @@
 import { readdir, unlink } from 'node:fs/promises'
 import path from 'node:path'
+import { EXTENSION_PUBLIC_KEY, GOOGLE_CLIENT_ID } from '@aff/shared/deployment'
 import tailwindcss from '@tailwindcss/vite'
 import { defineConfig } from 'wxt'
 
@@ -123,7 +124,7 @@ export default defineConfig({
     name: 'Fillaform — AI Form Filler',
     description:
       'AI form filler for job applications and any web form. Answers come from your own knowledge base, in your own writing voice.',
-    version: '0.0.1',
+    version: '0.0.2',
 
     /**
      * Every entry here has to be justified to a Web Store reviewer one by one, and an unused
@@ -163,17 +164,15 @@ export default defineConfig({
     host_permissions: ['<all_urls>'],
 
     /**
-     * Pins the extension ID — locally only.
+     * Pins the unpacked build's ID to the **published** one — locally only.
      *
-     * Without a key, Chrome derives an unpacked extension's ID from its **load path**, so
-     * the same code loaded from two directories gets two different IDs. A Chrome Extension
-     * OAuth client is bound to exactly one ID — which is why sign-in worked in one browser
-     * and failed in another. With this key the ID is always:
-     *
-     *   bkjmijloddfiilopdckanmnpmiimpcho
-     *
-     * The matching private key lives in apps/extension/.keys/ and is gitignored. It is only
-     * needed to reproduce this ID locally.
+     * Without a key, Chrome derives an unpacked extension's ID from its **load path**, so the
+     * same code loaded from two directories gets two different IDs. This is the Web Store
+     * listing's own public key, so a local build and the store build are the same extension as
+     * far as every ID-bound registration is concerned: `EXTENSION_ID`, the OAuth client's item
+     * ID, and the Worker's CORS origin are all correct for both at once. Previously this was a
+     * locally generated key, which meant the published build had an ID nothing was registered
+     * against — Chrome answered `bad client id` at sign-in and CORS answered `Failed to fetch`.
      *
      * **The Web Store rejects any manifest containing `key`** — "key field is not allowed in
      * manifest", refused at upload as a file error rather than as a review note. The store
@@ -184,14 +183,15 @@ export default defineConfig({
     ...(STORE_BUILD
       ? {}
       : {
-          key: 'MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAyxaFDyiXe+tpz0u2Ab/fBOBJ++3uuL7BRIvndrSdVyqJRYGUV+2lVBjKhy0aOY94RVwgbIlYnSHMZ4Z3I13xBnvG4Xzt8vBghegQqI2tO1AhTZY8uMnaHj99tBJpRSGvvjr+IbRVziloRNhjPpWCkLbIITe8otzKUSI/JR5kxFml3HX7oS6tfmm8iZVXemWnKmfSMowmkLEjSdRHnzuC0ABs2W6KKbvhUbuv/Pawmh/c9WOcR1BRWyp21ILIIScj+9wxxh81Njz2DaJceu7rV7whJ8MD1cjWv5wEYG7uYUXOfOH/HbS4rgAvht0bIdUOzk2TTXssy7Bk8y56HFUTIQIDAQAB',
+          key: EXTENSION_PUBLIC_KEY,
         }),
 
+    // The Worker checks every inbound token's `aud` against this same constant, so the two
+    // sides cannot disagree; a mismatch used to surface as INVALID_TOKEN at sign-in, which
+    // reads like a bug rather than like configuration. The client must be registered in
+    // Google Cloud Console against item ID `EXTENSION_ID`.
     oauth2: {
-      // Must stay byte-identical to GOOGLE_CLIENT_ID in apps/api/.dev.vars — the server
-      // checks every inbound token's `aud` against it, so a mismatch surfaces as
-      // INVALID_TOKEN at sign-in rather than as a configuration error.
-      client_id: '451054635835-h8ggt0gsmni72nhaljbbsjt1rpkj93ol.apps.googleusercontent.com',
+      client_id: GOOGLE_CLIENT_ID,
       scopes: ['openid', 'email', 'profile'],
     },
 

@@ -11,11 +11,16 @@ export interface Env {
   UPLOADS: R2Bucket
 
   ENVIRONMENT: 'development' | 'production'
-  /** `chrome-extension://<id>` — the only origin allowed through CORS in production. */
-  EXTENSION_ORIGIN?: string
 
-  /** OAuth client ID. Every inbound Google token is checked against this — see auth.ts. */
-  GOOGLE_CLIENT_ID: string
+  /*
+   * `EXTENSION_ORIGIN` and `GOOGLE_CLIENT_ID` were declared here and are now imported from
+   * `@aff/shared/deployment` instead. Neither was ever a secret — both ship inside the
+   * manifest of every installed copy — and holding them as Worker secrets meant the extension
+   * and the Worker each had their own copy of a value that has to match exactly, with nothing
+   * comparing the two. A drift showed up as `INVALID_TOKEN` or a blocked preflight rather
+   * than as missing configuration. What stays below is what genuinely cannot be in a build.
+   */
+
   /** HMAC key for our own session JWTs. */
   JWT_SECRET: string
 

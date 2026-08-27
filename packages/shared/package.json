@@ -6,6 +6,7 @@
   "exports": {
     ".": "./src/index.ts",
     "./constants": "./src/constants.ts",
+    "./deployment": "./src/deployment.ts",
     "./options": "./src/options.ts",
     "./rewrite": "./src/rewrite.ts",
     "./facts": "./src/facts.ts"

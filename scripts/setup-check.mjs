@@ -36,25 +36,18 @@ checks.push({
   fix: 'openssl rand -base64 48   → JWT_SECRET in apps/api/.dev.vars',
 })
 
-const wxtConfig = read('apps/extension/wxt.config.ts')
-const manifestClientId = wxtConfig?.match(/client_id:\s*'([^']+)'/)?.[1] ?? ''
-const devVarsClientId = devVars?.match(/^GOOGLE_CLIENT_ID=(.+)$/m)?.[1]?.trim() ?? ''
+/**
+ * The "do these two client ids match" check is gone, and its absence is the point: the
+ * manifest and the Worker now import the same constant, so there is no second copy left to
+ * disagree with. All that remains to check is that the constant holds a real value.
+ */
+const deployment = read('packages/shared/src/deployment.ts')
+const clientId = deployment?.match(/GOOGLE_CLIENT_ID =\s*\n?\s*'([^']+)'/)?.[1] ?? ''
 
 checks.push({
   name: 'Google OAuth client id set',
-  ok: manifestClientId !== '' && !manifestClientId.startsWith('__'),
-  fix: 'README §2 — create a Chrome Extension OAuth client, put the id in wxt.config.ts',
-})
-
-checks.push({
-  name: 'OAuth client id matches on both sides',
-  // A mismatch surfaces as INVALID_TOKEN at sign-in, which reads like a bug rather than
-  // like configuration.
-  ok:
-    manifestClientId !== '' &&
-    !manifestClientId.startsWith('__') &&
-    manifestClientId === devVarsClientId,
-  fix: 'wxt.config.ts manifest.oauth2.client_id must equal GOOGLE_CLIENT_ID in .dev.vars',
+  ok: clientId.endsWith('.apps.googleusercontent.com') && !clientId.startsWith('000000'),
+  fix: 'README §2 — create a Chrome Extension OAuth client, put the id in packages/shared/src/deployment.ts',
 })
 
 // The gateway is the only inference route. Both halves must be real values — a URL still

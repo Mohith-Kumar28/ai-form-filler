@@ -638,9 +638,9 @@ console.log(await new SignJWT({}).setProtectedHeader({alg:"HS256"})
 ## 9. Setup blockers for a new machine
 
 1. **Cloudflare resources** — `wrangler d1 create aff-db`, `wrangler kv namespace create RATE_LIMIT`, `wrangler r2 bucket create aff-uploads`; paste the returned IDs into `wrangler.toml`.
-2. **Google OAuth client** — chicken-and-egg: the client must be bound to a *specific extension ID*, which doesn't exist until the extension is built and loaded unpacked. Build → load at `chrome://extensions` → copy the ID → create a **Chrome Extension** OAuth client in Google Cloud Console → put the client ID in **both** `wxt.config.ts` (`manifest.oauth2.client_id`) and `.dev.vars` (`GOOGLE_CLIENT_ID`). Mismatch surfaces as `INVALID_TOKEN`.
-3. **Secrets** — `cp .dev.vars.example .dev.vars`, `openssl rand -base64 48` for `JWT_SECRET`. Production uses `wrangler secret put`.
-4. **`EXTENSION_ORIGIN`** — `chrome-extension://<id>`, or CORS rejects the extension in production.
+2. **Google OAuth client** — no longer chicken-and-egg. The manifest carries the Web Store listing's public key, so the unpacked build and the published build share one ID: `EXTENSION_ID` in `packages/shared/src/deployment.ts`. Create a **Chrome Extension** OAuth client against that ID and put the client ID in `GOOGLE_CLIENT_ID` in the same file — one constant, read by both the manifest and the Worker's `aud` check. Also confirm the consent screen's publishing status is **In production**; while it is *Testing*, every account off the test-user list is blocked.
+3. **Secrets** — `cp .dev.vars.example .dev.vars`, `openssl rand -base64 48` for `JWT_SECRET`. Production uses `wrangler secret put`. `GOOGLE_CLIENT_ID` and `EXTENSION_ORIGIN` are **not** secrets and are no longer pushed; they are constants in `packages/shared/src/deployment.ts`, because both ship inside every installed copy of the extension and both have to equal a value the extension holds.
+4. **API URL** — `API_URL` in the same file, `https://api.fillaform.in`, with no localhost fallback. The old `WXT_API_URL ?? '127.0.0.1:8787'` default was loaded only in production mode, so every dev build pointed at a Worker that usually wasn't running and the panel showed `Failed to fetch` under the Google button.
 
 ---
 

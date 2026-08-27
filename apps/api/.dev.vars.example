@@ -6,16 +6,14 @@
 #     wrangler secret put NAME --env staging
 
 # ── Auth ────────────────────────────────────────────────────────────────────
-# OAuth 2.0 Client ID, type "Chrome Extension", from Google Cloud Console.
-# Must match `manifest.oauth2.client_id` in apps/extension/wxt.config.ts exactly.
-GOOGLE_CLIENT_ID=000000000000-xxxxxxxxxxxxxxxxxxxxxxxxxxxx.apps.googleusercontent.com
-
+#
+# The Google OAuth client id and the extension origin are NOT here. They are not
+# secrets — both ship inside the manifest of every installed copy — and they must
+# match values the extension also holds, so they live in one place that both sides
+# import: `packages/shared/src/deployment.ts`.
+#
 # HMAC key for our own session JWTs.  Generate with:  openssl rand -base64 48
 JWT_SECRET=replace-me
-
-# chrome-extension://<id> — the only origin CORS admits in production.
-# Find the id at chrome://extensions with Developer mode on.
-EXTENSION_ORIGIN=chrome-extension://replace-me
 
 # ── Inference: Cloudflare AI Gateway, Unified Billing ───────────────────────
 #

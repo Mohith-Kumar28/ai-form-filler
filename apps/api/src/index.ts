@@ -1,3 +1,4 @@
+import { EXTENSION_ORIGIN } from '@aff/shared/deployment'
 import { OpenAPIHono } from '@hono/zod-openapi'
 import { cors } from 'hono/cors'
 import { secureHeaders } from 'hono/secure-headers'
@@ -39,10 +40,14 @@ app.use('*', secureHeaders())
  * Only our own extension may call this API. `chrome-extension://` origins are opaque and
  * unguessable, so an allow-list of them is a meaningful control rather than theatre — but it
  * is defence in depth, not authentication. Every real check is the bearer token.
+ *
+ * `EXTENSION_ORIGIN` is the shared constant, not a secret, so it cannot be unset here — which
+ * matters because the old optional secret failed *open-ish* in the worst way: unset meant an
+ * empty allow-list, every preflight was refused, and the extension reported `Failed to fetch`
+ * with nothing anywhere naming CORS as the cause.
  */
 app.use('/v1/*', async (c, next) => {
-  const allowed = new Set<string>()
-  if (c.env.EXTENSION_ORIGIN) allowed.add(c.env.EXTENSION_ORIGIN)
+  const allowed = new Set<string>([EXTENSION_ORIGIN])
   if (c.env.ENVIRONMENT === 'development') allowed.add('http://localhost:3000')
 
   return cors({

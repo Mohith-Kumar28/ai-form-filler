@@ -10,25 +10,18 @@ import { existsSync, readFileSync } from 'node:fs'
 
 const DEV_VARS = new URL('../apps/api/.dev.vars', import.meta.url)
 
+/**
+ * `GOOGLE_CLIENT_ID` and `EXTENSION_ORIGIN` are deliberately absent. They were secrets here
+ * and are now constants in `packages/shared/src/deployment.ts`, because neither is secret and
+ * both have to equal a value the extension holds — pushing them separately meant two copies
+ * with nothing checking that they agreed.
+ */
 const SECRETS = [
-  {
-    name: 'GOOGLE_CLIENT_ID',
-    required: true,
-    what: 'OAuth client ID, type "Chrome Extension", bound to your extension id.',
-    where: 'Google Cloud Console → APIs & Services → Credentials',
-    note: 'Must match manifest.oauth2.client_id in apps/extension/wxt.config.ts exactly, or sign-in returns INVALID_TOKEN.',
-  },
   {
     name: 'JWT_SECRET',
     required: true,
     what: 'HMAC key for our own 30-day session tokens.',
     where: 'openssl rand -base64 48',
-  },
-  {
-    name: 'EXTENSION_ORIGIN',
-    required: true,
-    what: 'chrome-extension://<id> — the only origin CORS admits in production.',
-    where: 'chrome://extensions with Developer mode on',
   },
   {
     name: 'AI_GATEWAY_URL',

@@ -64,15 +64,26 @@ pnpm db:migrate:local
 ### 2. Google OAuth client
 
 The extension authenticates with `chrome.identity`, which requires an OAuth client bound to
-a **specific extension ID** — so the extension has to exist before the client can be created.
+a **specific extension ID**. That ID is not derived from the load path here: the manifest
+carries the Web Store listing's public key, so a local unpacked build and the published
+build are the same extension. Both are `EXTENSION_ID` in
+`packages/shared/src/deployment.ts`, and that file is the only place any of this is stated.
 
-1. Build and load the extension once to get its ID:
-   ```sh
-   pnpm dev            # leave running: rebuilds and live-reloads on every save
-   pnpm ext:path       # prints the exact folder to load
-   ```
-   Open `chrome://extensions`, enable Developer mode, **Load unpacked** →
-   `apps/extension/build/chrome-mv3-dev`. Copy the extension ID.
+1. In Google Cloud Console → APIs & Services → Credentials → **Create credentials** →
+   **OAuth client ID** → application type **Chrome Extension**. Paste `EXTENSION_ID`.
+
+2. Put the resulting client ID in `packages/shared/src/deployment.ts` → `GOOGLE_CLIENT_ID`.
+   That single constant is read by the manifest and by the Worker's `aud` check, so there is
+   no second copy to keep in step — which is what `INVALID_TOKEN` at sign-in used to mean.
+
+3. OAuth consent screen → **Publishing status must be "In production."** While it says
+   *Testing*, only accounts on the test-user list can sign in and everyone else is blocked.
+   The scopes here are `openid email profile`, all non-sensitive, so *Publish app* completes
+   without a verification review.
+
+4. Load the extension: `pnpm dev` (leave running — it rebuilds and live-reloads on every
+   save), `pnpm ext:path` to print the folder, then `chrome://extensions` → Developer mode →
+   **Load unpacked**.
 
    > **Load `chrome-mv3-dev`, not `chrome-mv3`.** They are two separate builds:
    > `pnpm dev` writes the first and keeps it reloading; `pnpm build` writes the second,
@@ -81,16 +92,9 @@ a **specific extension ID** — so the extension has to exist before the client 
    > is watching, and nothing anywhere reports an error. Each detection logs
    > `[aff <version>]` to the console, so you can always confirm which build a tab is on.
 
-2. In Google Cloud Console → APIs & Services → Credentials → **Create credentials** →
-   **OAuth client ID** → application type **Chrome Extension**. Paste the extension ID.
-
-3. Put the resulting client ID in **both** places — they must match, or `getAuthToken`
-   returns a token our server then rejects with `INVALID_TOKEN`:
-   - `apps/extension/wxt.config.ts` → `manifest.oauth2.client_id`
-   - `apps/api/.dev.vars` → `GOOGLE_CLIENT_ID`
-
-4. Also set `EXTENSION_ORIGIN=chrome-extension://<your-extension-id>` in `.dev.vars`, or CORS
-   will reject the extension in production.
+   > **Use a separate Chrome profile for development.** Chrome refuses to load an unpacked
+   > extension whose ID collides with an installed one, and the local build now shares the
+   > published ID deliberately — so one profile cannot hold both.
 
 ### 3. Local secrets
 

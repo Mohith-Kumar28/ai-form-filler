@@ -1,4 +1,5 @@
 import { ApiErrorResponse } from '@aff/shared'
+import { GOOGLE_CLIENT_ID } from '@aff/shared/deployment'
 import { createRoute, OpenAPIHono } from '@hono/zod-openapi'
 import { drizzle } from 'drizzle-orm/d1'
 import { verifyGoogleAccessToken } from '../auth/google.js'
@@ -30,7 +31,7 @@ export const authRoutes = new OpenAPIHono<AppEnv>()
 authRoutes.openapi(signInRoute, async (c) => {
   const { accessToken } = c.req.valid('json')
 
-  const identity = await verifyGoogleAccessToken(accessToken, c.env.GOOGLE_CLIENT_ID)
+  const identity = await verifyGoogleAccessToken(accessToken, GOOGLE_CLIENT_ID)
 
   const db = drizzle(c.env.DB)
   const userId = await getOrCreateUser(db, identity)
