@@ -747,6 +747,19 @@ export default defineContentScript({
          * which point at the panel precisely when the panel is where the answer is.
          */
         onOpen: startFormFill,
+        /**
+         * The Sidebar pill's action — the one thing above the circle rather than below it.
+         *
+         * `sendMessage` is called straight out of the click with nothing awaited in front of it,
+         * because `chrome.sidePanel.open` in the worker needs a live user gesture and any await
+         * on this side spends it. Same constraint, same shape as `overlay/paywall`.
+         *
+         * Failures are swallowed: the panel either opened or the user presses again with a fresh
+         * gesture, and there is nothing an error card over their form would add.
+         */
+        onOpenPanel: () => {
+          void chrome.runtime.sendMessage({ type: 'overlay/openPanel' }).catch(() => undefined)
+        },
         onStop: () => {
           filling = false
           clearMarks()

@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { mountLauncher } from './launcher.js'
+import { type LauncherHandle, mountLauncher } from './launcher.js'
 
 /**
  * The launcher's reach, which is the thing that cannot be checked by looking at it.
@@ -24,8 +24,24 @@ function movePointer(clientX: number, clientY: number) {
   document.dispatchEvent(new PointerEvent('pointermove', { clientX, clientY, bubbles: true }))
 }
 
+/** Records what the launcher asked for, so a test can assert the callback and not the wiring. */
+const calls = { open: 0, stop: 0, panel: 0 }
+
 function mount() {
-  const handle = mountLauncher({ onOpen: () => {}, onStop: () => {} })
+  calls.open = 0
+  calls.stop = 0
+  calls.panel = 0
+  const handle = mountLauncher({
+    onOpen: () => {
+      calls.open += 1
+    },
+    onStop: () => {
+      calls.stop += 1
+    },
+    onOpenPanel: () => {
+      calls.panel += 1
+    },
+  })
   stubRect(handle.element)
   return handle
 }
@@ -289,6 +305,45 @@ describe('the shortcut hint', () => {
     expect(handle.element.querySelector('.launcher')?.getAttribute('aria-label')).toBe(
       'Fill this form (Alt+F)',
     )
+    handle.destroy()
+  })
+})
+
+/**
+ * The Sidebar pill — the one control above the circle.
+ *
+ * Visibility is CSS and cannot be observed here. What is worth pinning down is the part that
+ * would be a bug on someone else's page: the pill asks for the panel and nothing else, and a
+ * click on it must not also start a fill.
+ */
+describe('the sidebar pill', () => {
+  const pill = (handle: LauncherHandle) =>
+    handle.element.querySelector('.launcher-panel') as HTMLElement
+
+  it('asks for the panel, and does not start a fill', async () => {
+    const handle = mount()
+    await flush()
+
+    pill(handle).dispatchEvent(new MouseEvent('click', { bubbles: true }))
+
+    expect(calls.panel).toBe(1)
+    expect(calls.open).toBe(0)
+    handle.destroy()
+  })
+
+  it('names itself for a screen reader, since the icon carries no text', async () => {
+    const handle = mount()
+    await flush()
+    expect(pill(handle).getAttribute('aria-label')).toBe('Open the Fillaform side panel')
+    handle.destroy()
+  })
+
+  it('is a sibling of the circle, so its click never passes through to it', async () => {
+    const handle = mount()
+    await flush()
+    // A child would bubble into the circle's own handler however the click was stopped.
+    expect(pill(handle).parentElement).toBe(handle.element)
+    expect(handle.element.querySelector('.launcher')?.contains(pill(handle))).toBe(false)
     handle.destroy()
   })
 })

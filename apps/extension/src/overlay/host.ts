@@ -199,6 +199,62 @@ ${overlayVariables(':host')}
 }
 
 /*
+  Open the side panel — a pill above the circle, revealed on approach.
+
+  Above rather than below because the two are different kinds of thing and the split says so:
+  what is *above* the circle is an action you can take, and what is below is a label telling you
+  how to take the action the circle already offers. Both are pinned to the circle's right edge so
+  they grow leftward into the page, where there is always room.
+
+  Unlike the hint this one takes clicks, which makes "pointer-events" load-bearing rather than
+  decorative: it is "none" until the pill is actually visible. Otherwise a fully transparent
+  100x30 button sits over someone else's page absorbing clicks meant for whatever is underneath.
+  Height is --aff-tap, the floor for anything meant to be hit with a cursor over a live form.
+*/
+.launcher-panel {
+  position: absolute;
+  bottom: calc(100% + 7px);
+  right: 14px;
+  translate: 0 4px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: var(--aff-tap);
+  padding: 0 11px;
+  border: 1px solid var(--aff-border-muted);
+  border-radius: var(--aff-radius-full);
+  background: var(--aff-surface-raised);
+  color: var(--aff-ink-muted);
+  font-family: inherit;
+  font-size: var(--aff-text-xs);
+  font-weight: 600;
+  line-height: 1;
+  white-space: nowrap;
+  cursor: pointer;
+  opacity: 0;
+  pointer-events: none;
+  box-shadow: 0 4px 12px -4px var(--aff-shadow);
+  transition:
+    opacity 140ms var(--aff-ease),
+    translate 180ms var(--aff-spring),
+    color 120ms var(--aff-ease),
+    border-color 120ms var(--aff-ease);
+}
+.launcher-panel svg { width: 13px; height: 13px; flex: none; }
+/* Same three conditions as the hint below, for the same reasons. See that note on :not(). */
+.launcher-wrap:not([data-rail="true"]):hover .launcher-panel,
+.launcher-wrap:not([data-rail="true"])[data-near="true"] .launcher-panel {
+  opacity: 1;
+  translate: 0 0;
+  pointer-events: auto;
+}
+.launcher-panel:hover {
+  color: var(--aff-accent);
+  border-color: var(--aff-accent-muted);
+}
+.launcher-panel:active { scale: 0.97; }
+
+/*
   The shortcut, under the circle, on approach only.
 
   This used to be a key cap sitting in the rail, which meant the rail existed permanently in

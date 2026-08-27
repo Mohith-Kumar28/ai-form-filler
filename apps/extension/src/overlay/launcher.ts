@@ -1,4 +1,5 @@
 import { sendMessage } from '../lib/messaging.js'
+import { createStageWalk } from '../lib/stage-walk.js'
 import { GLYPH, getOverlayHost } from './host.js'
 import type { Rect } from './scheduler.js'
 
@@ -70,7 +71,12 @@ export interface LauncherHandle {
   destroy: () => void
 }
 
-export function mountLauncher(options: { onOpen: () => void; onStop: () => void }): LauncherHandle {
+export function mountLauncher(options: {
+  onOpen: () => void
+  onStop: () => void
+  /** Opens the side panel. Deliberately its own control — see `panelBtn` below. */
+  onOpenPanel: () => void
+}): LauncherHandle {
   const { root } = getOverlayHost()
 
   // ── DOM ─────────────────────────────────────────────────────────────────
@@ -105,6 +111,36 @@ export function mountLauncher(options: { onOpen: () => void; onStop: () => void 
   rail.appendChild(stopBtn)
 
   /**
+   * Open the side panel — a pill above the circle, on hover only.
+   *
+   * A separate control rather than something the circle does, because the circle deliberately
+   * does *not* open the panel: opening it narrows the viewport and relays out the form being
+   * filled, at the moment marks are being drawn against the old geometry. See the long note at
+   * the `mountLauncher` call in content.ts. That reasoning rules out opening the panel *as a
+   * side effect of filling* — it says nothing against opening it on purpose, which until now
+   * meant the toolbar icon and nothing else on the page.
+   *
+   * A real `<button>`, so it needs what the hint does not: `pointer-events: auto` while visible
+   * and `none` while hidden. A transparent control left clickable over someone else's page is a
+   * 100×30 dead zone above the launcher that silently eats their clicks.
+   */
+  const panelBtn = document.createElement('button')
+  panelBtn.type = 'button'
+  panelBtn.className = 'launcher-panel'
+  panelBtn.setAttribute('aria-label', 'Open the Fillaform side panel')
+  panelBtn.innerHTML = `${GLYPH.panel}<span>Sidebar</span>`
+  panelBtn.addEventListener('click', (event) => {
+    /**
+     * Stopped here even though the pill is the button's sibling rather than its child: a click
+     * that reached the page underneath would land on whatever form control sits above the
+     * launcher, and opening the panel is not a reason to focus somebody's field.
+     */
+    event.stopPropagation()
+    event.preventDefault()
+    options.onOpenPanel()
+  })
+
+  /**
    * The keyboard shortcut, under the circle, on hover only.
    *
    * It used to live in the rail, which meant a bordered strip ran from the circle to the edge of
@@ -132,6 +168,7 @@ export function mountLauncher(options: { onOpen: () => void; onStop: () => void 
   wrap.appendChild(grabber)
   wrap.appendChild(button)
   wrap.appendChild(rail)
+  wrap.appendChild(panelBtn)
   wrap.appendChild(hint)
   root.appendChild(wrap)
 
@@ -240,6 +277,16 @@ export function mountLauncher(options: { onOpen: () => void; onStop: () => void 
     }
   }
 
+  /**
+   * Paces the rail's label so every stage that happens is actually read.
+   *
+   * Finding the form and reading the page both finish in a few milliseconds, so without this the
+   * rail's first legible state was "Writing your answers…" and the two steps in front of it
+   * never appeared. The panel walks the same queue at the same cadence — they sit side by side
+   * during a fill, and one racing ahead of the other reads as a bug in whichever is behind.
+   */
+  const stageWalk = createStageWalk((stage) => startLoadingText(stage))
+
   let attentionPlayed = false
 
   // Safety net: if no fill event ever arrives, the icon must not spin forever.
@@ -251,6 +298,9 @@ export function mountLauncher(options: { onOpen: () => void; onStop: () => void 
       loadingSafety = null
     }
     button.classList.remove('launcher--loading')
+    // Pending steps go too. A queued label arriving after the rail has moved on to a count —
+    // or after the fill is over entirely — would overwrite the truth with old news.
+    stageWalk.stop()
     stopLoadingText()
     loadingStage = ''
   }
@@ -443,7 +493,7 @@ export function mountLauncher(options: { onOpen: () => void; onStop: () => void 
 
       wrap.removeAttribute('data-filling')
       button.classList.add('launcher--loading')
-      startLoadingText(stage)
+      stageWalk.report(stage)
     },
     setExhausted: () => {
       settleLoading()
