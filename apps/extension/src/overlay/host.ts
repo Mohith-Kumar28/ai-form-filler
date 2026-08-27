@@ -843,13 +843,47 @@ ${overlayVariables(':host')}
   font-size: var(--aff-text-sm);
 }
 
-.answer-nudge { padding: 10px var(--aff-pad) 0; }
+/*
+  The rewrite controls, fenced off from the answer above them.
 
-.answer-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+  Without the rule this section ran straight on from the answer box, so the card read as one
+  undivided stack of six chips, a text field and three buttons — everything looked equally like
+  the next thing to do. The line says the answer is one thing and changing it is another.
+*/
+.answer-nudge {
+  margin-top: 12px;
+  padding: 12px var(--aff-pad) 0;
+  border-top: 1px solid var(--aff-border-muted);
+}
+
+/* Two columns: the label, then the chips. Top-aligned so the label sits with the first line of
+   chips rather than floating against the middle of a block that wrapped. */
+.answer-chips { display: flex; align-items: flex-start; gap: 6px; margin-bottom: 8px; }
+.answer-chip-set { display: flex; flex-wrap: wrap; gap: 6px; min-width: 0; }
+
+/*
+  The group's name. Quiet, fixed-width and set in small caps so the two rows line up under each
+  other and the eye reads down the labels rather than along the chips.
+*/
+.answer-chips-label {
+  flex: none;
+  width: 44px;
+  /* Optically centred against a 28px chip. */
+  padding-top: 8px;
+  color: var(--aff-ink-dim);
+  font-size: var(--aff-text-2xs);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
 
 .answer-chip {
   min-height: 28px;
   padding: 5px 12px;
+  /* A chip is one label. Letting "more formal" break across two lines makes that one chip twice
+     the height of its neighbours and the whole row ragged; wrapping the chip whole to the next
+     line, where the nested set aligns it under its siblings, is the behaviour that reads. */
+  white-space: nowrap;
   border: 1px solid var(--aff-border);
   border-radius: var(--aff-radius-full);
   background: transparent;
@@ -865,19 +899,32 @@ ${overlayVariables(':host')}
 .answer-chip[data-last="true"] { border-color: var(--aff-accent); color: var(--aff-ink); }
 .answer-chip:focus-visible { outline: 2px solid var(--aff-accent); outline-offset: 2px; }
 
-.answer-ask { display: flex; align-items: center; gap: 8px; }
+/* Bottom-aligned, so the send button stays beside the last line as the box grows rather than
+   drifting to the middle of a five-line instruction. */
+.answer-ask { display: flex; align-items: flex-end; gap: 8px; }
 
+/*
+  Grows with what is typed into it — height is set from scrollHeight in card.ts.
+
+  A pill radius belongs to a control that is always one line high; at three lines it reads as a
+  capsule someone has stretched. The rounded rectangle is what a multi-line field looks like, and
+  it matches the answer box above it, which is the other multi-line field on this card.
+*/
 .answer-ask-input {
   flex: 1;
   min-width: 0;
   min-height: var(--aff-tap);
-  padding: 6px 14px;
+  padding: 7px 12px;
   border: 1px solid var(--aff-border);
-  border-radius: var(--aff-radius-full);
+  border-radius: var(--aff-radius-md);
   background: var(--aff-surface);
   color: var(--aff-ink);
   font: inherit;
   font-size: var(--aff-text-sm);
+  line-height: 1.45;
+  /* Vertical only: a manual drag would fight the automatic sizing on the next keystroke. */
+  resize: none;
+  overflow-y: auto;
 }
 .answer-ask-input::placeholder { color: var(--aff-ink-dim); }
 .answer-ask-input:focus-visible { outline: 2px solid var(--aff-accent); outline-offset: -1px; }

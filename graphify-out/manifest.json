@@ -270,8 +270,8 @@
     "semantic_hash": ""
   },
   "apps/extension/src/entrypoints/content.ts": {
-    "mtime": 1787522607.656701,
-    "ast_hash": "7d7bfd51b884d30f207d8b300eb26ae5",
+    "mtime": 1787813774.6976018,
+    "ast_hash": "604579a977ab2a33f724ed62ee7e34ad",
     "semantic_hash": ""
   },
   "apps/extension/src/entrypoints/sidepanel/App.tsx": {
@@ -580,8 +580,8 @@
     "semantic_hash": ""
   },
   "apps/extension/src/overlay/host.ts": {
-    "mtime": 1787813399.9391181,
-    "ast_hash": "d295900cdbc5e0486f7fd17945cf5039",
+    "mtime": 1787823549.296417,
+    "ast_hash": "3e766c21b2ad04335bdf68e0add3dc49",
     "semantic_hash": ""
   },
   "apps/extension/src/overlay/overlay.test.ts": {
@@ -875,8 +875,8 @@
     "semantic_hash": ""
   },
   "apps/extension/src/entrypoints/sidepanel/screens/Filling.tsx": {
-    "mtime": 1787812905.477554,
-    "ast_hash": "bdf6f81c51b1ce7c7bd39d5e973d680f",
+    "mtime": 1787814052.1430736,
+    "ast_hash": "d3ec350a09909ae1585e25db5ab2dae0",
     "semantic_hash": ""
   },
   "apps/extension/src/entrypoints/sidepanel/screens/Home.tsx": {
@@ -1070,8 +1070,8 @@
     "semantic_hash": ""
   },
   "apps/extension/src/overlay/card.ts": {
-    "mtime": 1787297092.8140922,
-    "ast_hash": "1635be786820b4739dc332316b32be71",
+    "mtime": 1787823602.067218,
+    "ast_hash": "0b9e98b208da8f383595e2e0643ba3bc",
     "semantic_hash": ""
   },
   "apps/extension/src/overlay/confetti.ts": {
@@ -1080,8 +1080,8 @@
     "semantic_hash": ""
   },
   "apps/extension/src/overlay/launcher.ts": {
-    "mtime": 1787812964.4810762,
-    "ast_hash": "785751d7b340ecd6879a4af578080c41",
+    "mtime": 1787813955.4388785,
+    "ast_hash": "193286531746a5905623b75f192d775a",
     "semantic_hash": ""
   },
   "apps/extension/src/overlay/markers.test.ts": {
@@ -1560,8 +1560,8 @@
     "semantic_hash": ""
   },
   "apps/extension/src/overlay/launcher.test.ts": {
-    "mtime": 1787813010.004313,
-    "ast_hash": "68b186ff1ff00fdee23af789dfdad608",
+    "mtime": 1787813818.2093565,
+    "ast_hash": "bced1ae02646db54d4375677d497b95c",
     "semantic_hash": ""
   },
   "packages/shared/src/facts.ts": {
@@ -1580,8 +1580,8 @@
     "semantic_hash": ""
   },
   "apps/extension/src/overlay/card.test.ts": {
-    "mtime": 1787297116.3027844,
-    "ast_hash": "f1bdd633f1f9324b09def82f6da283e7",
+    "mtime": 1787823432.2661352,
+    "ast_hash": "dddb4c6e0376d1ee23e78f631ff26dcf",
     "semantic_hash": ""
   },
   "scripts/dodo-live.mjs": {
@@ -1712,6 +1712,16 @@
   ".opencode/plans/page-markdown-plan.md": {
     "mtime": 1787521724.5110936,
     "ast_hash": "b0706bc297e5656d7faf0a28998032df",
+    "semantic_hash": ""
+  },
+  "apps/extension/src/lib/stage-walk.test.ts": {
+    "mtime": 1787814052.1589186,
+    "ast_hash": "28e106285baf444e47fc8603b18933f5",
+    "semantic_hash": ""
+  },
+  "apps/extension/src/lib/stage-walk.ts": {
+    "mtime": 1787813892.9760623,
+    "ast_hash": "de575340570849381bcf0a72416ee911",
     "semantic_hash": ""
   }
 }

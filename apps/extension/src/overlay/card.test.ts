@@ -41,8 +41,10 @@ function spec(over: Partial<AnswerCardSpec> = {}): AnswerCardSpec {
 
 function type(text: string): void {
   const { root } = getOverlayHost()
-  const textarea = root.querySelector('textarea')
-  if (!textarea) throw new Error('the card has no textarea')
+  // `.answer-text` explicitly: the instruction box is a textarea too, so a bare tag lookup here
+  // reads whichever happens to come first in the DOM.
+  const textarea = root.querySelector<HTMLTextAreaElement>('.answer-text')
+  if (!textarea) throw new Error('the card has no answer textarea')
   textarea.value = text
   textarea.dispatchEvent(new Event('input', { bubbles: true }))
 }
@@ -63,33 +65,40 @@ async function press(label: string): Promise<void> {
   await vi.advanceTimersByTimeAsync(0)
 }
 
+/**
+ * The overlay's environment, shared by every block below.
+ *
+ * It used to sit inside the first describe, which meant a second block mounting a card got real
+ * timers and a host left over from the previous test — so cards accumulated in one shadow root
+ * and a query for "the chip labels" answered with every card's.
+ */
+beforeEach(() => {
+  vi.useFakeTimers()
+  for (const name of ['IntersectionObserver', 'ResizeObserver']) {
+    vi.stubGlobal(
+      name,
+      class {
+        observe() {}
+        unobserve() {}
+        disconnect() {}
+      },
+    )
+  }
+  vi.stubGlobal('requestAnimationFrame', (cb: FrameRequestCallback) => {
+    cb(0)
+    return 0
+  })
+  vi.stubGlobal('cancelAnimationFrame', () => undefined)
+})
+
+afterEach(() => {
+  positionScheduler.clear()
+  getOverlayHost().destroy()
+  vi.useRealTimers()
+  vi.unstubAllGlobals()
+})
+
 describe('Keep, on an answer that was edited', () => {
-  beforeEach(() => {
-    vi.useFakeTimers()
-    for (const name of ['IntersectionObserver', 'ResizeObserver']) {
-      vi.stubGlobal(
-        name,
-        class {
-          observe() {}
-          unobserve() {}
-          disconnect() {}
-        },
-      )
-    }
-    vi.stubGlobal('requestAnimationFrame', (cb: FrameRequestCallback) => {
-      cb(0)
-      return 0
-    })
-    vi.stubGlobal('cancelAnimationFrame', () => undefined)
-  })
-
-  afterEach(() => {
-    positionScheduler.clear()
-    getOverlayHost().destroy()
-    vi.useRealTimers()
-    vi.unstubAllGlobals()
-  })
-
   /**
    * The reported case, and the reason the flush in the Keep handler exists.
    *
@@ -254,5 +263,107 @@ describe('Keep, on an answer that was edited', () => {
     expect(root.querySelectorAll('.mark')).toHaveLength(0)
     card.close()
     element.remove()
+  })
+})
+
+/**
+ * The rewrite box, and what happens when a rewrite is refused.
+ *
+ * Both of these were real reports. The instruction field showed about forty characters of a
+ * sentence people were typing about their own answer, and every failure — out of allowance,
+ * session expired, network gone — printed the same shrug, so the one that is not a failure at all
+ * looked like a broken feature.
+ */
+describe('asking for a rewrite', () => {
+  const askBox = () => {
+    const { root } = getOverlayHost()
+    return root.querySelector<HTMLTextAreaElement>('.answer-ask-input')
+  }
+  const note = () => getOverlayHost().root.querySelector('.answer-note')?.textContent?.trim()
+
+  it('takes a multi-line instruction, not one line of it', () => {
+    mountAnswerCard(spec())
+    const box = askBox()
+
+    expect(box?.tagName).toBe('TEXTAREA')
+    // Growing is height set from scrollHeight, which happy-dom cannot lay out; what is testable
+    // is that nothing pins it to one row.
+    expect(box?.getAttribute('rows')).toBe('1')
+    expect(box?.style.resize === 'both').toBe(false)
+  })
+
+  it('sends on Enter and takes a newline on Shift+Enter', async () => {
+    const asked: string[] = []
+    mountAnswerCard(
+      spec({
+        onRewrite: (instruction) => {
+          asked.push(instruction)
+          return Promise.resolve('rewritten')
+        },
+      }),
+    )
+    const box = askBox()
+    if (!box) throw new Error('no instruction box')
+
+    box.value = 'say it plainly'
+    box.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', shiftKey: true, bubbles: true }))
+    expect(asked).toEqual([])
+
+    box.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }))
+    await vi.advanceTimersByTimeAsync(0)
+    expect(asked).toEqual(['say it plainly'])
+  })
+
+  it('never lets Enter reach the page, which would submit the form underneath', () => {
+    mountAnswerCard(spec())
+    const box = askBox()
+    if (!box) throw new Error('no instruction box')
+
+    let reachedPage = false
+    document.addEventListener('keydown', () => {
+      reachedPage = true
+    })
+    box.value = 'shorter'
+    box.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }))
+
+    expect(reachedPage).toBe(false)
+  })
+
+  it('says why the rewrite was refused, in the words of whoever refused it', async () => {
+    // What the API actually returns for a custom instruction on the free grant.
+    const refusal = 'Your own instructions are part of Pro. The preset rewrites are available now.'
+    mountAnswerCard(spec({ onRewrite: () => Promise.reject(new Error(refusal)) }))
+    const box = askBox()
+    if (!box) throw new Error('no instruction box')
+
+    box.value = 'drop the word developer'
+    box.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }))
+    await vi.advanceTimersByTimeAsync(0)
+
+    expect(note()).toBe(refusal)
+  })
+
+  it('falls back to the old sentence when there is genuinely nothing to report', async () => {
+    mountAnswerCard(spec({ onRewrite: () => Promise.reject(new Error('  ')) }))
+    const box = askBox()
+    if (!box) throw new Error('no instruction box')
+
+    box.value = 'warmer'
+    box.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }))
+    await vi.advanceTimersByTimeAsync(0)
+
+    expect(note()).toBe("That rewrite didn't come back. Your answer is unchanged.")
+  })
+
+  it('names each chip group on screen, not only for a screen reader', () => {
+    mountAnswerCard(spec())
+    const { root } = getOverlayHost()
+    const labels = [...root.querySelectorAll('.answer-chips-label')].map((n) => n.textContent)
+
+    expect(labels).toEqual(['Tone', 'Length'])
+    // The group carries the same word already; announcing it twice is noise.
+    for (const node of root.querySelectorAll('.answer-chips-label')) {
+      expect(node.getAttribute('aria-hidden')).toBe('true')
+    }
   })
 })

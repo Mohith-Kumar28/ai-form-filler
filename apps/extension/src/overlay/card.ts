@@ -388,6 +388,38 @@ const REASON_LABEL: Record<AnswerCardSpec['reason'], string> = {
   stated: 'your answer',
 }
 
+/**
+ * Why the rewrite did not happen, in the words of whoever refused it.
+ *
+ * This used to discard the error and print one sentence for every cause, which made three
+ * completely different situations look identical and none of them actionable: the account is out
+ * of allowance, the session expired, or the network dropped. The most common of the three is not
+ * a failure at all — asking for your own instruction on the free grant is refused on purpose, and
+ * the server says so in a sentence written for the user ("Your own instructions are part of Pro.
+ * The preset rewrites are available now."). Replacing that with "didn't come back" turned a
+ * working paywall into an apparently broken feature, and the one thing the user could have done
+ * about it — press a preset, or upgrade — was the thing the message hid.
+ *
+ * Every message that can arrive here is already user-facing: the API's error envelope is written
+ * for this surface, and `http-client.ts` swaps a dead session's internal wording for
+ * `SESSION_EXPIRED_MESSAGE` before it ever gets this far. The old sentence stays as the fallback
+ * for the one case with nothing to report — a thrown value that is not an Error, or an empty
+ * message — because "unchanged" is still the useful half of it.
+ */
+function rewriteFailure(cause: unknown): string {
+  const message = cause instanceof Error ? cause.message.trim() : ''
+  return message === '' ? "That rewrite didn't come back. Your answer is unchanged." : message
+}
+
+/**
+ * How tall the instruction box may grow before it scrolls, in CSS pixels.
+ *
+ * About five lines. The card is drawn over somebody's form, so it cannot grow without bound —
+ * and past five lines the thing being described is longer than most of the answers it describes,
+ * which is the point where scrolling is the lesser cost.
+ */
+const ASK_MAX_HEIGHT = 116
+
 /** Above this many options, the list gets a filter. An ATS country select has ~195. */
 const FILTER_THRESHOLD = 8
 
@@ -502,14 +534,45 @@ export function mountAnswerCard(spec: AnswerCardSpec): CardHandle {
       row.className = 'answer-chips'
       row.setAttribute('role', 'group')
       row.setAttribute('aria-label', label)
-      row.innerHTML = presets
-        .map(
-          (preset) =>
-            `<button type="button" class="answer-chip" data-instruction="${escapeHtml(preset.instruction)}"${
-              spec.lastInstruction === preset.instruction ? ' data-last="true"' : ''
-            }>${escapeHtml(preset.label)}</button>`,
-        )
-        .join('')
+
+      /**
+       * The group's name, on screen and not only in the accessibility tree.
+       *
+       * These two rows have always been Tone and Length, and the split was stated in an
+       * `aria-label` that nobody looking at the card could see — so six chips reading "warmer,
+       * confident, plainer, more formal, shorter, expand" arrived as one undifferentiated wall of
+       * lowercase words with no clue what they did to what. Named, each row reads as a sentence
+       * completed by whichever chip is pressed. `aria-hidden` because the group already carries
+       * the same word for a screen reader, and announcing it twice is noise.
+       */
+      const name = document.createElement('span')
+      name.className = 'answer-chips-label'
+      name.setAttribute('aria-hidden', 'true')
+      name.textContent = label
+      row.appendChild(name)
+
+      /**
+       * The chips get their own column rather than sharing the row's flex flow.
+       *
+       * In one wrapping row, a chip that does not fit drops to the next line and starts at the
+       * row's left edge — underneath the label, out of line with the chips above it. Nested, the
+       * label is one column and the chips another, so a wrapped chip lands under its siblings.
+       */
+      const set = document.createElement('div')
+      set.className = 'answer-chip-set'
+      row.appendChild(set)
+
+      set.insertAdjacentHTML(
+        'beforeend',
+        presets
+          .map(
+            (preset) =>
+              `<button type="button" class="answer-chip" data-instruction="${escapeHtml(preset.instruction)}"${
+                spec.lastInstruction === preset.instruction ? ' data-last="true"' : ''
+              }>${escapeHtml(preset.label)}</button>`,
+          )
+          .join(''),
+      )
       nudge.appendChild(row)
     }
 
@@ -518,12 +581,47 @@ export function mountAnswerCard(spec: AnswerCardSpec): CardHandle {
      * `preventDefault` on its submit is what stops that Enter reaching the page's own form.
      */
     ask.className = 'answer-ask'
-    const input = document.createElement('input')
-    input.type = 'text'
+
+    /**
+     * A textarea, not a single-line input.
+     *
+     * What people type here is a sentence about their own answer — "don't call me a developer,
+     * say I work on billing systems" — and an input showed about forty characters of it with the
+     * rest scrolled out of sight, so the instruction could not be read back before sending. It
+     * grows with its content instead, up to `ASK_MAX_HEIGHT`, then scrolls.
+     *
+     * Sizing is done in JS rather than with `field-sizing: content`, which would be one CSS line
+     * and no listener: the property is recent enough that a slightly older Chrome would silently
+     * fall back to a one-row box, which is the exact bug being fixed here. This works on every
+     * version that can run the extension at all.
+     */
+    const input = document.createElement('textarea')
     input.className = 'answer-ask-input'
-    input.placeholder = 'tell it what to change'
+    input.rows = 1
+    input.placeholder = 'Tell it what to change…'
     input.maxLength = MAX_INSTRUCTION_LENGTH
     input.setAttribute('aria-label', 'Tell it what to change')
+
+    const resizeAsk = () => {
+      input.style.height = 'auto'
+      input.style.height = `${Math.min(input.scrollHeight, ASK_MAX_HEIGHT)}px`
+    }
+    input.addEventListener('input', resizeAsk)
+
+    /**
+     * Enter sends; Shift+Enter is a newline.
+     *
+     * A textarea does not submit its form on Enter the way an input does, so this restores the
+     * gesture the card had before. `stopPropagation` matters as much as `requestSubmit`: without
+     * it the keystroke continues into the host page, where Enter inside a form control submits
+     * *their* form — which on the page this card is drawn over means filing the application.
+     */
+    input.addEventListener('keydown', (event) => {
+      if (event.key !== 'Enter' || event.shiftKey) return
+      event.preventDefault()
+      event.stopPropagation()
+      ask.requestSubmit()
+    })
     const go = document.createElement('button')
     go.type = 'submit'
     go.className = 'answer-ask-go'
@@ -737,10 +835,10 @@ export function mountAnswerCard(spec: AnswerCardSpec): CardHandle {
         setNote('')
         commit(next, { immediate: true })
       })
-      .catch(() => {
+      .catch((cause: unknown) => {
         if (generation !== mine) return
         setState('error')
-        setNote("That rewrite didn't come back. Your answer is unchanged.", 'bad')
+        setNote(rewriteFailure(cause), 'bad')
       })
       .finally(() => {
         if (slowTimer !== null) clearTimeout(slowTimer)
@@ -753,7 +851,7 @@ export function mountAnswerCard(spec: AnswerCardSpec): CardHandle {
       // Without this the Enter would reach the host page's own form and submit it.
       event.preventDefault()
       event.stopPropagation()
-      const input = ask.querySelector<HTMLInputElement>('.answer-ask-input')
+      const input = ask.querySelector<HTMLTextAreaElement>('.answer-ask-input')
       if (!input) return
 
       if (handle.element.dataset.state === 'rewriting') {
