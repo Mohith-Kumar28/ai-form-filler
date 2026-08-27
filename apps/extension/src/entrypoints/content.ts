@@ -1,4 +1,4 @@
-import { type DetectionResult, detectPageForm } from '@aff/form-adapters'
+import { collectPageMarkdown, type DetectionResult, detectPageForm } from '@aff/form-adapters'
 import type {
   ApplyReport,
   ContentRequest,
@@ -1415,6 +1415,23 @@ export default defineContentScript({
           case 'content/detect':
             sendResponse(detection?.form ?? null)
             return false
+
+          case 'content/pageContent': {
+            /**
+             * Answered synchronously: the walk is bounded by the char cap and happens once,
+             * at the start of a fill the user explicitly asked for. `null` on any failure —
+             * a fill must never fail because its page context did.
+             */
+            let markdown: string | null = null
+            try {
+              const read = collectPageMarkdown(document)
+              markdown = read.length > 0 ? read : null
+            } catch {
+              // Degrade to today's behaviour: pageContext alone still rides along.
+            }
+            sendResponse({ markdown })
+            return false
+          }
 
           case 'content/apply':
             launcher?.setLoading(false)

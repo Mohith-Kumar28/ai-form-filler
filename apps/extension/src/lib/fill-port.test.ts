@@ -36,15 +36,18 @@ describe('the fill port', () => {
   let tabMessages: { tabId: number; message: { type: string; event?: FillPortEvent } }[]
   let broadcasts: { type: string; event?: FillPortEvent }[]
   let stored: Record<string, unknown>
+  let pageMarkdown: string | null | undefined
 
   const PLAN = { fills: [{ fieldId: 'f1', value: 'Ada', confidence: 0.9, inferred: false }] }
   const FORM = { origin: 'https://example.com', adapter: 'generic', fields: [{ id: 'f1' }] }
+  const MARKDOWN = '# Senior Frontend Engineer\n\nYou will build the things.'
 
   beforeEach(() => {
     connect = undefined
     tabMessages = []
     broadcasts = []
     stored = {}
+    pageMarkdown = MARKDOWN
     fillForm.mockReset()
     fillForm.mockResolvedValue(PLAN)
 
@@ -58,8 +61,9 @@ describe('the fill port', () => {
       tabs: {
         sendMessage: async (tabId: number, message: { type: string; event?: FillPortEvent }) => {
           tabMessages.push({ tabId, message })
-          // The content script's two answers, in the order the flow asks for them.
+          // The content script's answers, in the order the flow asks for them.
           if (message.type === 'content/detect') return FORM
+          if (message.type === 'content/pageContent') return { markdown: pageMarkdown }
           if (message.type === 'content/apply') return { applied: ['f1'], failed: [] }
           return null
         },
@@ -111,11 +115,49 @@ describe('the fill port', () => {
     const { events } = await fill({ tab: { id: 42 } })
 
     expect(events.at(-1)?.type).toBe('complete')
-    expect(tabMessages.map((entry) => entry.tabId)).toEqual([42, 42])
+    expect(tabMessages.map((entry) => entry.tabId)).toEqual([42, 42, 42])
     expect(tabMessages.map((entry) => entry.message.type)).toEqual([
       'content/detect',
+      'content/pageContent',
       'content/apply',
     ])
+  })
+
+  it('reads the page once per whole-form fill and sends it to the API', async () => {
+    await fill({ tab: { id: 42 } })
+
+    expect(fillForm).toHaveBeenCalledWith(
+      expect.objectContaining({
+        form: expect.objectContaining({ pageMarkdown: MARKDOWN }),
+      }),
+    )
+  })
+
+  it('completes without page context when the read fails or comes back empty', async () => {
+    // The walk can throw (a hostile page), come back empty (an SPA shell), or the message
+    // can find no listener. All three are today's behaviour, not an error.
+    for (const broken of [undefined, null, '']) {
+      pageMarkdown = broken
+      const { events } = await fill({ tab: { id: 42 } })
+
+      expect(events.at(-1)?.type).toBe('complete')
+      expect(fillForm).toHaveBeenLastCalledWith(
+        expect.not.objectContaining({
+          form: expect.objectContaining({ pageMarkdown: expect.anything() }),
+        }),
+      )
+    }
+  })
+
+  it('does not read the page for a single-field refill', async () => {
+    await fill(undefined, { tabId: 7, onlyFieldId: 'f1' })
+
+    expect(tabMessages.some((entry) => entry.message.type === 'content/pageContent')).toBe(false)
+    expect(fillForm).toHaveBeenCalledWith(
+      expect.not.objectContaining({
+        form: expect.objectContaining({ pageMarkdown: expect.anything() }),
+      }),
+    )
   })
 
   it('ignores a tab the page asked for, and uses the one it actually came from', async () => {

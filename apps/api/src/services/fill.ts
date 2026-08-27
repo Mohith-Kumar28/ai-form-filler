@@ -90,6 +90,24 @@ export function budgetFills<T extends Unresolved>(
 }
 
 /**
+ * Whether this batch's model call carries the page's markdown.
+ *
+ * Page prose earns its tokens only where prose answers are written: tier 2 and tier 3.
+ * Tier 1 answers from constrained options, tier 0 makes no call at all, and a single-field
+ * refill narrowed to one question gains nothing worth ~3.3k tokens of job description —
+ * the client already skips the scrape for that case, and this is the server holding the
+ * same line against anything that arrives by another road.
+ */
+export function pageMarkdownForBatch(
+  markdown: string | undefined,
+  scope: 'form' | 'field',
+  tier: Exclude<FillTier, 0>,
+): string | undefined {
+  if (!markdown || scope === 'field' || tier === 1) return undefined
+  return markdown
+}
+
+/**
  * Runs a form through the tier pipeline and produces a FillPlan.
  *
  * Tiers are executed in parallel because they are independent — a tier-1 dropdown does not
@@ -333,6 +351,7 @@ export async function runFill(
         classifications,
         origin: request.form.origin,
         pageContext: request.form.pageContext,
+        pageMarkdown: pageMarkdownForBatch(request.form.pageMarkdown, request.scope, batch.tier),
         retrieved: context.byField,
         avoid,
       })

@@ -114,6 +114,13 @@ export const FormSchema = z.object({
    */
   pageContext: z.string().max(4000).optional(),
 
+  /**
+   * The page's relevant content converted to Markdown at fill time, from the live DOM.
+   * Capped hard: ~3.3k tokens of input on every model call that carries it, so the
+   * walker stops early rather than sending a whole-page dump.
+   */
+  pageMarkdown: z.string().min(1).max(12_000).optional(),
+
   fields: z.array(FieldSchema).min(1).max(300),
 })
 export type FormSchema = z.infer<typeof FormSchema>

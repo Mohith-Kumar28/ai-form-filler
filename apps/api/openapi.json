@@ -704,6 +704,11 @@
                 "type": "string",
                 "maxLength": 4000
               },
+              "pageMarkdown": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 12000
+              },
               "fields": {
                 "type": "array",
                 "items": {

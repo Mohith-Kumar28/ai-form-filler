@@ -75,6 +75,28 @@ export async function runFillFlow(
     if (isCancelled()) return
 
     /**
+     * The page's own prose, read once at fill time.
+     *
+     * This is the context no server-side fetcher can reach — the user is logged in and the
+     * DOM is fully rendered — and it is what lets "why do you want to work here" be answered
+     * from this job description rather than composed generically. A whole-form fill only:
+     * a single-field refill narrows to one question, where page prose earns nothing against
+     * its token cost. Any failure degrades silently; `pageContext` still rides along.
+     */
+    let pageMarkdown: string | undefined
+    if (!options.onlyFieldId) {
+      try {
+        const page = await askContentScript<{ type: 'content/pageContent' }>(tabId, {
+          type: 'content/pageContent',
+        })
+        if (page?.markdown) pageMarkdown = page.markdown
+      } catch {
+        // An enhancement, never a dependency.
+      }
+    }
+    if (isCancelled()) return
+
+    /**
      * A single field still carries the whole page's context.
      *
      * `pageContext` and the surrounding field labels are what let the model tell "Name" on a
@@ -86,7 +108,7 @@ export async function runFillFlow(
           ...detected,
           fields: detected.fields.filter((field) => field.id === options.onlyFieldId),
         }
-      : detected
+      : { ...detected, ...(pageMarkdown ? { pageMarkdown } : {}) }
 
     if (form.fields.length === 0) {
       throw new ApiErrorResponse('INVALID_REQUEST', 'That field is no longer on the page.')

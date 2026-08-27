@@ -14,6 +14,11 @@ export type FillRequestForm = {
   /** @maxLength 4000 */
   pageContext?: string;
   /**
+     * @minLength 1
+     * @maxLength 12000
+     */
+  pageMarkdown?: string;
+  /**
      * @minItems 1
      * @maxItems 300
      */

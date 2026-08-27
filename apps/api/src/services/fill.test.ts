@@ -1,6 +1,6 @@
 import type { FillTier } from '@aff/shared'
 import { describe, expect, it } from 'vitest'
-import { budgetFills } from './fill.js'
+import { budgetFills, pageMarkdownForBatch } from './fill.js'
 
 /** `f7:3` — field 7, tier 3. Terse because these cases are mostly about ordering. */
 const fields = (spec: string) =>
@@ -71,5 +71,28 @@ describe('budgetFills', () => {
     const { affordable, unaffordable } = budgetFills(fields('a:0 b:1 c:0'), 0, 0)
     expect(affordable.map((f) => f.fieldId)).toEqual(['f0', 'f2'])
     expect(unaffordable.map((s) => s.fieldId)).toEqual(['f1'])
+  })
+})
+
+describe('pageMarkdownForBatch', () => {
+  const markdown = '# Senior Frontend Engineer'
+
+  it('rides on the prose tiers of a whole-form fill', () => {
+    // Tier 2 and tier 3 are where judgement-call paragraphs get written, which is exactly what
+    // a job description grounds.
+    expect(pageMarkdownForBatch(markdown, 'form', 2)).toBe(markdown)
+    expect(pageMarkdownForBatch(markdown, 'form', 3)).toBe(markdown)
+  })
+
+  it('is withheld from constrained-choice calls and single-field refills', () => {
+    // ~3.3k tokens of page prose cannot change which option a dropdown picks, and a refill
+    // narrowed to one question is usually not that question.
+    expect(pageMarkdownForBatch(markdown, 'form', 1)).toBeUndefined()
+    expect(pageMarkdownForBatch(markdown, 'field', 3)).toBeUndefined()
+  })
+
+  it('stays absent when the page yielded nothing', () => {
+    expect(pageMarkdownForBatch(undefined, 'form', 2)).toBeUndefined()
+    expect(pageMarkdownForBatch('', 'form', 3)).toBeUndefined()
   })
 })

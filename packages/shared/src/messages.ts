@@ -184,6 +184,14 @@ export type Result<T> = { ok: true; value: T } | { ok: false; error: ApiError }
 export type ContentRequest =
   | { type: 'content/detect' }
   /**
+   * Read the page's relevant content as Markdown, at fill time.
+   *
+   * A separate request from `content/detect` because detection also serves the panel's
+   * live-page view and re-runs on every debounced DOM mutation — it has to stay cheap.
+   * This walks the whole document once, only when a fill is actually starting.
+   */
+  | { type: 'content/pageContent' }
+  /**
    * Fill the whole form, as if the launcher had been clicked.
    *
    * Sent when the keyboard command fires. It goes through the worker because
@@ -215,11 +223,14 @@ export interface ApplyReport {
 
 export type ContentResponseFor<R extends ContentRequest> = R extends { type: 'content/detect' }
   ? FormSchema | null
-  : R extends {
-        type: 'content/highlight' | 'content/resolved' | 'content/openCard' | 'content/fill'
-      }
-    ? null
-    : ApplyReport
+  : R extends { type: 'content/pageContent' }
+    ? /** `null` when nothing meaningful was on the page or the walk failed — a fill never depends on it. */
+      { markdown: string | null }
+    : R extends {
+          type: 'content/highlight' | 'content/resolved' | 'content/openCard' | 'content/fill'
+        }
+      ? null
+      : ApplyReport
 
 export { FILL_PORT } from './constants.js'
 
