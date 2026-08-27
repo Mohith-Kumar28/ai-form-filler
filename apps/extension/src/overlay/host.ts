@@ -199,23 +199,61 @@ ${overlayVariables(':host')}
 }
 
 /*
-  The shortcut, as a key cap.
+  The shortcut, under the circle, on approach only.
 
-  A struck, bordered chip rather than plain text, because "⌥⇧F" set in the same weight as
-  "Writing your answers…" reads as an abbreviation of something rather than as a thing to
-  press. The label itself comes from chrome.commands, so a rebound key shows the new binding.
+  This used to be a key cap sitting in the rail, which meant the rail existed permanently in
+  order to hold it — a bordered strip across someone else's page for the whole life of the tab,
+  saying one thing that never changed. The shortcut only matters to a person already reaching
+  for the button, and that person is hovering or within NEAR_PAD, so that is when it appears.
+
+  A soft accent fill rather than a struck key cap: at 11px under a 38px gradient circle, a
+  bordered box reads as a second control to click. Filled and borderless, it reads as a label
+  belonging to the circle above it. accent-muted is pale pink in light and deep plum in dark, so
+  accent-on-accent-muted keeps its contrast in both without a scheme-specific rule.
+
+  Right-aligned with the circle rather than centred under it, and that is not cosmetic. Centred,
+  the pill's right half sticks out past the circle's own 14px margin, so any binding wider than
+  66px hangs off the window — and "Ctrl+Shift+Y" is wider than that. Pinned to the circle's right
+  edge it grows leftward into the page, where there is always room, which is the same reason the
+  rail runs that way.
 */
-.launcher-key {
-  flex: none;
-  padding: 3px 6px;
-  border: 1px solid var(--aff-border);
+.launcher-hint {
+  position: absolute;
+  top: calc(100% + 7px);
+  right: 14px;
+  translate: 0 -4px;
+  padding: 3px 7px;
   border-radius: var(--aff-radius-sm);
-  background: var(--aff-surface);
-  color: var(--aff-ink);
+  background: var(--aff-accent-muted);
+  color: var(--aff-accent);
   font-family: inherit;
   font-size: var(--aff-text-2xs);
   font-weight: 700;
   line-height: 1;
+  white-space: nowrap;
+  opacity: 0;
+  /* A label lying on someone else's page; the circle above it takes every click. */
+  pointer-events: none;
+  transition: opacity 140ms var(--aff-ease), translate 180ms var(--aff-spring);
+}
+/*
+  Shown only when all three hold: there is a real binding (data-hint), the pointer is there, and
+  the rail is not already talking. The third matters — during a fill the rail carries the stage
+  and a stop button, and a shortcut pill under a spinning circle offers a second way to start
+  something already running.
+
+  All three are conditions on one selector rather than a separate rule that hides it again. A
+  hide rule is the obvious way to write this and it does not work: a selector carrying both
+  data-hint and data-near outranks one carrying only data-rail, so the pill stayed visible right
+  through a fill. :not() contributes no specificity of its own, which is what is wanted here.
+
+  data-rail, not data-filling: the rail also speaks during "generating" before any count exists,
+  and for an exhausted account, neither of which sets data-filling.
+*/
+.launcher-wrap[data-hint="true"]:not([data-rail="true"]):hover .launcher-hint,
+.launcher-wrap[data-hint="true"]:not([data-rail="true"])[data-near="true"] .launcher-hint {
+  opacity: 1;
+  translate: 0 0;
 }
 
 /* The thinking dot. The pulse is what says "still working", not the words beside it. */

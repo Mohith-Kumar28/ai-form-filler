@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { collectPageMarkdown } from './page-markdown.js'
 
@@ -195,5 +197,152 @@ describe('fence hygiene', () => {
 
   it('returns an empty string for pages with nothing meaningful', () => {
     expect(markdownFor('<body></body>')).toBe('')
+  })
+})
+
+/**
+ * The walker against a real Google Form, saved verbatim — the same fixture the detection
+ * suite uses, and here for the same reason.
+ *
+ * Every test above is a synthetic DOM written from an assumption about real markup, and one
+ * of those assumptions was wrong in a way none of them could catch: `FORM` sat in `SKIP_TAGS`,
+ * so on a page whose content lives inside a form — Google Forms, Typeform, most ATS postings —
+ * this function returned Google's legal footer and nothing else. Fifteen passing tests, and
+ * the feature was inert on its primary target. A saved page cannot agree with a mistaken
+ * reading of the markup, which is the whole point of asserting against one.
+ */
+/**
+ * The shapes a form page actually arrives in, none of them a particular vendor's.
+ *
+ * The Google fixture below proves the walker against one real page; these prove the *rule* it
+ * now follows — skip controls, never containers — against the structures that rule exists for.
+ * Every one of them returned nothing but stray chrome under the old skip list.
+ */
+describe('any page whose content lives inside a container', () => {
+  it('reads a form-wrapped page, which is most hosted forms and surveys', () => {
+    const md = markdownFor(`
+      <form>
+        <div role="heading" aria-level="1">Volunteer signup — Riverside cleanup</div>
+        <p>We meet at the north boat ramp at 7am. Bring gloves; we supply bags and grabbers.</p>
+        <label>Which shift can you take?</label>
+        <input name="shift" />
+        <button type="submit">Send</button>
+      </form>
+    `)
+
+    expect(md).toContain('# Volunteer signup — Riverside cleanup')
+    expect(md).toContain('north boat ramp')
+    expect(md).toContain('Which shift can you take?')
+    // A control's own label is not page content.
+    expect(md).not.toContain('Send')
+  })
+
+  it('reads a form inside an open dialog, which is how a modal form ships', () => {
+    const md = markdownFor(`
+      <dialog open>
+        <h2>Request a demo</h2>
+        <p>We run demos for teams of ten or more, on Thursdays.</p>
+      </dialog>
+    `)
+
+    expect(md).toContain('## Request a demo')
+    expect(md).toContain('teams of ten or more')
+  })
+
+  it('keeps a substantial region whose class name merely looks like chrome', () => {
+    // `modal`, `popup`, `banner` are how half the web names a content wrapper. Length decides.
+    const body = 'The role owns our billing pipeline end to end. '.repeat(30)
+    const md = markdownFor(`<div class="signup-modal-popup"><p>${body}</p></div>`)
+
+    expect(md).toContain('billing pipeline end to end')
+  })
+
+  it('still drops a small region whose class name looks like chrome', () => {
+    const md = markdownFor(`
+      <div class="share-bar"><p>Share this on X</p></div>
+      <main><p>The actual posting text.</p></main>
+    `)
+
+    expect(md).toBe('The actual posting text.')
+  })
+
+  it('reads div-soup with no landmark element at all, as ATS markup tends to be', () => {
+    const md = markdownFor(`
+      <div><div><div>
+        <div role="heading" aria-level="2">About the team</div>
+        <div>We are four engineers and a designer, shipping weekly.</div>
+        <div>Applications close on the 30th.</div>
+      </div></div></div>
+    `)
+
+    expect(md).toContain('## About the team')
+    expect(md).toContain('four engineers and a designer')
+    expect(md).toContain('Applications close')
+  })
+
+  it('leaves a hidden dialog out, since a closed modal is not on the page', () => {
+    document.body.innerHTML = `
+      <dialog><p>Cookie preferences you never opened.</p></dialog>
+      <main><p>Real content.</p></main>
+    `
+    const closed = document.querySelector('dialog') as HTMLElement
+    closed.style.display = 'none'
+
+    const md = collectPageMarkdown(document)
+    expect(md).not.toContain('Cookie preferences')
+    expect(md).toContain('Real content.')
+  })
+})
+
+describe('a real Google Form, saved verbatim', () => {
+  const HTML = readFileSync(resolve(__dirname, '../fixtures/google-forms-waitlist.html'), 'utf8')
+
+  beforeEach(() => {
+    document.documentElement.innerHTML = HTML
+  })
+
+  it("reads the form's own title and description, which live inside the <form>", () => {
+    const md = collectPageMarkdown(document)
+
+    // The title and the product pitch — the context that lets the model answer "why do you
+    // want to join" with something about this product rather than a generic sentence.
+    expect(md).toContain('Join Memorie Waitlist')
+    expect(md).toContain('AI brain for your scattered digital life')
+    expect(md).toContain('WhatsApp')
+  })
+
+  it('is dominated by page content rather than by chrome', () => {
+    const md = collectPageMarkdown(document)
+
+    // The regression was 307 characters, all of it Google's footer.
+    expect(md.length).toBeGreaterThan(1500)
+
+    // Content leads; the boilerplate that used to be the entire output stays at the end.
+    const pitch = md.indexOf('AI brain for your scattered')
+    const disclaimer = md.indexOf('neither created nor endorsed by Google')
+    expect(pitch).toBeGreaterThanOrEqual(0)
+    expect(disclaimer === -1 || pitch < disclaimer).toBe(true)
+  })
+
+  it('leaves control labels out even though the form is now walked', () => {
+    const md = collectPageMarkdown(document)
+
+    // Google builds these as `<div role="button">`, which is why the role is skipped and not
+    // just the tag. `Your answer` is placeholder text and never had a text node to begin with.
+    expect(md).not.toContain('Clear form')
+    expect(md).not.toContain('Clear selection')
+    expect(md).not.toContain('Your answer')
+
+    // The questions themselves stay — the shape of the form is context too.
+    expect(md).toContain('How many things do you tentatively save in a month?')
+
+    /**
+     * Radio and checkbox *option* labels do not, and that is worth recording rather than
+     * fixing: Google wraps each one in `docssharedWizToggleLabel`, whose "share" substring the
+     * BOILERPLATE regex matches. It costs nothing here — every option already reaches the model
+     * through `fields`, so their absence removes a duplicate rather than context — but it is a
+     * false positive, and the next class name it eats might matter.
+     */
+    expect(md).not.toContain('Instagram Bookmarks')
   })
 })

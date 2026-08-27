@@ -11,24 +11,34 @@ import {
 import { IconAlert, IconCheck } from '../icons.js'
 
 /**
- * The three things that actually happen, in order.
+ * The four things that actually happen, in order.
  *
  * A list that resolves as each stage completes says the same thing once and then proves it, and
  * the mascot's face changes with the beat so the wait reads as progress. The face carries the
  * warmth; the labels name the step. "Reading the room…" and "Slapping them in…" were a voice
  * doing the work the progress list was already doing, and neither told you what was happening.
  *
+ * `reading` is here because it is the step that explains the product. The extension reads the
+ * page's own text so the answers can come from *this* page, and a list that jumped from finding
+ * the form straight to writing made the most distinctive thing it does invisible — the user saw
+ * a pause and no reason for it. It also splits what "Reading the form…" used to conflate:
+ * finding the fields and reading the page are two different steps taking different amounts of
+ * time, which is why `detecting` now says `Finding`.
+ *
  * `routing` is deliberately absent: classification and generation are one HTTP call, so the
  * client cannot honestly tell them apart, and a stage that never resolves is worse than one
- * that was never claimed.
+ * that was never claimed. `reading` survives that test — the client performs it itself — with
+ * one wrinkle handled below: a single-field refill skips the scrape, so the stage never arrives
+ * and the index maths has to treat it as passed rather than pending.
  */
 const STAGES = [
-  { key: 'detecting', label: 'Reading the form…', mascot: 'think' as Expression },
+  { key: 'detecting', label: 'Finding the form…', mascot: 'think' as Expression },
+  { key: 'reading', label: 'Reading the page…', mascot: 'think' as Expression },
   { key: 'generating', label: 'Writing your answers…', mascot: 'think' as Expression },
   { key: 'applying', label: 'Filling the fields…', mascot: 'party' as Expression },
 ] as const
 
-const ORDER: Record<string, number> = { detecting: 0, generating: 1, applying: 2 }
+const ORDER: Record<string, number> = { detecting: 0, reading: 1, generating: 2, applying: 3 }
 
 export function Filling({
   state,

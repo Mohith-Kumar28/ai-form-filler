@@ -1,16 +1,16 @@
 # Graph Report - ai-form-filler  (2026-08-27)
 
 ## Corpus Check
-- 288 files · ~542,301 words
+- 288 files · ~544,879 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 2141 nodes · 4350 edges · 121 communities (107 shown, 14 thin omitted)
+- 2141 nodes · 4350 edges · 122 communities (108 shown, 14 thin omitted)
 - Extraction: 99% EXTRACTED · 1% INFERRED · 0% AMBIGUOUS · INFERRED: 33 edges (avg confidence: 0.64)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `3a9f7f0b`
+- Built from commit: `7067726f`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -72,7 +72,7 @@
 - feedback.ts
 - Fillaform — AI Form Filler
 - ui.tsx
-- ApiErrorResponse
+- google.ts
 - 6. Remaining work
 - shared/tsconfig.json
 - `users`
@@ -100,16 +100,17 @@
 - reveal-extension.mjs
 - routes/profile.ts
 - animate.ts
-- happy-dom
+- services/billing.ts
 - PositionScheduler
 - main.ts
 - markers.ts
 - wxt
+- @types/react
 - opencode.json
 - site.ts
 - router.tsx
 - dodo-live.mjs
-- env.ts
+- ApiErrorResponse
 - @types/react-dom
 - build.mjs
 - vitest
@@ -157,7 +158,7 @@
 ## Import Cycles
 - None detected.
 
-## Communities (121 total, 14 thin omitted)
+## Communities (122 total, 14 thin omitted)
 
 ### Community 0 - "fetch-url.ts"
 Cohesion: 0.19
@@ -249,7 +250,7 @@ Nodes (13): applyVerdict(), clearDraft(), drafts, emit(), EMPTY, getDraft(), hyd
 
 ### Community 22 - "devDependencies"
 Cohesion: 0.12
-Nodes (17): devDependencies, orval, tailwindcss, @tailwindcss/vite, @types/chrome, @types/react, vite, @vitejs/plugin-react (+9 more)
+Nodes (17): devDependencies, happy-dom, orval, tailwindcss, @tailwindcss/vite, @types/chrome, vite, @vitejs/plugin-react (+9 more)
 
 ### Community 23 - "overlay.ts"
 Cohesion: 0.13
@@ -387,9 +388,9 @@ Nodes (7): Before public listing, Before this is real, Build phases, Fillaform �
 Cohesion: 0.12
 Nodes (18): FEATURES, ReadVsGuessed(), Expression, EXPRESSIONS, GuessedBadge(), IconBuilding(), IconCheck(), IconGift() (+10 more)
 
-### Community 57 - "ApiErrorResponse"
-Cohesion: 0.14
-Nodes (14): GoogleIdentity, TokenInfo, UserInfo, verifyGoogleAccessToken(), issueSessionToken(), key(), verifySessionToken(), requireAuth (+6 more)
+### Community 57 - "google.ts"
+Cohesion: 0.60
+Nodes (4): GoogleIdentity, TokenInfo, UserInfo, verifyGoogleAccessToken()
 
 ### Community 58 - "6. Remaining work"
 Cohesion: 0.20
@@ -484,12 +485,16 @@ Cohesion: 0.50
 Nodes (3): candidates, dir, found
 
 ### Community 88 - "routes/profile.ts"
-Cohesion: 0.08
-Nodes (30): Account, AddSourceResponse, ApiError, bearerAuth, DeleteAccountRequest, DeleteAccountResponse, Identity, Profile (+22 more)
+Cohesion: 0.09
+Nodes (24): AddSourceResponse, ApiError, Identity, Profile, ProfilePatch, ProfileResponse, ProfileSource, SourceKind (+16 more)
 
 ### Community 89 - "animate.ts"
 Cohesion: 0.26
 Nodes (10): AnimatedFill, ANIMATION_TIMINGS, AnimationHooks, isTypeable(), runFillAnimation(), sleep(), typeInto(), PILL (+2 more)
+
+### Community 90 - "services/billing.ts"
+Cohesion: 0.27
+Nodes (12): applyWebhook(), CancellationOutcome, cancelSubscriptionForDeletion(), createCheckout(), createPortal(), dodoBase(), dodoFetch(), DodoProductIds (+4 more)
 
 ### Community 92 - "main.ts"
 Cohesion: 0.47
@@ -511,9 +516,9 @@ Nodes (12): Footer(), footerColumns, Logo(), Navbar(), PricingCards(), IconMasco
 Cohesion: 0.13
 Nodes (16): args, CATALOGUE, checkBrand(), collectionIds, COLLECTIONS, dodo(), DRY, ensureCollections() (+8 more)
 
-### Community 101 - "env.ts"
-Cohesion: 0.09
-Nodes (31): here, outPath, AppEnv, Variables, app, onError(), errorResponses, billingRoutes (+23 more)
+### Community 101 - "ApiErrorResponse"
+Cohesion: 0.07
+Nodes (35): here, outPath, issueSessionToken(), key(), verifySessionToken(), AppEnv, Variables, app (+27 more)
 
 ### Community 103 - "build.mjs"
 Cohesion: 0.11

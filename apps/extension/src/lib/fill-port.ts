@@ -85,6 +85,7 @@ export async function runFillFlow(
      */
     let pageMarkdown: string | undefined
     if (!options.onlyFieldId) {
+      emit({ type: 'progress', stage: 'reading', done: 0, total: 1 })
       try {
         const page = await askContentScript<{ type: 'content/pageContent' }>(tabId, {
           type: 'content/pageContent',

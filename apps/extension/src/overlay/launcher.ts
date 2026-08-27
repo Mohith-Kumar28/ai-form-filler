@@ -47,7 +47,8 @@ const NEAR_LINGER_MS = 700
  * label that never changes for that long reads as a hang.
  */
 const STAGE_MESSAGES: Record<string, string[]> = {
-  detecting: ['Reading the form…'],
+  detecting: ['Finding the form…'],
+  reading: ['Reading the page…'],
   generating: ['Writing your answers…', 'Working through the form…'],
   applying: ['Filling the fields…'],
 }
@@ -103,6 +104,23 @@ export function mountLauncher(options: { onOpen: () => void; onStop: () => void 
   })
   rail.appendChild(stopBtn)
 
+  /**
+   * The keyboard shortcut, under the circle, on hover only.
+   *
+   * It used to live in the rail, which meant a bordered strip ran from the circle to the edge of
+   * the window for the entire life of every form page — permanent chrome over someone else's
+   * layout, saying one static thing. The shortcut is worth teaching but it is not worth a
+   * standing rectangle: it is only useful to a person already reaching for the button, and that
+   * person is hovering. So it appears on approach, in a soft accent fill, and the rail is kept
+   * for what actually needs a running commentary — the stages of a fill, and the stop button.
+   *
+   * A `<kbd>` because it names a key to press. `aria-hidden`: the same binding is already in the
+   * button's own accessible name, and announcing it twice is noise to a screen reader.
+   */
+  const hint = document.createElement('kbd')
+  hint.className = 'launcher-hint'
+  hint.setAttribute('aria-hidden', 'true')
+
   const grabber = document.createElement('button')
   grabber.type = 'button'
   grabber.className = 'launcher-grab'
@@ -114,6 +132,7 @@ export function mountLauncher(options: { onOpen: () => void; onStop: () => void 
   wrap.appendChild(grabber)
   wrap.appendChild(button)
   wrap.appendChild(rail)
+  wrap.appendChild(hint)
   root.appendChild(wrap)
 
   // ── The rail's one line of text ──────────────────────────────────────────
@@ -147,11 +166,15 @@ export function mountLauncher(options: { onOpen: () => void; onStop: () => void 
     return dot
   }
 
-  const shortcutChip = () => {
-    const kbd = document.createElement('kbd')
-    kbd.className = 'launcher-key'
-    kbd.textContent = shortcut ?? ''
-    return kbd
+  /**
+   * The hint carries text only once the browser has told us the real binding, and the attribute
+   * is what CSS gates visibility on — so a browser that refused to bind the command (Alt+F is
+   * Chrome's own menu on Windows and Linux) shows nothing rather than an empty pill.
+   */
+  const renderHint = () => {
+    hint.textContent = shortcut ?? ''
+    if (shortcut) wrap.setAttribute('data-hint', 'true')
+    else wrap.removeAttribute('data-hint')
   }
 
   /**
@@ -171,7 +194,14 @@ export function mountLauncher(options: { onOpen: () => void; onStop: () => void 
     button.setAttribute('title', `Fill ${what}${keys}`)
   }
 
-  /** Idle: the shortcut, or the upgrade nudge if the account cannot afford a fill. */
+  /**
+   * Idle: nothing in the rail at all, so there is nothing but the circle on the page.
+   *
+   * The one exception is an account that cannot afford a fill. That is a state the user has to
+   * act on before the button will do anything, so it gets the rail and keeps it — and it reads
+   * as a call to action rather than as chrome because it is filled with the gradient rather
+   * than being a hairline strip. The shortcut, which is merely useful, is on the hover hint.
+   */
   const showIdle = () => {
     if (exhausted) {
       rail.setAttribute('data-exhausted', 'true')
@@ -179,11 +209,7 @@ export function mountLauncher(options: { onOpen: () => void; onStop: () => void 
       return
     }
     rail.removeAttribute('data-exhausted')
-    if (!shortcut) {
-      setRail()
-      return
-    }
-    setRail(shortcutChip())
+    setRail()
   }
 
   let loadingStage = 'generating'
@@ -242,8 +268,7 @@ export function mountLauncher(options: { onOpen: () => void; onStop: () => void 
       if (!result.ok || !result.value) return
       shortcut = result.value.label
       describeButton()
-      // Only if nothing more urgent has taken the rail in the meantime.
-      if (loadingTimer === null && !wrap.hasAttribute('data-filling')) showIdle()
+      renderHint()
     })
     .catch(() => undefined)
 

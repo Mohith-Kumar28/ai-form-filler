@@ -172,47 +172,31 @@ describe('the attention wiggle', () => {
  * The rail — the strip running from the circle to the edge of the window.
  *
  * It replaced a field-count pill and a stop button that both hung below the circle, and it
- * carries exactly one thing at a time. The rules worth pinning down are the ones a screenshot
- * cannot show: that it is absent rather than empty when there is nothing to say, and that a
- * fill's progress evicts the shortcut rather than appearing beside it.
+ * carries exactly one thing at a time. The rule worth pinning down is the one a screenshot
+ * cannot show: it is absent rather than empty when there is nothing to say — and on an idle
+ * page there is now nothing to say at all, so the launcher is a bare circle. The shortcut moved
+ * to a hover hint; see the block below.
  */
 describe('the rail', () => {
-  it('says nothing until the browser has reported a binding', () => {
+  it('says nothing on an idle page, so the launcher is just the circle', async () => {
     const handle = mount()
+    await flush()
     expect(handle.element.getAttribute('data-rail')).toBeNull()
     expect(rail(handle)?.textContent).toBe('')
     handle.destroy()
   })
 
-  it('shows the bound shortcut as a key cap once it arrives', async () => {
-    const handle = mount()
-    await flush()
-    expect(handle.element.getAttribute('data-rail')).toBe('true')
-    expect(handle.element.querySelector('.launcher-key')?.textContent).toBe('Alt+F')
-    handle.destroy()
-  })
-
-  it('stays away when the command has been unbound', async () => {
-    ;(
-      globalThis as unknown as { chrome: { runtime: { sendMessage: () => unknown } } }
-    ).chrome.runtime.sendMessage = () => Promise.resolve({ ok: true, value: { label: null } })
-    const handle = mount()
-    await flush()
-    expect(handle.element.getAttribute('data-rail')).toBeNull()
-    handle.destroy()
-  })
-
-  it('carries the field count in the button label, not in the rail', async () => {
+  it('carries the field count in the button label, and the rail stays away', async () => {
     const handle = mount()
     await flush()
     handle.setFieldCount(5)
     const button = handle.element.querySelector('.launcher') as HTMLElement
     expect(button.getAttribute('title')).toBe('Fill 5 fields (Alt+F)')
-    expect(rail(handle)?.textContent).toBe('Alt+F')
+    expect(handle.element.getAttribute('data-rail')).toBeNull()
     handle.destroy()
   })
 
-  it('replaces the shortcut with progress, and offers a stop, once answers land', async () => {
+  it('appears with progress, and offers a stop, once answers land', async () => {
     const handle = mount()
     await flush()
     handle.setStage('applying', 3, 7)
@@ -230,17 +214,26 @@ describe('the rail', () => {
     handle.destroy()
   })
 
-  it('gives the shortcut back when the fill is over', async () => {
+  it('names the page read as its own stage', async () => {
+    const handle = mount()
+    await flush()
+    handle.setStage('reading', 0, 1)
+    expect(rail(handle)?.textContent).toContain('Reading the page')
+    handle.destroy()
+  })
+
+  it('goes away again when the fill is over', async () => {
     const handle = mount()
     await flush()
     handle.setStage('applying', 3, 7)
     handle.reset()
     expect(handle.element.getAttribute('data-filling')).toBeNull()
-    expect(rail(handle)?.textContent).toBe('Alt+F')
+    expect(handle.element.getAttribute('data-rail')).toBeNull()
+    expect(rail(handle)?.textContent).toBe('')
     handle.destroy()
   })
 
-  it('shows the upgrade nudge in place of the shortcut, and keeps it', async () => {
+  it('keeps the rail for an exhausted account, which is a state to act on', async () => {
     const handle = mount()
     await flush()
     handle.setExhausted()
@@ -249,6 +242,53 @@ describe('the rail', () => {
     // An exhausted account is still exhausted after a fill attempt settles.
     handle.reset()
     expect(rail(handle)?.textContent).toBe('Upgrade')
+    handle.destroy()
+  })
+})
+
+/**
+ * The hover hint — the shortcut, under the circle.
+ *
+ * Visibility itself is CSS (`:hover` / `[data-near]`), which a unit test cannot observe. What is
+ * testable is the contract CSS gates on: the pill holds the browser's real binding, and
+ * `data-hint` is set only when there is one — so a browser that refused to bind the command
+ * renders no empty pill.
+ */
+describe('the shortcut hint', () => {
+  it('is unarmed until the browser reports a binding', () => {
+    const handle = mount()
+    expect(handle.element.getAttribute('data-hint')).toBeNull()
+    expect(handle.element.querySelector('.launcher-hint')?.textContent).toBe('')
+    handle.destroy()
+  })
+
+  it('carries the bound key once it arrives', async () => {
+    const handle = mount()
+    await flush()
+    expect(handle.element.getAttribute('data-hint')).toBe('true')
+    expect(handle.element.querySelector('.launcher-hint')?.textContent).toBe('Alt+F')
+    handle.destroy()
+  })
+
+  it('stays unarmed when the command has been unbound', async () => {
+    ;(
+      globalThis as unknown as { chrome: { runtime: { sendMessage: () => unknown } } }
+    ).chrome.runtime.sendMessage = () => Promise.resolve({ ok: true, value: { label: null } })
+    const handle = mount()
+    await flush()
+    expect(handle.element.getAttribute('data-hint')).toBeNull()
+    expect(handle.element.querySelector('.launcher-hint')?.textContent).toBe('')
+    handle.destroy()
+  })
+
+  it('is not announced twice to a screen reader', async () => {
+    const handle = mount()
+    await flush()
+    // The binding is already in the button's accessible name.
+    expect(handle.element.querySelector('.launcher-hint')?.getAttribute('aria-hidden')).toBe('true')
+    expect(handle.element.querySelector('.launcher')?.getAttribute('aria-label')).toBe(
+      'Fill this form (Alt+F)',
+    )
     handle.destroy()
   })
 })

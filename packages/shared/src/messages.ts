@@ -267,11 +267,19 @@ export type FillPortRequest =
  * There is deliberately no `routing` stage. Classification and generation happen inside one
  * HTTP call, so the client cannot honestly tell them apart; it was declared here for a year
  * and never emitted, which meant the page dock rendered a step that could not resolve.
+ *
+ * `reading` is the page scrape, and it is a stage for the opposite reason: it is a real step
+ * that the client alone performs and can therefore report honestly. It is also the step that
+ * explains the product — the wait is the extension reading the page in order to answer from
+ * it, and a progress list that never mentions that makes the reading invisible.
+ *
+ * It is emitted only on a whole-form fill: a single-field refill skips the scrape, and a stage
+ * announced but never resolved is the failure mode `routing` was removed for.
  */
 export type FillPortEvent =
   | {
       type: 'progress'
-      stage: 'detecting' | 'generating' | 'applying'
+      stage: 'detecting' | 'reading' | 'generating' | 'applying'
       done: number
       total: number
     }
