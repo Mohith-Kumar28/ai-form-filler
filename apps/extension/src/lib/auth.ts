@@ -1,38 +1,99 @@
 import type { Account, DeletionReport } from '@aff/shared'
+import { GOOGLE_OAUTH_REDIRECT_URI, GOOGLE_WEB_CLIENT_ID } from '@aff/shared/deployment'
 import { deleteAccount as requestAccountDeletion } from '../generated/endpoints/account/account.js'
 import { signInWithGoogle } from '../generated/endpoints/auth/auth.js'
 import { STORAGE_KEYS } from './config.js'
 import { readLocal, removeLocal, writeLocal } from './storage.js'
 
 /**
- * `chrome.identity.getAuthToken` hands back a `GetAuthTokenResult` object, not a bare
- * string — the callback signature changed when `grantedScopes` was added. It is also
- * callback-only, so it needs wrapping to be awaited.
+ * The Google access token, via `chrome.identity.launchWebAuthFlow`.
+ *
+ * **Not `getAuthToken`, and the difference is the whole reason this function exists.**
+ * `getAuthToken` does not make an OAuth request at all — it asks Chrome's internal GAIA
+ * mint-token service, which is reachable only with private Google API keys that ship in
+ * Google's own builds of Chrome. Chromium forks (Brave, Arc, Vivaldi, and others) have no such
+ * keys, so they fall back to a web request carrying a custom-scheme redirect, and Google
+ * refuses it with `Error 400: invalid_request — Custom URI scheme is not supported on Chrome
+ * apps.` The user sees a full-page "Access blocked" before anything here can catch it.
+ *
+ * `launchWebAuthFlow` is plain OAuth implemented in Chromium itself: open Google's authorize
+ * URL in a window, watch for a navigation to `GOOGLE_OAUTH_REDIRECT_URI`, read the fragment.
+ * No private keys, so every Chromium browser behaves the same. That is why there is one path
+ * here and no fork on browser — a fallback would mean showing that alarming Google error page
+ * to fork users first, and browser sniffing gets the answer wrong on the next fork anyway.
+ *
+ * `response_type=token` (the implicit flow) rather than a code exchange, because a code
+ * exchange needs a client *secret*, and this code ships inside every installed copy of the
+ * extension. There is nowhere in an extension to keep a secret. The access token is used
+ * exactly once — traded to our own API for a session token in `signIn()` — and never
+ * refreshed, so the implicit flow's short lifetime costs nothing.
  */
-function getAuthToken(interactive: boolean): Promise<string | undefined> {
-  return new Promise((resolve, reject) => {
-    chrome.identity.getAuthToken({ interactive }, (result) => {
-      // `lastError` must be read to mark it handled, but the value matters: on an
-      // interactive call it carries the actual reason Chrome refused — a client id that
-      // doesn't match this extension, an unconfigured consent screen, a revoked grant.
-      // Discarding it turns every one of those into a misleading "user dismissed it".
-      const error = chrome.runtime.lastError
+async function requestGoogleAccessToken(): Promise<string> {
+  if (GOOGLE_WEB_CLIENT_ID.startsWith('REPLACE_')) {
+    throw new Error(
+      'Google sign-in is not configured: set GOOGLE_WEB_CLIENT_ID in packages/shared/src/deployment.ts',
+    )
+  }
 
-      const token = typeof result === 'string' ? result : result?.token
-      if (token) {
-        resolve(token)
-        return
-      }
+  /**
+   * Replay/mix-up guard. Google echoes `state` back unchanged, so a redirect that arrives
+   * without our value did not come from the request we just made.
+   */
+  const state = crypto.randomUUID()
 
-      // A non-interactive miss is just the signed-out state, not a failure.
-      if (!interactive) {
-        resolve(undefined)
-        return
-      }
+  const authUrl = new URL('https://accounts.google.com/o/oauth2/v2/auth')
+  authUrl.searchParams.set('client_id', GOOGLE_WEB_CLIENT_ID)
+  authUrl.searchParams.set('response_type', 'token')
+  authUrl.searchParams.set('redirect_uri', GOOGLE_OAUTH_REDIRECT_URI)
+  authUrl.searchParams.set('scope', 'openid email profile')
+  authUrl.searchParams.set('state', state)
+  /**
+   * Always show the chooser. This is what `revokeGoogleGrant` used to buy with a token revoke:
+   * without it Google silently reuses whichever account the browser last used, and somebody who
+   * has just deleted an account — the most likely moment to sign in as somebody else — is put
+   * straight back into the one they left.
+   */
+  authUrl.searchParams.set('prompt', 'select_account')
 
-      reject(new Error(error?.message ?? 'Google sign-in was dismissed'))
+  let redirectUrl: string | undefined
+  try {
+    redirectUrl = await chrome.identity.launchWebAuthFlow({
+      url: authUrl.toString(),
+      interactive: true,
     })
-  })
+  } catch (error) {
+    // Closing the window rejects. That is a dismissal, not a fault worth a stack trace.
+    throw new Error(error instanceof Error ? error.message : 'Google sign-in was dismissed')
+  }
+
+  if (!redirectUrl) {
+    throw new Error('Google sign-in was dismissed')
+  }
+
+  const redirect = new URL(redirectUrl)
+
+  /**
+   * Errors come back on the query string, the token on the fragment — the implicit flow keeps
+   * the credential out of anything that logs URLs. Read both; a denied consent is a `?error=`
+   * redirect that carries no fragment at all.
+   */
+  const failure = redirect.searchParams.get('error')
+  if (failure) {
+    throw new Error(`Google refused sign-in: ${failure}`)
+  }
+
+  const fragment = new URLSearchParams(redirect.hash.replace(/^#/, ''))
+
+  if (fragment.get('state') !== state) {
+    throw new Error('Google sign-in response did not match the request')
+  }
+
+  const accessToken = fragment.get('access_token')
+  if (!accessToken) {
+    throw new Error('Google returned no token')
+  }
+
+  return accessToken
 }
 
 /**
@@ -41,10 +102,7 @@ function getAuthToken(interactive: boolean): Promise<string | undefined> {
  * panel closes.
  */
 export async function signIn(): Promise<Account> {
-  const accessToken = await getAuthToken(true)
-  if (!accessToken) {
-    throw new Error('Google returned no token')
-  }
+  const accessToken = await requestGoogleAccessToken()
 
   const { token, account } = await signInWithGoogle({ accessToken })
 
@@ -54,28 +112,14 @@ export async function signIn(): Promise<Account> {
 }
 
 /**
- * Drops Chrome's cached Google grant.
+ * There is no Google grant to drop here any more.
  *
- * Without this, `getAuthToken` hands back the same cached token on the next sign-in and the
- * user can never switch accounts — which matters twice over after a deletion, where the most
- * likely next action is signing in as somebody else.
- *
- * Best effort throughout: a failed revoke must never block the local teardown it precedes.
+ * `getAuthToken` cached a token inside Chrome that outlived our storage, so signing out without
+ * revoking it left the next sign-in silently bound to the same account. `launchWebAuthFlow`
+ * caches nothing on our behalf and `prompt=select_account` asks every time, so removing our own
+ * two keys is the entire operation.
  */
-async function revokeGoogleGrant(): Promise<void> {
-  const cached = await getAuthToken(false).catch(() => undefined)
-  if (!cached) return
-
-  await chrome.identity.removeCachedAuthToken({ token: cached }).catch(() => undefined)
-  await fetch(`https://oauth2.googleapis.com/revoke?token=${cached}`, { method: 'POST' }).catch(
-    () => {
-      // Best effort — a failed revoke must not block local sign-out.
-    },
-  )
-}
-
 export async function signOut(): Promise<void> {
-  await revokeGoogleGrant()
   await removeLocal([STORAGE_KEYS.sessionToken, STORAGE_KEYS.account])
 }
 
@@ -96,8 +140,6 @@ export async function signOut(): Promise<void> {
  */
 export async function deleteAccount(confirmEmail: string): Promise<DeletionReport> {
   const report = await requestAccountDeletion({ confirmEmail })
-
-  await revokeGoogleGrant()
 
   /**
    * Past this point the account is gone on the server, so nothing here may throw: the session

@@ -67,15 +67,78 @@ export const CHROME_WEB_STORE_URL = `https://chromewebstore.google.com/detail/${
 
 /**
  * OAuth client id, type **Chrome Extension**, bound in Google Cloud Console to
- * `EXTENSION_ID`. Public by design — it ships in the manifest of every installed copy.
+ * `EXTENSION_ID`. Legacy: nothing mints tokens against it any more.
  *
- * Read twice, and the two reads are what used to be two strings: the manifest hands it to
- * `chrome.identity`, and `verifyGoogleAccessToken` checks every inbound token's `aud`
- * against it. That check is the only thing stopping a token minted for *any* Google app from
- * authenticating here, so the two values agreeing is load-bearing, not tidiness.
+ * It was the only client while sign-in went through `chrome.identity.getAuthToken`, and that
+ * API is the reason it is now legacy. `getAuthToken` is not a standard OAuth request — it asks
+ * Chrome's own GAIA mint-token service for a token, using private Google API keys that only
+ * Google's builds of Chrome carry. **Chromium forks do not have those keys.** Brave, Arc,
+ * Vivaldi and friends fall back to a plain web OAuth request with a custom-scheme redirect,
+ * and Google refuses that outright:
+ *
+ *   Error 400: invalid_request — "Custom URI scheme is not supported on Chrome apps."
+ *
+ * That is the exact failure this constant is a monument to. It looked like a broken deploy
+ * because the published build was only ever installed in a fork — Chrome cannot hold the store
+ * copy and an unpacked build at once (see `EXTENSION_ID`), so the store copy went to the other
+ * browser and the local one stayed in Chrome. Nothing about publishing was wrong.
+ *
+ * Kept here for exactly one reason: `GOOGLE_ACCEPTED_CLIENT_IDS` below still admits tokens with
+ * this `aud`, so a copy of the extension that has not updated yet can still sign in. Delete it
+ * once no installed build calls `getAuthToken` — nothing else reads it.
  */
-export const GOOGLE_CLIENT_ID =
+export const GOOGLE_CLIENT_ID_LEGACY_CHROME_EXTENSION =
   '451054635835-6m4lr9vahne0p1h0bl9jnmllf0p5phuf.apps.googleusercontent.com'
+
+/**
+ * OAuth client id, type **Web application**. The one sign-in actually uses.
+ *
+ * A Web application client, not a Chrome Extension one, and the type is the whole fix: only a
+ * Web client has authorized redirect URIs, and a redirect is what `chrome.identity
+ * .launchWebAuthFlow` needs. That call is ordinary OAuth — open a URL, wait for the browser to
+ * land on a known redirect, read the fragment — implemented in Chromium itself rather than in
+ * Google's private mint-token service, so it behaves identically in Chrome and in every fork.
+ *
+ * **Create it before this ships.** Google Cloud Console → Google Auth Platform → Clients →
+ * Create client → *Web application*, then under "Authorised redirect URIs" add exactly
+ * `GOOGLE_OAUTH_REDIRECT_URI` below — trailing slash included, Google matches the string
+ * literally. Paste the id here. Nothing about the consent screen, the scopes or the project
+ * changes; this is a second client in the same project, and the old one stays where it is.
+ *
+ * The placeholder is deliberately not a working id. `signIn()` checks for it and says what to
+ * do, because the alternative — a real-looking id that is wrong — surfaces as an opaque
+ * `invalid_client` from Google with nothing pointing back at this line.
+ */
+export const GOOGLE_WEB_CLIENT_ID =
+  '451054635835-lff5koi0jrspjil3invnj8bc9l01tpo8.apps.googleusercontent.com'
+
+/**
+ * Where Google sends the browser back to when sign-in finishes.
+ *
+ * `chrome.identity.getRedirectURL()` returns this same string at runtime, but it is spelled out
+ * here because it has to be typed into Google Cloud Console by hand and a redirect URI that
+ * does not match character-for-character is rejected as `redirect_uri_mismatch`. Having the
+ * literal in source means the console entry can be diffed against it rather than remembered.
+ *
+ * The `.chromiumapp.org` host does not resolve and is never fetched — the browser intercepts
+ * the navigation. That is why it is safe as a redirect target and why no host permission or
+ * DNS record is involved.
+ */
+export const GOOGLE_OAUTH_REDIRECT_URI = `https://${EXTENSION_ID}.chromiumapp.org/`
+
+/**
+ * Every client id the API will accept an access token from, checked against the token's `aud`.
+ *
+ * That check is the only thing stopping a token minted for *any* Google app from authenticating
+ * here, so this list is load-bearing rather than tidiness — it is an allow-list, and it is short
+ * on purpose. Two entries only because a rollout has two live builds in it: copies still calling
+ * `getAuthToken` present the legacy `aud`, updated copies present the web one. Drop the legacy
+ * entry once the old build is gone.
+ */
+export const GOOGLE_ACCEPTED_CLIENT_IDS = [
+  GOOGLE_WEB_CLIENT_ID,
+  GOOGLE_CLIENT_ID_LEGACY_CHROME_EXTENSION,
+] as const
 
 /**
  * The API. One address, no environment switch, no fallback.

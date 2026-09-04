@@ -1,6 +1,6 @@
 import { readdir, unlink } from 'node:fs/promises'
 import path from 'node:path'
-import { EXTENSION_PUBLIC_KEY, GOOGLE_CLIENT_ID } from '@aff/shared/deployment'
+import { EXTENSION_PUBLIC_KEY } from '@aff/shared/deployment'
 import tailwindcss from '@tailwindcss/vite'
 import { defineConfig } from 'wxt'
 
@@ -109,7 +109,9 @@ export default defineConfig({
     // contradiction on a public listing. `content.ts` falls back to 'dev' when it is absent.
     ...(STORE_BUILD
       ? {}
-      : { version_name: `0.1.0+${new Date().toISOString().replace(/\D/g, '').slice(4, 12)}` }),
+      : {
+          version_name: `0.1.0+${new Date().toISOString().replace(/\D/g, '').slice(4, 12)}`,
+        }),
     /**
      * Name and description are store-search surface, not just branding.
      *
@@ -121,10 +123,10 @@ export default defineConfig({
      * Limits Chrome enforces: name 75 chars (~45 visible in search), description 132.
      * The longer listing copy these two summarise lives in `store-assets/LISTING.md`.
      */
-    name: 'Fillaform — AI Form Filler',
+    name: 'FillaForm | AI Form Filler',
     description:
-      'AI form filler for job applications and any web form. Answers come from your own knowledge base, in your own writing voice.',
-    version: '0.0.2',
+      'AI form filler for any web form. Answers come from your own knowledge base, in your own writing voice.',
+    version: '0.0.4',
 
     /**
      * Every entry here has to be justified to a Web Store reviewer one by one, and an unused
@@ -141,7 +143,7 @@ export default defineConfig({
     permissions: [
       // Auth token, cached plan, and the in-flight fill that has to survive the panel closing.
       'storage',
-      // Google sign-in via `chrome.identity.getAuthToken`. Background script only.
+      // Google sign-in via `chrome.identity.launchWebAuthFlow`. Background script only.
       'identity',
       'sidePanel',
       /**
@@ -186,14 +188,20 @@ export default defineConfig({
           key: EXTENSION_PUBLIC_KEY,
         }),
 
-    // The Worker checks every inbound token's `aud` against this same constant, so the two
-    // sides cannot disagree; a mismatch used to surface as INVALID_TOKEN at sign-in, which
-    // reads like a bug rather than like configuration. The client must be registered in
-    // Google Cloud Console against item ID `EXTENSION_ID`.
-    oauth2: {
-      client_id: GOOGLE_CLIENT_ID,
-      scopes: ['openid', 'email', 'profile'],
-    },
+    /**
+     * No `oauth2` block, and its absence is the fix rather than an omission.
+     *
+     * That field exists for exactly one caller: `chrome.identity.getAuthToken`, which reads the
+     * client id and scopes out of the manifest. Nothing calls it any more — `lib/auth.ts` builds
+     * the authorize URL itself and goes through `launchWebAuthFlow`, which takes its client id
+     * from `GOOGLE_WEB_CLIENT_ID` in code and needs nothing declared here.
+     *
+     * Leaving it would be worse than noise. `getAuthToken` only works in Google's own builds of
+     * Chrome (it needs private API keys no Chromium fork has), so a manifest that still declares
+     * an oauth2 client is a standing invitation for the next person to reach for the API that
+     * broke sign-in in Brave in the first place. `identity` above is still required —
+     * `launchWebAuthFlow` lives behind the same permission.
+     */
 
     /**
      * The mascot's face, rasterised from the same geometry `Mascot` draws in the panel and

@@ -55,8 +55,8 @@
     "semantic_hash": ""
   },
   "apps/api/src/auth/google.ts": {
-    "mtime": 1786560352.019176,
-    "ast_hash": "c44bbd3065fa35423f2a5df498d6edf6",
+    "mtime": 1788503795.8060026,
+    "ast_hash": "af44ffd65f5d3209ca33565329e773d8",
     "semantic_hash": ""
   },
   "apps/api/src/auth/session.ts": {
@@ -125,8 +125,8 @@
     "semantic_hash": ""
   },
   "apps/api/src/openapi/schemas.ts": {
-    "mtime": 1787328809.2801754,
-    "ast_hash": "354ce7301580fef4c60ba127e57c2def",
+    "mtime": 1788503795.806788,
+    "ast_hash": "fa6754dc3fd0176929c175ef0f9fbbd4",
     "semantic_hash": ""
   },
   "apps/api/src/profile/compile.test.ts": {
@@ -185,8 +185,8 @@
     "semantic_hash": ""
   },
   "apps/api/src/routes/auth.ts": {
-    "mtime": 1787810088.2332199,
-    "ast_hash": "2b1f337419f8298e982e7f9d122d51ae",
+    "mtime": 1788503795.806421,
+    "ast_hash": "8e540e0194885bd94625d6a025723b00",
     "semantic_hash": ""
   },
   "apps/api/src/routes/fill.ts": {
@@ -520,8 +520,8 @@
     "semantic_hash": ""
   },
   "apps/extension/src/lib/auth.ts": {
-    "mtime": 1787328880.1817396,
-    "ast_hash": "ef4aa39f474c270b4bd51a2f98ed01e7",
+    "mtime": 1788503779.6288402,
+    "ast_hash": "6fda668c306cc6d998ee885dc69a85f3",
     "semantic_hash": ""
   },
   "apps/extension/src/lib/config.ts": {
@@ -605,8 +605,8 @@
     "semantic_hash": ""
   },
   "apps/extension/wxt.config.ts": {
-    "mtime": 1787810862.4581187,
-    "ast_hash": "8b271f17cc651d02d9ce71995a40fa60",
+    "mtime": 1788503938.4348714,
+    "ast_hash": "f436b3461f8dca24392e4ae49ee725ec",
     "semantic_hash": ""
   },
   "biome.json": {
@@ -780,8 +780,8 @@
     "semantic_hash": ""
   },
   "HANDOFF.md": {
-    "mtime": 1787810230.1783013,
-    "ast_hash": "36cb930c912ae393bab2d523e0979102",
+    "mtime": 1788503857.6627824,
+    "ast_hash": "630ca4586a120b4c6a90eef0fed2e700",
     "semantic_hash": ""
   },
   "PRODUCT.md": {
@@ -790,8 +790,8 @@
     "semantic_hash": ""
   },
   "README.md": {
-    "mtime": 1787810230.177736,
-    "ast_hash": "310e369e33161acced9888853084d013",
+    "mtime": 1788503857.6623163,
+    "ast_hash": "ea66b5dd906b874fdebf72309e02f45b",
     "semantic_hash": ""
   },
   "apps/extension/src/entrypoints/sidepanel/index.html": {
@@ -1690,8 +1690,8 @@
     "semantic_hash": ""
   },
   "store-assets/LISTING.md": {
-    "mtime": 1787340463.4340725,
-    "ast_hash": "22a1766e8e9f93c7c481b2f98445bd97",
+    "mtime": 1788503857.663236,
+    "ast_hash": "9049b9c9e6e147fa5531a12b2f4ac1ad",
     "semantic_hash": ""
   },
   "packages/form-adapters/src/page-markdown.test.ts": {
@@ -1705,8 +1705,8 @@
     "semantic_hash": ""
   },
   "packages/shared/src/deployment.ts": {
-    "mtime": 1787810714.9301925,
-    "ast_hash": "aca13ef9e75a22f1fe89635bdcbce5f8",
+    "mtime": 1788503747.8728623,
+    "ast_hash": "b2f6100c2959db17c1d1177c1412e7d6",
     "semantic_hash": ""
   },
   ".opencode/plans/page-markdown-plan.md": {

@@ -2,7 +2,7 @@ import { ApiErrorResponse } from '@aff/shared'
 import { z } from 'zod'
 
 /**
- * `chrome.identity.getAuthToken` hands the extension an OAuth **access token**, not an
+ * `chrome.identity.launchWebAuthFlow` hands the extension an OAuth **access token**, not an
  * ID token — so there is no signature for us to verify locally. We validate it with
  * Google instead.
  *
@@ -33,9 +33,17 @@ export interface GoogleIdentity {
   avatarUrl?: string
 }
 
+/**
+ * `expectedClientIds` is a list rather than a single id because an extension rollout has two
+ * live builds in it at once: the store cannot update every installed copy at the same instant,
+ * so for a while both the old Chrome-Extension client and the new Web client are minting real
+ * tokens for real users. Checking one id would sign out whichever half had not updated yet.
+ *
+ * It stays an allow-list, not a wildcard — see `GOOGLE_ACCEPTED_CLIENT_IDS`.
+ */
 export async function verifyGoogleAccessToken(
   accessToken: string,
-  expectedClientId: string,
+  expectedClientIds: readonly string[],
 ): Promise<GoogleIdentity> {
   const [tokenInfoRes, userInfoRes] = await Promise.all([
     fetch(
@@ -56,7 +64,7 @@ export async function verifyGoogleAccessToken(
   }
 
   // The whole point of introspection. Do not remove.
-  if (tokenInfo.data.aud !== expectedClientId) {
+  if (!expectedClientIds.includes(tokenInfo.data.aud)) {
     throw new ApiErrorResponse('INVALID_TOKEN', 'Token was not issued for this application')
   }
 

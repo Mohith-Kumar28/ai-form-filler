@@ -230,7 +230,7 @@ requests. The 1h TTL plus job-hunting burst behaviour puts real usage well past 
 
 - `entrypoints/background.ts` — message router. Every branch returns `true` to keep the async channel open.
 - `lib/api.ts` — single path to the Worker; clears the token on 401 so a dead session can't be retried forever.
-- `lib/auth.ts` — sign-in/out. **Revokes with Google on sign-out** or `getAuthToken` returns the same cached token and the user can never switch accounts.
+- `lib/auth.ts` — sign-in/out. Uses `chrome.identity.launchWebAuthFlow`, **never `getAuthToken`** (which only works in Google's own Chrome; every Chromium fork gets `Custom URI scheme is not supported on Chrome apps`). Sends `prompt=select_account` so the user can always switch accounts.
 - `lib/query.ts` — QueryClient + `chrome.storage` persister. Does not retry 401/402/400.
 - `lib/storage.ts` — typed `chrome.storage.local` wrapper (the API is typed as returning `{}`).
 
@@ -469,16 +469,32 @@ otherwise every override is a type error.
 
 ### 7.1 Google token introspection: the `aud` check is load-bearing
 
-`chrome.identity.getAuthToken` returns an OAuth **access token**, not an ID token — there is
-no signature to verify locally. `auth/google.ts` introspects it with Google and **checks
-`aud` against our client ID**.
+`chrome.identity.launchWebAuthFlow` returns an OAuth **access token**, not an ID token — there
+is no signature to verify locally. `auth/google.ts` introspects it with Google and **checks
+`aud` against `GOOGLE_ACCEPTED_CLIENT_IDS`**.
 
 Without that check, an access token minted for *any* Google OAuth app would authenticate
 here — meaning any extension or website the user has ever granted a Google scope to could
 impersonate them against our API. Do not remove it. The code also cross-checks that
 `tokeninfo.sub === userinfo.sub` so the two responses can't describe different people.
 
-Also: `getAuthToken`'s callback receives a `GetAuthTokenResult` object, not a bare string.
+It is an allow-list rather than one id only because an extension rollout has two live builds
+in it: copies still on the `getAuthToken` build present the old Chrome-Extension `aud`,
+updated copies present the Web client's. Drop `GOOGLE_CLIENT_ID_LEGACY_CHROME_EXTENSION` once
+the old build is gone — never widen this to a wildcard.
+
+### 7.1a `getAuthToken` does not work outside Google Chrome
+
+It is not an OAuth call. It asks Chrome's internal GAIA mint-token service, reachable only
+with private Google API keys baked into Google's own Chrome builds. Brave, Arc, Vivaldi and
+the rest fall back to a web request with a custom-scheme redirect, which Google refuses:
+`Error 400: invalid_request — Custom URI scheme is not supported on Chrome apps.` The user
+sees a full-page "Access blocked" before any of our code can catch it.
+
+This presents as "sign-in works locally but not in the published extension", because Chrome
+will not hold the store copy and an unpacked build at the same ID — so the store copy ends up
+in the other browser and the local one stays in Chrome. Publishing is not the variable.
+`launchWebAuthFlow` is implemented in Chromium itself and behaves identically everywhere.
 
 ### 7.2 React controlled inputs revert a naive `.value` assignment
 
@@ -638,8 +654,8 @@ console.log(await new SignJWT({}).setProtectedHeader({alg:"HS256"})
 ## 9. Setup blockers for a new machine
 
 1. **Cloudflare resources** — `wrangler d1 create aff-db`, `wrangler kv namespace create RATE_LIMIT`, `wrangler r2 bucket create aff-uploads`; paste the returned IDs into `wrangler.toml`.
-2. **Google OAuth client** — no longer chicken-and-egg. The manifest carries the Web Store listing's public key, so the unpacked build and the published build share one ID: `EXTENSION_ID` in `packages/shared/src/deployment.ts`. Create a **Chrome Extension** OAuth client against that ID and put the client ID in `GOOGLE_CLIENT_ID` in the same file — one constant, read by both the manifest and the Worker's `aud` check. Also confirm the consent screen's publishing status is **In production**; while it is *Testing*, every account off the test-user list is blocked.
-3. **Secrets** — `cp .dev.vars.example .dev.vars`, `openssl rand -base64 48` for `JWT_SECRET`. Production uses `wrangler secret put`. `GOOGLE_CLIENT_ID` and `EXTENSION_ORIGIN` are **not** secrets and are no longer pushed; they are constants in `packages/shared/src/deployment.ts`, because both ship inside every installed copy of the extension and both have to equal a value the extension holds.
+2. **Google OAuth client** — type **Web application**, not Chrome Extension (see §7.1a). Add `GOOGLE_OAUTH_REDIRECT_URI` from `packages/shared/src/deployment.ts` — `https://<EXTENSION_ID>.chromiumapp.org/`, trailing slash included — to its authorised redirect URIs, then put the client ID in `GOOGLE_WEB_CLIENT_ID` in the same file: one constant, read by the extension and by the Worker's `aud` check. The manifest no longer carries an `oauth2` block; nothing reads one. Also confirm the consent screen's publishing status is **In production**; while it is *Testing*, every account off the test-user list is blocked.
+3. **Secrets** — `cp .dev.vars.example .dev.vars`, `openssl rand -base64 48` for `JWT_SECRET`. Production uses `wrangler secret put`. `GOOGLE_WEB_CLIENT_ID` and `EXTENSION_ORIGIN` are **not** secrets and are no longer pushed; they are constants in `packages/shared/src/deployment.ts`, because both ship inside every installed copy of the extension and both have to equal a value the extension holds.
 4. **API URL** — `API_URL` in the same file, `https://api.fillaform.in`, with no localhost fallback. The old `WXT_API_URL ?? '127.0.0.1:8787'` default was loaded only in production mode, so every dev build pointed at a Worker that usually wasn't running and the panel showed `Failed to fetch` under the Google button.
 
 ---

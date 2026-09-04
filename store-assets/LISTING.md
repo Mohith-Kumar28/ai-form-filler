@@ -315,11 +315,11 @@ answers the user has not yet reviewed. No page content or browsing history is st
 ### `identity`
 
 ```
-Used solely for Google sign-in, via chrome.identity.getAuthToken, so the user can access the
-Fillaform account holding their documents and notes. It is called only from the background
+Used solely for Google sign-in, via chrome.identity.launchWebAuthFlow, so the user can access
+the Fillaform account holding their documents and notes. It is called only from the background
 service worker and only when the user presses Sign in. The token is used to authenticate
-requests to our own API at api.fillaform.in and is never sent anywhere else. Signing out calls
-chrome.identity.removeCachedAuthToken.
+requests to our own API at api.fillaform.in and is never sent anywhere else. Signing out
+discards it.
 ```
 
 ### `sidePanel`

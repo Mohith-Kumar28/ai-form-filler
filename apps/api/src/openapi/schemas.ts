@@ -32,7 +32,7 @@ export const FeedbackRequest = FeedbackRequestBase.openapi('FeedbackRequest')
 
 export const SignInRequest = z
   .object({
-    /** The value returned by `chrome.identity.getAuthToken`. */
+    /** The value returned by `chrome.identity.launchWebAuthFlow`. */
     accessToken: z.string().min(1),
   })
   .openapi('SignInRequest')

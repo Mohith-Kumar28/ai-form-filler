@@ -63,18 +63,29 @@ pnpm db:migrate:local
 
 ### 2. Google OAuth client
 
-The extension authenticates with `chrome.identity`, which requires an OAuth client bound to
-a **specific extension ID**. That ID is not derived from the load path here: the manifest
-carries the Web Store listing's public key, so a local unpacked build and the published
-build are the same extension. Both are `EXTENSION_ID` in
-`packages/shared/src/deployment.ts`, and that file is the only place any of this is stated.
+The extension authenticates with `chrome.identity.launchWebAuthFlow`, which needs an OAuth
+client of type **Web application** — not Chrome Extension. Only a Web client has authorized
+redirect URIs, and the redirect is what the flow is built on.
 
-1. In Google Cloud Console → APIs & Services → Credentials → **Create credentials** →
-   **OAuth client ID** → application type **Chrome Extension**. Paste `EXTENSION_ID`.
+**Do not use a Chrome Extension client here, and do not go back to `getAuthToken`.** That API
+is not OAuth: it asks Chrome's internal mint-token service, which needs private Google API
+keys that only Google's own builds of Chrome carry. In Brave, Arc, Vivaldi and every other
+Chromium fork it falls back to a custom-scheme redirect and Google blocks it outright with
+`Error 400: invalid_request — Custom URI scheme is not supported on Chrome apps.` It looks
+like a broken deploy and it is not.
 
-2. Put the resulting client ID in `packages/shared/src/deployment.ts` → `GOOGLE_CLIENT_ID`.
-   That single constant is read by the manifest and by the Worker's `aud` check, so there is
-   no second copy to keep in step — which is what `INVALID_TOKEN` at sign-in used to mean.
+1. Google Cloud Console → Google Auth Platform → Clients → **Create client** → application
+   type **Web application**.
+
+2. Under **Authorised redirect URIs**, add `GOOGLE_OAUTH_REDIRECT_URI` from
+   `packages/shared/src/deployment.ts` — currently
+   `https://efegkfffhjbpihgainhmfjejbnjabcnl.chromiumapp.org/`. Google matches it literally,
+   trailing slash included; anything else is `redirect_uri_mismatch`.
+
+3. Put the resulting client ID in `packages/shared/src/deployment.ts` →
+   `GOOGLE_WEB_CLIENT_ID`. That single constant is read by the extension and by the Worker's
+   `aud` check, so there is no second copy to keep in step — which is what `INVALID_TOKEN` at
+   sign-in used to mean.
 
 3. OAuth consent screen → **Publishing status must be "In production."** While it says
    *Testing*, only accounts on the test-user list can sign in and everyone else is blocked.
