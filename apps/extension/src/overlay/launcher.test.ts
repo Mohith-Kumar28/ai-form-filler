@@ -310,11 +310,11 @@ describe('the shortcut hint', () => {
 })
 
 /**
- * The Sidebar pill — the one control above the circle.
+ * The side-panel button, in the dock's extras.
  *
  * Visibility is CSS and cannot be observed here. What is worth pinning down is the part that
- * would be a bug on someone else's page: the pill asks for the panel and nothing else, and a
- * click on it must not also start a fill.
+ * would be a bug on someone else's page: it asks for the panel and nothing else, and a click on
+ * it must not also start a fill.
  */
 describe('the sidebar pill', () => {
   const pill = (handle: LauncherHandle) =>
@@ -338,11 +338,11 @@ describe('the sidebar pill', () => {
     handle.destroy()
   })
 
-  it('is a sibling of the circle, so its click never passes through to it', async () => {
+  it('lives in the dock but never inside the tile, so its click cannot reach it', async () => {
     const handle = mount()
     await flush()
-    // A child would bubble into the circle's own handler however the click was stopped.
-    expect(pill(handle).parentElement).toBe(handle.element)
+    // A descendant of the tile would bubble into its handler however the click was stopped.
+    expect(handle.element.contains(pill(handle))).toBe(true)
     expect(handle.element.querySelector('.launcher')?.contains(pill(handle))).toBe(false)
     handle.destroy()
   })

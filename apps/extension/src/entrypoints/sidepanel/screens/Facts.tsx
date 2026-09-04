@@ -25,6 +25,7 @@ import { usePaywallSeen } from '../../../lib/paywall.js'
 import {
   AddFactForm,
   Button,
+  Card,
   FieldRow,
   SaveState,
   type SaveStatus,
@@ -35,7 +36,7 @@ import {
   Section,
   SkeletonRow,
 } from '../components.js'
-import { IconCrown, IconPlus } from '../icons.js'
+import { IconPlus } from '../icons.js'
 import { InfoTabs } from './info-tabs.js'
 
 /**
@@ -257,16 +258,16 @@ export function Facts({ profile }: { profile: Profile | undefined }) {
   const visibleExtraLinks = Object.keys(draft.extraLinks).filter((key) => matches(query, key))
 
   /**
-   * Shut, unless the person opened it or is searching.
+   * Open, unless the person shut it. Searching overrides it, because a result inside a shut
+   * section is a result nobody can see.
    *
-   * Nothing is open on arrival — not even the first section. Six titles with a filled count each
-   * is the whole map of what is stored, on one screen, with no scrolling; opening one by default
-   * pushed the rest below the fold and made the map the thing you had to scroll to find.
-   * Searching overrides it, because a result inside a shut section is a result nobody can see.
+   * Open by default because a fact is now a 36px row rather than a 70px label-and-box: the
+   * whole catalogue is two screens of scrolling, and a person arriving here wants to read what
+   * the tool knows, not open six doors to find out.
    */
   const isOpen = (section: FactSection, hasMatches: boolean) => {
     if (query.trim()) return hasMatches
-    return manualOpen[section] === true
+    return manualOpen[section] !== false
   }
 
   /** Refuses a name that already exists — and says where it already is. */
@@ -292,19 +293,13 @@ export function Facts({ profile }: { profile: Profile | undefined }) {
     return (
       <Screen>
         <ScreenHeader
-          title="Your info"
-          right={<InfoTabs view="facts" />}
-          /*
-            The loading header keeps the second row, empty.
-
-            Dropping it made the header 52px shorter while the profile was in flight and then
-            taller the instant it landed — the same jolt as the tab switch, just earlier. An empty
-            row of the right height costs nothing and holds the screen still.
-          */
+          title="Profile"
+          tabs={<InfoTabs view="facts" />}
+          /* The loading header keeps the second row, empty, so the list does not jump on arrival. */
           search={<span />}
         />
         <ScreenBody role="status" aria-busy="true" aria-label="Loading your info">
-          <div className="px-gutter py-3">
+          <div className="py-2">
             <SkeletonRow />
             <SkeletonRow />
             <SkeletonRow />
@@ -317,43 +312,28 @@ export function Facts({ profile }: { profile: Profile | undefined }) {
   return (
     <Screen>
       <ScreenHeader
-        title="Your info"
-        right={
-          <div className="flex items-center gap-2">
-            <SaveState status={status} error={saveError} onRetry={() => flush(draft)} />
-            <InfoTabs view="facts" />
-          </div>
-        }
-        /*
-          Search and the action share one row, right-aligned.
-
-          Adding a fact used to be a button at the bottom of the last collapsed section — which
-          meant scrolling past six sections and opening one to reach the most common thing
-          somebody comes here to do. It is now in the same place on both halves of this screen.
-        */
+        title="Profile"
+        right={<SaveState status={status} error={saveError} onRetry={() => flush(draft)} />}
+        tabs={<InfoTabs view="facts" />}
+        /* Search and the action share one row; the same row Sources puts its action on. */
         search={
           <div className="flex items-center gap-2">
             <SearchInput
               value={query}
               onChange={setQuery}
               label="Search your info"
-              placeholder="Search"
-              // Grows, so the action beside it lands on the same right edge as the tabs above.
+              placeholder="Search facts"
               className="min-w-0 flex-1"
             />
-            <Button
-              size="sm"
-              variant={adding ? 'secondary' : 'primary'}
-              onClick={() => setAdding((v) => !v)}
-            >
+            <Button size="md" variant="secondary" onClick={() => setAdding((v) => !v)}>
               <IconPlus className="size-3.5" />
-              Add fact
+              Add
             </Button>
           </div>
         }
       />
 
-      <ScreenBody className="flex flex-col gap-2.5 px-gutter py-3">
+      <ScreenBody className="flex flex-col gap-2 px-gutter py-3">
         {/*
           There is no "merged N duplicate fields" banner here any more.
 
@@ -370,11 +350,11 @@ export function Facts({ profile }: { profile: Profile | undefined }) {
         {/* The new fact appears here, directly under the button that asked for it. */}
         {adding &&
           (atLimit ? (
-            <div className="rounded-2xl border border-border bg-surface-raised p-4">
-              <p className="text-sm font-semibold text-ink">
+            <Card className="p-3">
+              <p className="text-sm font-medium text-ink">
                 {usedFacts} of {factLimit} extra fields used
               </p>
-              <p className="mt-1 text-xs leading-snug text-ink-muted">
+              <p className="mt-0.5 text-xs text-ink-muted">
                 {plan === 'free'
                   ? `The free trial raises this to ${PLAN_FACT_LIMITS.pro}.`
                   : 'Remove one to add another, or move up a plan.'}
@@ -388,10 +368,9 @@ export function Facts({ profile }: { profile: Profile | undefined }) {
                   void (plan === 'free' ? openTrial() : openUpgrade())
                 }}
               >
-                <IconCrown className="size-3.5" />
                 {plan === 'free' ? 'Start free trial' : 'Compare plans'}
               </Button>
-            </div>
+            </Card>
           ) : (
             <AddFactForm
               onAdd={addFact}
@@ -467,8 +446,9 @@ export function Facts({ profile }: { profile: Profile | undefined }) {
             ))}
 
             {visibleExtras.length === 0 && (
-              <p className="col-span-full py-2 text-sm text-ink-dim">
-                Nothing here yet. Use Add fact.
+              <p className="px-3 py-2.5 text-xs text-ink-dim">
+                Nothing here yet. Anything a form asks that the catalogue does not cover goes here —
+                press Add.
               </p>
             )}
           </Section>
@@ -479,7 +459,7 @@ export function Facts({ profile }: { profile: Profile | undefined }) {
           SECTIONS.every(
             (s) => s.section === 'extra' || (visible[s.section] ?? []).length === 0,
           ) && (
-            <p className="px-gutter py-8 text-center text-sm text-ink-muted">
+            <p className="py-8 text-center text-sm text-ink-muted">
               Nothing matches “{query.trim()}”. Add it as an extra field.
             </p>
           )}

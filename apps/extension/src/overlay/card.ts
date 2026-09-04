@@ -661,6 +661,8 @@ export function mountAnswerCard(spec: AnswerCardSpec): CardHandle {
 
   const handle = mountCard(spec, body)
   handle.element.classList.add('card-answer')
+  // The chip reads accent for a guess and neutral for the person's own answer; CSS keys on this.
+  handle.element.dataset.reason = spec.reason
   handle.element.setAttribute('aria-labelledby', question.id)
   handle.element.setAttribute('aria-describedby', note.id)
   /**

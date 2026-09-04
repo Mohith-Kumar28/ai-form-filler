@@ -1,131 +1,126 @@
 /**
- * One bright palette, two consumers.
+ * One palette, two consumers.
  *
  * The side panel gets these as Tailwind v4 `@theme` variables (src/assets/tailwind.css); the
  * page overlay gets them as an inlined CSS string, because a `chrome-extension://` stylesheet
- * is blocked by the CSP of a meaningful number of sites. Those used to be two hand-maintained
- * copies that had already drifted apart; this module is the authority for both and
- * `tokens.test.ts` fails the build if tailwind.css stops agreeing with it.
+ * is blocked by the CSP of a meaningful number of sites. This module is the authority for both
+ * and `tokens.test.ts` fails the build if tailwind.css stops agreeing with it.
  *
- * The palette is bright and saturated on purpose — a signature violet→pink→orange "sunset"
- * gradient for the hero moments, hot pink for the one thing you must look at (an answer the
- * tool guessed), lime for what came straight from you, and warm neutrals that are never pure
- * gray or pure black.
+ * ### v3: neutral ground, one accent
  *
- * The colour is where the personality lives. **The words are not** — copy says what the thing
- * does, in plain language. An earlier generation of this file described the product as "your
- * hype friend who does the boring homework for you", and screens written to that brief opened
- * with "forms suck. let's make 'em not." and reported a failed fill as "oof. that one didn't
- * land." Someone reading this panel is mid-application and mildly dreading it; they need to
- * know what happened, not to be cheered at.
+ * The previous generation was a violet-tinted near-black with a violet→pink→orange gradient on
+ * every button, toggle and launcher. It read as an "AI product" rather than a tool. This palette
+ * is the opposite bet: true neutrals, hairline borders, and exactly one colour that means
+ * "press this" and "the tool guessed this" — violet. Everything else on screen is ink on paper.
  *
- *   filled    came from your own info — the friendly green, nothing to check
- *   judged    the tool concluded it rather than reading it — accent + a sparkle, on a tab
- *   broken    a fault — coral, and never pink, so an AI answer never reads as an error
+ * The mascot keeps a gradient body (`sparkle` → `sun`) because the face is the brand mark and
+ * shares its geometry with the site and the toolbar icon. Those two stops are for the mascot
+ * alone; no control, ring, bar or text may use them.
+ *
+ *   stated    came from your own info — green, settles, leaves nothing behind
+ *   judged    the tool concluded it — accent, kept until you act
+ *   broken    a fault — red, never the accent, so a guess never reads as an error
  */
 
 export interface Scheme {
-  /** Scroll ground. A warm near-white, faintly lilac-tinted — never pure white. */
+  /** The app ground. A hair off white in light; a true neutral near-black in dark. */
   surface: string
-  /** Raised cards, headers, sheets, menus. */
+  /** Cards, sheets, menus, and every control at rest. */
   surfaceRaised: string
-  /** Muted bands and hover grounds. */
+  /** Hover grounds, insets, key caps. Darker than `surface` in light, lighter in dark. */
   surfaceMuted: string
-  /** Primary text. Warm near-black, violet-tinted. */
+  /** Primary text. */
   ink: string
-  /** Secondary text. */
+  /** Secondary text: labels, descriptions. */
   inkMuted: string
-  /** Labels, hints, measures. Still >= 4.5:1 on `surface` — no decorative tier. */
+  /** Tertiary text: hints, measures, placeholders. Still ≥ 4.5:1 on `surface`. */
   inkDim: string
   /**
-   * The one thing you must look at: an answer the AI wrote rather than read off your info.
+   * The one colour. Primary actions, focus rings, the "judged" mark, and nothing decorative.
    *
-   * Hot pink, always with a sparkle. Never used for errors — an AI answer and a fault are
-   * different things, and sharing one colour between "check this" and "this broke" was the
-   * exact failure of the previous build.
+   * Never used for errors: an answer the tool guessed and a fault are different things.
    */
   accent: string
-  /** Pink wash — backgrounds and chips behind a guessed answer. */
+  /** Accent wash — chip grounds, focus halos, the selected option. */
   accentMuted: string
-  /** Filled straight off what you told it. The friendly lime. */
+  /** Filled straight off what you told it. */
   positive: string
   positiveMuted: string
-  /** Faults and destruction. Coral, deliberately not pink. */
+  /** Faults and destruction. */
   danger: string
   dangerMuted: string
-  /** Warnings and heads-ups. Amber. */
+  /** Heads-ups. */
   warning: string
   warningMuted: string
-  /** The violet stop of the signature sunset gradient. */
+  /** The mascot body gradient's first stop. Mascot only. */
   sparkle: string
-  /** The orange stop of the signature sunset gradient. */
+  /** The mascot body gradient's second stop. Mascot only. */
   sun: string
-  /** Hairlines that separate one group from the next. */
+  /** Hairlines between groups, and around controls. */
   border: string
   /** Quieter hairlines inside a group. */
   borderMuted: string
   /**
    * Elevation, in two layers: the contact shadow and the cast one.
    *
-   * Slightly tinted rather than pure black — a shadow belongs to the material that casts it.
-   * Heavier in dark, where a black shadow on a near-black ground separates nothing. Only
-   * floating things take these: menus, the on-page cards, the launcher.
+   * Only floating things take these: menus, the on-page cards, the launcher dock. In dark the
+   * separation comes from hairlines, so the shadows are heavier but still secondary.
    */
   shadow: string
   shadowStrong: string
 }
 
 export const LIGHT: Scheme = {
-  surface: 'oklch(97.2% 0.006 320)',
-  surfaceRaised: 'oklch(99.3% 0.003 320)',
-  surfaceMuted: 'oklch(93.5% 0.007 320)',
-  ink: 'oklch(20% 0.02 300)',
-  inkMuted: 'oklch(44% 0.02 300)',
-  inkDim: 'oklch(60% 0.015 300)',
-  accent: 'oklch(55% 0.24 350)',
-  accentMuted: 'oklch(93% 0.04 350)',
-  positive: 'oklch(58% 0.16 145)',
-  positiveMuted: 'oklch(93% 0.055 145)',
-  danger: 'oklch(55% 0.22 25)',
-  dangerMuted: 'oklch(93% 0.045 25)',
-  warning: 'oklch(68% 0.15 80)',
-  warningMuted: 'oklch(94% 0.05 80)',
-  sparkle: 'oklch(52% 0.24 290)',
-  sun: 'oklch(68% 0.18 45)',
-  border: 'oklch(87% 0.008 320)',
-  borderMuted: 'oklch(92% 0.006 320)',
-  shadow: 'oklch(25% 0.02 300 / 0.08)',
-  shadowStrong: 'oklch(25% 0.02 300 / 0.16)',
+  surface: 'oklch(98.4% 0.002 260)',
+  surfaceRaised: 'oklch(100% 0 0)',
+  surfaceMuted: 'oklch(95.6% 0.003 260)',
+  ink: 'oklch(18% 0.01 260)',
+  inkMuted: 'oklch(46% 0.012 260)',
+  inkDim: 'oklch(56% 0.012 260)',
+  accent: 'oklch(52% 0.21 285)',
+  accentMuted: 'oklch(95% 0.03 285)',
+  positive: 'oklch(55% 0.15 150)',
+  positiveMuted: 'oklch(95% 0.04 150)',
+  danger: 'oklch(55% 0.2 25)',
+  dangerMuted: 'oklch(95% 0.035 25)',
+  warning: 'oklch(62% 0.15 75)',
+  warningMuted: 'oklch(95% 0.05 80)',
+  sparkle: 'oklch(60% 0.2 290)',
+  sun: 'oklch(70% 0.18 20)',
+  border: 'oklch(90% 0.004 260)',
+  borderMuted: 'oklch(94% 0.003 260)',
+  shadow: 'oklch(20% 0.01 260 / 0.08)',
+  shadowStrong: 'oklch(20% 0.01 260 / 0.18)',
 }
 
 /**
- * Not an inversion — a different scene.
+ * Not an inversion — the same neutrals, read the other way up.
  *
- * PRODUCT.md puts this person on a laptop, late, during a job hunt. In that light the surface
- * goes a deep violet-tinted near-black and the brights come up louder off it, the way a neon
- * sign reads brighter in the dark.
+ * `surfaceMuted` is *lighter* than `surface` here where in light it is darker: in both schemes
+ * it is the ground a row takes when you point at it, and a hover that goes darker on a dark
+ * panel reads as a hole.
  */
 export const DARK: Scheme = {
-  surface: 'oklch(15% 0.022 300)',
-  surfaceRaised: 'oklch(19.5% 0.024 300)',
-  surfaceMuted: 'oklch(12% 0.018 300)',
-  ink: 'oklch(96% 0.008 320)',
-  inkMuted: 'oklch(74% 0.014 320)',
-  inkDim: 'oklch(58% 0.012 320)',
-  accent: 'oklch(70% 0.22 350)',
-  accentMuted: 'oklch(26% 0.06 350)',
-  positive: 'oklch(72% 0.17 145)',
-  positiveMuted: 'oklch(24% 0.05 145)',
-  danger: 'oklch(70% 0.19 25)',
-  dangerMuted: 'oklch(26% 0.05 25)',
+  surface: 'oklch(16% 0.005 260)',
+  surfaceRaised: 'oklch(20% 0.006 260)',
+  surfaceMuted: 'oklch(24.5% 0.006 260)',
+  ink: 'oklch(95% 0.004 260)',
+  inkMuted: 'oklch(70% 0.008 260)',
+  inkDim: 'oklch(56% 0.008 260)',
+  accent: 'oklch(66% 0.18 285)',
+  accentMuted: 'oklch(28% 0.07 285)',
+  positive: 'oklch(75% 0.15 150)',
+  positiveMuted: 'oklch(26% 0.05 150)',
+  danger: 'oklch(72% 0.17 25)',
+  dangerMuted: 'oklch(27% 0.06 25)',
   warning: 'oklch(78% 0.14 80)',
-  warningMuted: 'oklch(26% 0.045 80)',
-  sparkle: 'oklch(70% 0.2 290)',
-  sun: 'oklch(76% 0.16 45)',
-  border: 'oklch(30% 0.02 300)',
-  borderMuted: 'oklch(23% 0.018 300)',
-  shadow: 'oklch(0% 0 0 / 0.35)',
-  shadowStrong: 'oklch(0% 0 0 / 0.55)',
+  warningMuted: 'oklch(27% 0.05 80)',
+  sparkle: 'oklch(66% 0.18 290)',
+  sun: 'oklch(74% 0.16 20)',
+  border: 'oklch(28% 0.006 260)',
+  borderMuted: 'oklch(23% 0.006 260)',
+  shadow: 'oklch(0% 0 0 / 0.4)',
+  shadowStrong: 'oklch(0% 0 0 / 0.6)',
 }
 
 /** Tailwind reads `--color-<name>`; the overlay reads `--aff-<name>`. Same values, same order. */
@@ -158,12 +153,12 @@ export function cssName(token: keyof Scheme): string {
 }
 
 /**
- * Two radii and no scale between them — but now the bubbly way round: a small one for struck
- * controls, a full pill for buttons, chips and the launcher.
+ * Three radii, each tied to a kind of thing: chips and key caps, controls, containers. Pills are
+ * for chips only — a pill-shaped button in a 400px panel spends its width on corners.
  */
 export const RADIUS_SM = '6px'
-export const RADIUS_MD = '12px'
-export const RADIUS_LG = '18px'
+export const RADIUS_MD = '8px'
+export const RADIUS_LG = '12px'
 export const RADIUS_FULL = '9999px'
 
 /** Everything vertical is a multiple of this. */
@@ -172,26 +167,26 @@ export const RHYTHM = 4
 /** The one snappy ease for hovers and settles. */
 export const EASE = 'cubic-bezier(0.2, 0, 0, 1)'
 
-/** The bouncy spring for pops and celebrations — a tiny overshoot is the whole joke. */
-export const SPRING = 'cubic-bezier(0.34, 1.56, 0.64, 1)'
+/** A small spring for things that pop in. The overshoot is slight on purpose. */
+export const SPRING = 'cubic-bezier(0.3, 1.3, 0.5, 1)'
 
 /**
- * The signature sunset gradient, as a CSS value (violet → pink → orange).
+ * The mascot's body, as a CSS value. The only gradient in the product.
  *
- * The one place the palette gets to be loud. Used on the primary button, the launcher, and
- * the welcome hero — nowhere it would compete with an answer.
+ * Used by nothing but the mascot mark itself; a control that reaches for this is a control
+ * pretending to be the brand.
  */
-export function sunsetGradient(angle = '135deg'): string {
-  return `linear-gradient(${angle}, ${LIGHT.sparkle}, ${LIGHT.accent}, ${LIGHT.sun})`
+export function mascotGradient(angle = '135deg'): string {
+  return `linear-gradient(${angle}, ${LIGHT.sparkle}, ${LIGHT.sun})`
 }
 
 /**
  * The overlay's variable block, for both schemes.
  *
  * Emitted into the closed shadow root's single `<style>` node. The overlay deliberately does
- * **not** load the panel's bundled face: a webfont in a content script needs FontFace plus an
- * ArrayBuffer to survive a strict `font-src` policy, which is not worth it for a few short
- * labels. Identity there is carried by colour and motion instead.
+ * **not** load a webfont: one in a content script needs FontFace plus an ArrayBuffer to survive a
+ * strict `font-src` policy, which is not worth it for a few short labels. The system UI face is
+ * what every other injected tool on the page uses, and matching that is the point.
  */
 export function overlayVariables(selector = ':host'): string {
   const emit = (scheme: Scheme) =>
@@ -208,6 +203,7 @@ export function overlayVariables(selector = ':host'): string {
   return `:host {
   --aff-radius-sm: ${RADIUS_SM};
   --aff-radius-md: ${RADIUS_MD};
+  --aff-radius-lg: ${RADIUS_LG};
   --aff-radius-full: ${RADIUS_FULL};
   --aff-ease: ${EASE};
   --aff-spring: ${SPRING};

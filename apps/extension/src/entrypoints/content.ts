@@ -342,7 +342,7 @@ export default defineContentScript({
       trigger.innerHTML = mode === 'review' ? GLYPH.pen : GLYPH.mascot
 
       // Must match `.field-trigger`'s box in `host.ts`, or the icon sits off its own anchor.
-      const TRIGGER_SIZE = 26
+      const TRIGGER_SIZE = 24
       const GAP = 6
       // Thresholds where the icon stops fitting inside and moves outside.
       const NARROW_THRESHOLD = 56

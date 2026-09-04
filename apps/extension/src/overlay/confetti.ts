@@ -8,16 +8,16 @@ import { getOverlayHost, prefersReducedMotion } from './host.js'
  * absolutely-positioned scraps that fly outward and vanish. Reduced motion skips it entirely.
  */
 
-const COLORS = ['var(--aff-sparkle)', 'var(--aff-accent)', 'var(--aff-sun)', 'var(--aff-positive)']
+const COLORS = ['var(--aff-accent)', 'var(--aff-positive)', 'var(--aff-sun)', 'var(--aff-sparkle)']
 
 export function burstConfetti(x: number, y: number): void {
   if (prefersReducedMotion()) return
   const { root } = getOverlayHost()
 
-  const count = 18
+  const count = 12
   for (let i = 0; i < count; i++) {
     const angle = (Math.PI * 2 * i) / count + Math.random() * 0.6
-    const distance = 42 + Math.random() * 52
+    const distance = 36 + Math.random() * 40
     const piece = document.createElement('span')
     piece.className = 'confetti'
     piece.style.left = `${x}px`
@@ -29,6 +29,6 @@ export function burstConfetti(x: number, y: number): void {
     root.appendChild(piece)
     piece.addEventListener('animationend', () => piece.remove())
     // Fallback in case the animation never settles on a host that paused it.
-    setTimeout(() => piece.remove(), 1000)
+    setTimeout(() => piece.remove(), 900)
   }
 }

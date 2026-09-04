@@ -29,19 +29,27 @@ import {
   IconCrown,
   IconEye,
   IconEyeOff,
+  IconGear,
   IconList,
   IconMascot,
   IconMore,
   IconSearch,
   IconSparkle,
   IconTrash,
-  IconUser,
 } from './icons.js'
 import { type TabName, useNavigation } from './navigation.js'
 
-export const SUNSET_GRADIENT = 'linear-gradient(135deg, var(--color-sparkle), var(--color-accent))'
-export const SUNSET_GRADIENT_180 =
-  'linear-gradient(180deg, var(--color-sparkle), var(--color-accent))'
+/*
+  The primitives every screen is built from.
+
+  v3 rules, in one place so the screens do not have to repeat them:
+
+    - One accent. `bg-accent` is a primary action or a "judged" mark, and nothing else.
+    - No gradient anywhere but the mascot's body.
+    - Three radii: `rounded-sm` chips and key caps, `rounded-md` controls, `rounded-lg` containers.
+    - Type: 13px body, 12px meta, 11px labels, 15–18px headings. `tnum` on anything counted.
+    - Dark separates with hairlines; shadows are for things that float.
+*/
 
 /* ── The screen leaf ─────────────────────────────────────────────────────── */
 
@@ -49,8 +57,8 @@ export const SUNSET_GRADIENT_180 =
  * Every screen is one leaf of the same document.
  *
  * `viewTransitionName: 'screen'` is what lets navigation.tsx animate a push and a pop
- * differently — the name has to be on the element that is actually being replaced, and only
- * one element may carry it at a time, which the stack guarantees.
+ * differently — the name has to be on the element being replaced, and only one element may
+ * carry it at a time, which the stack guarantees.
  */
 export function Screen({ children }: { children: ReactNode }) {
   return (
@@ -68,19 +76,23 @@ export function ScreenHeader({
   subtitle,
   right,
   onBack,
+  tabs,
   search,
 }: {
   title: ReactNode
-  /** One line under the title. A measure, never a sales pitch. */
+  /** One line under the title. A measure, never a pitch. */
   subtitle?: ReactNode
   right?: ReactNode
-  /** Overrides the default pop. Pass nothing on Home, where there is nowhere to go back to. */
+  /** Overrides the default pop. Pass nothing on a root tab, where there is nowhere to go back to. */
   onBack?: () => void
+  /** A row of underline tabs under the title, full width. */
+  tabs?: ReactNode
   /**
-   * A filter for the screen's own content, rendered on its own row.
+   * A filter or action row for the screen's own content, on its own line.
    *
-   * Its own row rather than beside the title because at 400px a header holding a title, an
-   * action and a text field holds none of the three properly.
+   * Its own line rather than beside the title because at 400px a header holding a title, an
+   * action and a text field holds none of the three properly. Pinned to `control` height so
+   * switching between two screens that share a header does not move the list under it.
    */
   search?: ReactNode
 }) {
@@ -88,39 +100,22 @@ export function ScreenHeader({
   const canGoBack = onBack !== undefined || nav.depth > 0
 
   return (
-    <header className="shrink-0 border-b border-border-muted">
-      <div className="flex items-center gap-2 px-gutter py-3">
+    <header className="shrink-0 border-b border-border-muted bg-surface">
+      <div className="flex h-11 items-center gap-1 px-gutter">
         {canGoBack && (
-          <button
-            type="button"
-            onClick={onBack ?? nav.back}
-            aria-label="Back"
-            className="-ml-2.5 flex size-9 shrink-0 items-center justify-center rounded-full text-ink-muted transition-colors hover:bg-surface-muted hover:text-ink"
-          >
+          <IconButton label="Back" onClick={onBack ?? nav.back} className="-ml-1.5">
             <IconBack className="size-4" />
-          </button>
+          </IconButton>
         )}
         <div className="min-w-0 flex-1">
-          <h1 className="truncate font-display text-lg font-bold tracking-[-0.02em] text-ink">
-            {title}
-          </h1>
-          {subtitle && <p className="mt-0.5 truncate text-xs text-ink-dim">{subtitle}</p>}
+          <h1 className="display truncate text-[15px] leading-tight text-ink">{title}</h1>
+          {subtitle && <p className="truncate text-2xs text-ink-dim">{subtitle}</p>}
         </div>
-        {right}
+        {right && <div className="flex shrink-0 items-center gap-1">{right}</div>}
       </div>
-      {/*
-        The second row is a fixed height, whatever is in it.
-
-        Facts and Sources are two tabs of one screen, and the control sitting here differs between
-        them: Facts has a 40px search field, Sources has a 32px button beside a line of 12px text.
-        So switching tabs moved the header — and therefore the entire list under it — by 8px, which
-        reads as the screen flinching. A tab switch is the one navigation that promises nothing
-        moves except the content, so the row is pinned to `control` height and its contents
-        centred, and either tab may hold whatever it needs without the other one paying for it.
-      */}
+      {tabs && <div className="px-gutter">{tabs}</div>}
       {search && (
-        <div className="px-gutter pb-3">
-          {/* The floor sits on the inner box so the 12px of padding above is not eaten by it. */}
+        <div className="px-gutter pb-2.5 pt-0.5">
           <div className="flex min-h-control items-center">
             <div className="min-w-0 flex-1">{search}</div>
           </div>
@@ -139,12 +134,7 @@ export function ScreenBody({
 }: {
   children: ReactNode
   className?: string
-  /**
-   * The scroll container itself, for a screen that has to move it.
-   *
-   * A multi-step flow needs this: the *content* remounts between steps, so nothing resets the
-   * scroll offset, and arriving at a short step from a long one starts you below its heading.
-   */
+  /** The scroll container itself, for a screen that has to move it (a multi-step flow). */
   ref?: React.Ref<HTMLDivElement>
 } & React.HTMLAttributes<HTMLDivElement>) {
   return (
@@ -156,9 +146,56 @@ export function ScreenBody({
 
 export function ScreenFooter({ children }: { children: ReactNode }) {
   return (
-    <footer className="shrink-0 border-t border-border-muted bg-surface px-gutter py-3">
+    <footer className="shrink-0 border-t border-border-muted bg-surface px-gutter py-2.5">
       {children}
     </footer>
+  )
+}
+
+/* ── Underline tabs ──────────────────────────────────────────────────────── */
+
+export interface Tab<T extends string> {
+  key: T
+  label: string
+}
+
+/**
+ * Two or three views of one screen, as underline tabs in the header.
+ *
+ * The selected tab is `ink` with a 2px accent rule under it. It sits directly on the header's
+ * own hairline so the rule reads as part of the frame rather than a badge floating in it.
+ */
+export function Tabs<T extends string>({
+  tabs,
+  value,
+  onChange,
+  label,
+}: {
+  tabs: Tab<T>[]
+  value: T
+  onChange: (value: T) => void
+  label: string
+}) {
+  return (
+    <div role="tablist" aria-label={label} className="-mb-px flex gap-4">
+      {tabs.map((tab) => {
+        const selected = tab.key === value
+        return (
+          <button
+            key={tab.key}
+            type="button"
+            role="tab"
+            aria-selected={selected}
+            onClick={() => onChange(tab.key)}
+            className={`relative -mb-px h-8 border-b-2 text-xs font-medium transition-colors ${
+              selected ? 'border-accent text-ink' : 'border-transparent text-ink-dim hover:text-ink'
+            }`}
+          >
+            {tab.label}
+          </button>
+        )
+      })}
+    </div>
   )
 }
 
@@ -167,20 +204,20 @@ export function ScreenFooter({ children }: { children: ReactNode }) {
 const TABS: { key: TabName; label: string; icon: (props: { className?: string }) => ReactNode }[] =
   [
     { key: 'home', label: 'Fill', icon: IconMascot },
-    { key: 'yourInfo', label: 'My info', icon: IconList },
-    { key: 'account', label: 'Account', icon: IconUser },
+    { key: 'yourInfo', label: 'Profile', icon: IconList },
+    { key: 'account', label: 'Settings', icon: IconGear },
   ]
 
 /**
  * The three roots of the panel. Only shown while a root tab is on top — a pushed screen
- * (filling, review, add, detail) gets the back button instead.
+ * (filling, receipt, add, detail) gets the back button instead.
  */
 export function TabBar() {
   const nav = useNavigation()
 
   return (
-    <nav className="shrink-0 border-t border-border-muted bg-surface-raised px-2 pb-1 pt-1.5">
-      <div className="flex">
+    <nav className="shrink-0 border-t border-border-muted bg-surface px-2 py-1.5">
+      <div className="flex gap-1">
         {TABS.map(({ key, label, icon: Icon }) => {
           const active = nav.tab === key
           return (
@@ -189,11 +226,11 @@ export function TabBar() {
               type="button"
               onClick={() => nav.goToTab(key)}
               aria-current={active ? 'page' : undefined}
-              className={`flex flex-1 flex-col items-center gap-1 rounded-xl py-2 text-2xs font-semibold transition-colors ${
-                active ? 'text-accent' : 'text-ink-dim hover:text-ink'
+              className={`flex flex-1 flex-col items-center gap-0.5 rounded-md py-1.5 text-2xs font-medium transition-colors ${
+                active ? 'bg-surface-muted text-ink' : 'text-ink-dim hover:text-ink'
               }`}
             >
-              <Icon className="size-5" />
+              <Icon className="size-[18px]" />
               {label}
             </button>
           )
@@ -205,16 +242,16 @@ export function TabBar() {
 
 /* ── Buttons ─────────────────────────────────────────────────────────────── */
 
-type Variant = 'primary' | 'secondary' | 'ghost' | 'danger'
+type Variant = 'primary' | 'secondary' | 'ghost' | 'danger' | 'destructive'
 
 const VARIANTS: Record<Variant, string> = {
-  // The signature sunset gradient. White text on a violet→pink run, pill, a little glow.
-  primary:
-    'text-white shadow-[0_2px_12px_-2px_var(--color-shadow-strong)] hover:brightness-110 active:brightness-95',
+  primary: 'bg-accent text-white hover:brightness-110 active:brightness-95',
   secondary:
-    'bg-surface-raised text-ink border border-border hover:border-ink/30 hover:bg-surface-muted',
+    'border border-border bg-surface-raised text-ink shadow-[0_1px_2px_var(--color-shadow)] hover:bg-surface-muted',
   ghost: 'text-ink-muted hover:bg-surface-muted hover:text-ink',
-  danger: 'text-danger border border-danger hover:bg-danger-muted',
+  danger: 'text-danger hover:bg-danger-muted',
+  /* The solid red one, for the last button of a destructive flow. */
+  destructive: 'bg-danger text-white hover:brightness-110 active:brightness-95',
 }
 
 export function Button({
@@ -238,21 +275,18 @@ export function Button({
       disabled={disabled || loading}
       aria-busy={loading || undefined}
       className={[
-        'inline-flex shrink-0 items-center justify-center gap-1.5 rounded-full font-semibold transition-[filter,background-color,transform] duration-150 active:translate-y-px disabled:pointer-events-none disabled:opacity-45',
-        // Heights come off the density scale rather than out of padding. A 28px button in a
-        // docked panel is a near-miss waiting to happen, and this surface gets used one-handed.
+        'inline-flex shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-md font-medium transition-[filter,background-color,color] duration-100 disabled:pointer-events-none disabled:opacity-45',
         size === 'sm'
-          ? 'min-h-8 px-3.5 text-sm'
+          ? 'h-7 px-2.5 text-xs'
           : size === 'lg'
-            ? 'min-h-12 px-5 text-base'
-            : 'min-h-control px-4 text-sm',
+            ? 'h-9 px-4 text-sm'
+            : 'h-8 px-3 text-sm',
         block ? 'w-full' : '',
         VARIANTS[variant],
         className,
       ]
         .filter(Boolean)
         .join(' ')}
-      style={variant === 'primary' ? { background: SUNSET_GRADIENT } : undefined}
       {...rest}
     >
       {loading ? <Spinner /> : children}
@@ -260,17 +294,59 @@ export function Button({
   )
 }
 
-/** The one moving part allowed in a button — a tiny ring, never a big spinner. */
-function Spinner() {
+/** The one moving part allowed in a button — a thin ring, never a big spinner. */
+export function Spinner({ className = 'size-3.5' }: { className?: string }) {
   return (
     <span
       aria-hidden
-      className="size-3.5 animate-spin rounded-full border-2 border-current border-t-transparent"
+      className={`spin rounded-full border-[1.5px] border-current border-t-transparent ${className}`}
     />
   )
 }
 
-/* ── Cards, chips, badges ────────────────────────────────────────────────── */
+/** A square ghost button around one glyph. `label` is its accessible name and its tooltip. */
+export function IconButton({
+  label,
+  size = 'md',
+  tone = 'default',
+  className = '',
+  children,
+  ...rest
+}: ButtonHTMLAttributes<HTMLButtonElement> & {
+  label: string
+  size?: 'sm' | 'md'
+  tone?: 'default' | 'danger'
+}) {
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      title={label}
+      className={[
+        'flex shrink-0 items-center justify-center rounded-md transition-colors disabled:opacity-40',
+        size === 'sm' ? 'size-6' : 'size-7',
+        tone === 'danger'
+          ? 'text-ink-dim hover:bg-danger-muted hover:text-danger'
+          : 'text-ink-dim hover:bg-surface-muted hover:text-ink',
+        className,
+      ].join(' ')}
+      {...rest}
+    >
+      {children}
+    </button>
+  )
+}
+
+/** A key cap. `⌥F`, `Enter`, `Esc`. */
+export function Kbd({ children }: { children: ReactNode }) {
+  return (
+    <kbd className="inline-flex h-5 min-w-5 items-center justify-center rounded-sm border border-border bg-surface-muted px-1 font-sans text-2xs font-medium text-ink-muted">
+      {children}
+    </kbd>
+  )
+}
+
+/* ── Containers ──────────────────────────────────────────────────────────── */
 
 export function Card({
   children,
@@ -281,11 +357,42 @@ export function Card({
   className?: string
 } & React.HTMLAttributes<HTMLDivElement>) {
   return (
+    <div className={`rounded-lg border border-border bg-surface-raised ${className}`} {...rest}>
+      {children}
+    </div>
+  )
+}
+
+/** A card whose children are rows, divided by hairlines and clipped to the corners. */
+export function ListCard({
+  children,
+  className = '',
+}: {
+  children: ReactNode
+  className?: string
+}) {
+  return (
     <div
-      className={`rounded-2xl border border-border-muted bg-surface-raised ${className}`}
-      {...rest}
+      className={`overflow-hidden rounded-lg border border-border bg-surface-raised divide-y divide-border-muted ${className}`}
     >
       {children}
+    </div>
+  )
+}
+
+/** The small caps heading over a group of rows. */
+export function SectionLabel({
+  children,
+  action,
+}: {
+  children: ReactNode
+  /** Something small on the right, level with the label. */
+  action?: ReactNode
+}) {
+  return (
+    <div className="flex items-center justify-between gap-2 px-gutter pb-1.5 pt-4">
+      <p className="text-2xs font-semibold uppercase tracking-[0.06em] text-ink-dim">{children}</p>
+      {action}
     </div>
   )
 }
@@ -293,24 +400,46 @@ export function Card({
 export function Chip({ children, className = '' }: { children: ReactNode; className?: string }) {
   return (
     <span
-      className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium ${className}`}
+      className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-2xs font-medium ${className}`}
     >
       {children}
     </span>
   )
 }
 
-/**
- * Marks an answer the AI wrote rather than read off the user's own info.
- *
- * Pink + sparkle — the mark of an answer the tool concluded rather than read.
- */
+/** Marks an answer the AI wrote rather than read off the user's own info. */
 export function AiBadge({ label = 'AI wrote it' }: { label?: string }) {
   return (
     <Chip className="bg-accent-muted text-accent">
       <IconSparkle className="size-3" />
       {label}
     </Chip>
+  )
+}
+
+/** A number and what it counts, for a strip of them. */
+export function Stat({
+  value,
+  label,
+  tone = 'default',
+}: {
+  value: ReactNode
+  label: string
+  tone?: 'default' | 'accent' | 'positive' | 'dim'
+}) {
+  const colour =
+    tone === 'accent'
+      ? 'text-accent'
+      : tone === 'positive'
+        ? 'text-positive'
+        : tone === 'dim'
+          ? 'text-ink-dim'
+          : 'text-ink'
+  return (
+    <div className="rounded-lg border border-border bg-surface-raised px-3 py-2">
+      <p className={`tnum text-lg font-semibold leading-tight ${colour}`}>{value}</p>
+      <p className="mt-0.5 truncate text-2xs text-ink-dim">{label}</p>
+    </div>
   )
 }
 
@@ -333,12 +462,9 @@ export const EXPRESSIONS: Expression[] = [
 /**
  * The face, on its own, in the mark's own 40-unit space.
  *
- * Pulled out of `Mascot` because the onboarding draws the same face on a much larger body that
- * morphs while it talks (`onboarding/blob.tsx`), and a second hand-copied set of eyes and mouths
- * is how the brand mark ends up with two slightly different smiles. Anything that wants the face
- * on its own geometry wraps this in a `scale()` transform.
- *
- * `look` moves the eyes, in viewBox units and clamped, so gaze can never wander off the body.
+ * Shared with the onboarding blob, which draws the same face on a larger morphing body; one
+ * set of eyes and mouths is how the brand mark keeps one smile. `look` moves the eyes, clamped
+ * so gaze can never wander off the body.
  */
 export function MascotFace({
   expression = 'happy',
@@ -391,33 +517,25 @@ export function MascotFace({
 }
 
 /**
- * The sunset gradient, as a paint the mascot's own body can take.
+ * The mascot's body paint — the only gradient in the product.
  *
- * A component rather than a copied `<defs>` block: two SVGs declaring the same gradient id in one
- * document is one gradient, and whichever mounted second silently inherits the first one's
- * coordinates. `useId` per instance is what keeps a 22px header mark and a 200px hero from
- * sharing a ramp sized for one of them.
+ * A component rather than a copied `<defs>` block: two SVGs declaring the same gradient id in
+ * one document is one gradient, and whichever mounted second silently inherits the first one's
+ * coordinates. `useId` per instance keeps a 18px header mark and a 120px hero apart.
  */
 export function MascotGradient({ id, extent = 40 }: { id: string; extent?: number }) {
   return (
     <linearGradient id={id} x1="0" y1="0" x2={extent} y2={extent} gradientUnits="userSpaceOnUse">
       <stop stopColor="var(--color-sparkle)" />
-      <stop offset="0.55" stopColor="var(--color-accent)" />
       <stop offset="1" stopColor="var(--color-sun)" />
     </linearGradient>
   )
 }
 
-/**
- * The mascot: a rounded blob with the sunset gradient and a face.
- *
- * Deliberately tiny and cheap — one SVG, a few mouth/eye variations, no image assets. It shows
- * up where the product talks to you: welcome, filling, empty states, the done moment. The face
- * is where the warmth goes, which is what lets the copy around it stay plain.
- */
+/** The mascot: a round body with the brand gradient and a face. One SVG, no image assets. */
 export function Mascot({
   expression = 'happy',
-  size = 44,
+  size = 40,
   look,
   blink = false,
   className = '',
@@ -466,13 +584,7 @@ export function Row({
   detail?: ReactNode
   value?: ReactNode
   onClick?: () => void
-  /**
-   * Pointing at this row, by mouse or by keyboard.
-   *
-   * On the row's own interactive element rather than a wrapper, so it is reachable by tab as
-   * well as by pointer — and so it does not need a `<div>` carrying handlers no keyboard user
-   * can ever reach.
-   */
+  /** Pointing at this row, by mouse or by keyboard. On the row's own interactive element. */
   onHover?: () => void
   trailing?: ReactNode
   tone?: 'default' | 'danger'
@@ -481,29 +593,27 @@ export function Row({
     <>
       {icon && (
         <span
-          className={`mt-px flex size-4 shrink-0 items-center justify-center ${tone === 'danger' ? 'text-danger' : 'text-ink-dim'}`}
+          className={`flex size-4 shrink-0 items-center justify-center ${tone === 'danger' ? 'text-danger' : 'text-ink-dim'}`}
         >
           {icon}
         </span>
       )}
       <span className="min-w-0 flex-1">
         <span
-          className={`block truncate text-base ${tone === 'danger' ? 'text-danger' : 'text-ink'}`}
+          className={`block truncate text-sm ${tone === 'danger' ? 'text-danger' : 'text-ink'}`}
         >
           {title}
         </span>
-        {detail && <span className="mt-0.5 block truncate text-xs text-ink-dim">{detail}</span>}
+        {detail && <span className="block truncate text-xs text-ink-dim">{detail}</span>}
       </span>
       {value && <span className="shrink-0 text-xs text-ink-dim">{value}</span>}
       {trailing ?? (onClick && <IconChevronRight className="size-4 shrink-0 text-ink-dim" />)}
     </>
   )
 
-  const shared = 'flex min-h-row w-full items-center gap-3 px-gutter py-2.5 text-left'
+  const shared = 'flex min-h-row w-full items-center gap-2.5 px-3 py-2 text-left'
 
-  if (!onClick) {
-    return <div className={shared}>{body}</div>
-  }
+  if (!onClick) return <div className={shared}>{body}</div>
 
   return (
     <button
@@ -523,16 +633,8 @@ export function RowGroup({ children }: { children: ReactNode }) {
 
 /* ── Fields ──────────────────────────────────────────────────────────────── */
 
-/*
-  Filled, not outlined.
-
-  `surface-raised` on `surface` is 99.3% lightness on 97.2% — a difference nobody can see, so
-  every input read as a hairline rectangle drawn on the same flat sheet as everything else. A
-  filled control on the lighter ground is the separation, and focus lifts it to raised with an
-  accent ring, so "where I am typing" is unmistakable rather than a 1px colour change.
-*/
 const CONTROL =
-  'min-h-control w-full rounded-xl border border-border bg-surface-muted px-3.5 py-2 text-base text-ink placeholder:text-ink-dim transition-[background-color,border-color,box-shadow] hover:border-ink-dim/40 focus:border-accent focus:bg-surface-raised focus:shadow-[0_0_0_3px_var(--color-accent-muted)] focus:outline-none disabled:opacity-50'
+  'h-control w-full rounded-md border border-border bg-surface-raised px-2.5 text-sm text-ink placeholder:text-ink-dim transition-[border-color,box-shadow] hover:border-ink/25 focus:border-accent focus:shadow-[0_0_0_3px_var(--color-accent-muted)] focus:outline-none disabled:opacity-50'
 
 export function Field({
   label,
@@ -552,7 +654,7 @@ export function Field({
 
   return (
     <div className="flex flex-col gap-1.5">
-      <label htmlFor={id} className="text-sm font-semibold text-ink-muted">
+      <label htmlFor={id} className="text-xs font-medium text-ink-muted">
         {label}
       </label>
       {children({ id, describedBy: describedBy || undefined })}
@@ -584,8 +686,7 @@ export function AutoTextarea({
 }: TextareaHTMLAttributes<HTMLTextAreaElement> & { minRows?: number }) {
   const ref = useRef<HTMLTextAreaElement>(null)
 
-  // `value` is the dependency on purpose: the height is a function of the content, and `ref`
-  // is stable. Resetting to `auto` first is what lets the box shrink again, not only grow.
+  // `value` is the dependency on purpose: the height is a function of the content.
   // biome-ignore lint/correctness/useExhaustiveDependencies: measuring, not deriving
   useEffect(() => {
     const node = ref.current
@@ -599,7 +700,7 @@ export function AutoTextarea({
       ref={ref}
       value={value}
       rows={minRows}
-      className={`${CONTROL} resize-none leading-[1.55] ${className}`}
+      className={`${CONTROL} h-auto resize-none py-2 leading-[1.5] ${className}`}
       {...rest}
     />
   )
@@ -609,26 +710,21 @@ export function AutoTextarea({
 
 export function SkeletonRow() {
   return (
-    <div className="flex items-center gap-2.5 px-gutter py-3">
-      <div className="awaiting size-4 shrink-0 rounded-full" />
+    <div className="flex items-center gap-2.5 px-gutter py-2.5">
+      <div className="awaiting size-4 shrink-0 rounded-sm" />
       <div className="min-w-0 flex-1">
-        <div className="awaiting h-3.5 w-2/5 rounded-full" />
-        <div className="awaiting mt-1.5 h-3 w-1/4 rounded-full" />
+        <div className="awaiting h-3 w-2/5 rounded-sm" />
+        <div className="awaiting mt-1.5 h-2.5 w-1/4 rounded-sm" />
       </div>
     </div>
   )
 }
 
 export function SkeletonText({ className = '' }: { className?: string }) {
-  return <div className={`awaiting rounded-full ${className}`} />
+  return <div className={`awaiting rounded-sm ${className}`} />
 }
 
-/**
- * Nothing here yet — said cheerfully.
- *
- * The mascot (or a sparkle) does the heavy lifting: every empty state says what to do next,
- * not just that there is nothing.
- */
+/** Nothing here yet, and what to do about it. Quiet: a still mark, one line, one action. */
 export function EmptyState({
   title,
   body,
@@ -641,13 +737,11 @@ export function EmptyState({
   mascot?: Expression
 }) {
   return (
-    <div className="flex flex-1 flex-col items-center justify-center px-7 py-10 text-center">
-      <Mascot expression={mascot} size={52} className="bounce" />
-      <h2 className="mt-4 font-display text-lg font-bold tracking-[-0.02em] text-ink">{title}</h2>
-      <div className="mx-auto mt-1.5 max-w-[32ch] text-sm leading-relaxed text-ink-muted">
-        {body}
-      </div>
-      {action && <div className="mt-4 flex justify-center">{action}</div>}
+    <div className="flex flex-1 flex-col items-center justify-center px-6 py-10 text-center">
+      <Mascot expression={mascot} size={40} />
+      <h2 className="display mt-3 text-base text-ink">{title}</h2>
+      <div className="mx-auto mt-1 max-w-[30ch] text-sm text-ink-muted">{body}</div>
+      {action && <div className="mt-4 flex w-full justify-center">{action}</div>}
     </div>
   )
 }
@@ -656,7 +750,7 @@ export function ErrorNote({ children }: { children: ReactNode }) {
   return (
     <p
       role="alert"
-      className="flex items-start gap-1.5 px-gutter py-2.5 text-xs leading-snug text-danger"
+      className="flex items-start gap-1.5 rounded-md bg-danger-muted px-3 py-2 text-xs leading-snug text-danger"
     >
       <IconAlert className="mt-px size-3.5 shrink-0" />
       <span className="min-w-0">{children}</span>
@@ -672,30 +766,19 @@ export interface MenuItem {
   tone?: 'default' | 'danger'
 }
 
-/** Where a portalled menu has been placed, in viewport coordinates. */
 interface MenuPosition {
-  /** Distance from the top of the viewport to the menu's top edge. */
   top: number
-  /** Distance from the *right* of the viewport, so the menu stays flush with its trigger. */
   right: number
 }
 
-/** Breathing room kept between the menu and the edge of the panel. */
 const MENU_MARGIN = 8
 
 /**
  * The three-dot menu, rendered into `document.body` rather than beside its trigger.
  *
- * It used to be an `absolute` child of the trigger, which is correct in isolation and wrong
- * everywhere this component is actually used. A source card is `overflow-hidden` — it has to be,
- * for the rounded corners to clip the reading shimmer and the failure footer — so the menu was
- * cropped to the card, and on the first row of the list barely one item of it survived. The
- * scrolling `ScreenBody` above it clips the rest.
- *
- * There is no CSS fix for that: a descendant of a clipping box cannot escape it, whatever its
- * `position` or `z-index`. So the menu leaves the tree entirely and is positioned from the
- * trigger's own rectangle, measured at open. That also gets flipping for free — a card near the
- * bottom of the list opens its menu upward instead of off the end of the panel.
+ * A descendant of a clipping box (a card with rounded corners, the scrolling body) cannot
+ * escape it whatever its `position`, so the menu leaves the tree and is placed from the
+ * trigger's own rectangle at open — which also gets flipping for free near the bottom.
  */
 export function OverflowMenu({ items, label }: { items: MenuItem[]; label: string }) {
   const [open, setOpen] = useState(false)
@@ -703,12 +786,6 @@ export function OverflowMenu({ items, label }: { items: MenuItem[]; label: strin
   const menuRef = useRef<HTMLDivElement>(null)
   const [position, setPosition] = useState<MenuPosition | null>(null)
 
-  /*
-    Measured after layout and before paint, so the menu is never seen at the wrong place.
-
-    Both the trigger and the menu are measured: the menu's own height is what decides whether
-    there is room below, and that is only knowable once it is in the document.
-  */
   useLayoutEffect(() => {
     if (!open) return
     const trigger = triggerRef.current
@@ -742,15 +819,7 @@ export function OverflowMenu({ items, label }: { items: MenuItem[]; label: strin
     const onKey = (event: KeyboardEvent) => {
       if (event.key === 'Escape') close()
     }
-    /*
-      Scrolling the list dismisses the menu.
-
-      A portalled menu is fixed to the viewport, so it would otherwise hang in place while the
-      card it belongs to slid away underneath it. Closing is the honest response: re-measuring on
-      every scroll frame keeps a popover glued to a moving row, which is worse to use than one
-      that simply gets out of the way. `capture` because the scroll happens on `ScreenBody`, not
-      on the document.
-    */
+    // Scrolling dismisses: a fixed menu hanging over a row that slid away is worse than none.
     document.addEventListener('pointerdown', onPointer)
     document.addEventListener('keydown', onKey)
     document.addEventListener('scroll', close, true)
@@ -775,7 +844,7 @@ export function OverflowMenu({ items, label }: { items: MenuItem[]; label: strin
           setPosition(null)
           setOpen((v) => !v)
         }}
-        className="flex size-9 shrink-0 items-center justify-center rounded-full text-ink-dim transition-colors hover:bg-surface-muted hover:text-ink"
+        className="flex size-7 shrink-0 items-center justify-center rounded-md text-ink-dim transition-colors hover:bg-surface-muted hover:text-ink"
       >
         <IconMore className="size-4" />
       </button>
@@ -785,13 +854,8 @@ export function OverflowMenu({ items, label }: { items: MenuItem[]; label: strin
             ref={menuRef}
             role="menu"
             aria-label={label}
-            className="pop fixed z-50 min-w-[10.5rem] overflow-hidden rounded-xl border border-border bg-surface-raised p-1 shadow-[0_8px_24px_-8px_var(--color-shadow-strong)]"
+            className="pop fixed z-50 min-w-40 overflow-hidden rounded-lg border border-border bg-surface-raised p-1 shadow-[0_8px_24px_-8px_var(--color-shadow-strong)]"
             style={
-              /*
-                Hidden for exactly one frame — the one where it is in the document to be measured
-                but has not been told where to go. `visibility` rather than a mount delay so the
-                measurement is real.
-              */
               position
                 ? { top: position.top, right: position.right }
                 : { top: 0, right: 0, visibility: 'hidden' }
@@ -806,7 +870,7 @@ export function OverflowMenu({ items, label }: { items: MenuItem[]; label: strin
                   setOpen(false)
                   item.onSelect()
                 }}
-                className={`block min-h-9 w-full rounded-lg px-3 py-2 text-left text-sm transition-colors hover:bg-surface-muted ${
+                className={`block h-8 w-full rounded-md px-2.5 text-left text-sm transition-colors hover:bg-surface-muted ${
                   item.tone === 'danger' ? 'text-danger' : 'text-ink'
                 }`}
               >
@@ -820,7 +884,43 @@ export function OverflowMenu({ items, label }: { items: MenuItem[]; label: strin
   )
 }
 
-/* ── Confirm sheet ───────────────────────────────────────────────────────── */
+/* ── Sheets ──────────────────────────────────────────────────────────────── */
+
+/** The bottom sheet's shell: a scrim, and a raised panel rising from the bottom edge. */
+const SHEET_PANEL =
+  'pop relative max-h-full overflow-y-auto rounded-t-lg border-t border-border bg-surface-raised px-gutter pb-4 pt-4 shadow-[0_-8px_24px_-12px_var(--color-shadow-strong)]'
+
+function Scrim({ onClick, label = 'Close' }: { onClick: () => void; label?: string }) {
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      tabIndex={-1}
+      onClick={onClick}
+      className="absolute inset-0 cursor-default bg-ink/30"
+    />
+  )
+}
+
+function SheetHeading({
+  icon,
+  title,
+  subtitle,
+}: {
+  icon?: ReactNode
+  title: string
+  subtitle?: ReactNode
+}) {
+  return (
+    <div className="flex items-center gap-2.5">
+      {icon}
+      <div className="min-w-0">
+        <h2 className="display text-base break-words text-ink">{title}</h2>
+        {subtitle && <p className="text-xs text-ink-dim">{subtitle}</p>}
+      </div>
+    </div>
+  )
+}
 
 export function ConfirmSheet({
   title,
@@ -878,39 +978,27 @@ export function ConfirmSheet({
 
   return (
     <div className="absolute inset-0 z-20 flex flex-col justify-end">
-      <button
-        type="button"
-        aria-label="Cancel"
-        tabIndex={-1}
-        onClick={onCancel}
-        className="absolute inset-0 cursor-default bg-ink/35"
-      />
+      <Scrim onClick={onCancel} label="Cancel" />
       <div
         ref={panel}
         role="alertdialog"
         aria-modal="true"
         aria-label={title}
-        className="pop relative rounded-t-2xl border-t border-border bg-surface-raised px-gutter pb-4 pt-4 shadow-[0_-8px_24px_-12px_var(--color-shadow-strong)]"
+        className={SHEET_PANEL}
       >
-        <h2 className="font-display text-lg font-bold break-words text-ink">{title}</h2>
-        <div className="mt-1.5 text-sm leading-relaxed text-ink-muted">{body}</div>
+        <SheetHeading title={title} />
+        <div className="mt-1.5 text-sm text-ink-muted">{body}</div>
         {error && (
           <p role="alert" className="mt-2.5 text-xs leading-snug text-danger">
             {error}
           </p>
         )}
-        {/*
-          A grid, not a flex row. `block` on a Button is `w-full`, and the base class is
-          `shrink-0` — so two of them side by side in a flex row each demanded the full width and
-          refused to give any back, overflowing the sheet by its own width and leaving a
-          horizontal scrollbar with the confirm button hanging off the right edge. Grid tracks
-          size the buttons instead of the buttons sizing the row.
-        */}
+        {/* A grid, not a flex row: `block` buttons in a flex row each demand the full width. */}
         <div className="mt-4 grid grid-cols-2 gap-2">
-          <Button variant="ghost" block onClick={onCancel} disabled={pending} data-autofocus>
+          <Button variant="secondary" block onClick={onCancel} disabled={pending} data-autofocus>
             Cancel
           </Button>
-          <Button variant="danger" block onClick={onConfirm} loading={pending}>
+          <Button variant="destructive" block onClick={onConfirm} loading={pending}>
             {pending ? 'Removing…' : confirmLabel}
           </Button>
         </div>
@@ -924,20 +1012,11 @@ export function ConfirmSheet({
 /**
  * The three gates in front of deleting an account, and why there are three of them.
  *
- * Every other destructive action in this product is one `ConfirmSheet` away, which is the right
- * weight for removing a source: the user can add it back. This one cannot be undone by anybody —
- * not by us, not by support, not by signing in again — so the friction is the feature. Each step
- * asks for something different, which is what stops it being the same question three times:
- *
- *   1. **`warn`** — do you mean this? Dismissible by anything, including Escape and the backdrop.
- *   2. **`detail`** — do you know what it includes? An itemised list of what goes, drawn from the
- *      real account rather than written in the abstract, and a box to tick. A checkbox because it
- *      cannot be satisfied by the muscle memory that carried them through step 1.
- *   3. **`confirm`** — type your own email address. Slow, specific to this account, and
- *      impossible to complete by accident. The server checks it again for the same reason.
- *
- * Back is available at every step and cancel never stops being available, including while the
- * request is in flight — the button disables, the exit does not.
+ * Every other destructive action is one `ConfirmSheet` away, which is the right weight for
+ * removing a source: the user can add it back. This one cannot be undone by anybody, so the
+ * friction is the feature. Each step asks for something different, which is what stops it
+ * being the same question three times: do you mean this; do you know what it includes (a box to
+ * tick); type your own email.
  */
 type DeleteStep = 'warn' | 'detail' | 'confirm'
 
@@ -951,9 +1030,7 @@ export function DeleteAccountSheet({
   onCancel,
 }: {
   email: string
-  /** Sources on the account, so step 2 counts what is actually there rather than gesturing. */
   sourceCount: number
-  /** Whether there is a subscription to cancel, which decides one line of step 2. */
   hasSubscription: boolean
   pending?: boolean
   error?: string
@@ -965,21 +1042,14 @@ export function DeleteAccountSheet({
   const [understood, setUnderstood] = useState(false)
   const [typed, setTyped] = useState('')
 
-  /**
-   * The same comparison the server makes, and it has to stay that way: a panel that enables the
-   * button on a stricter rule than the API's would reject what the API would accept, and on a
-   * looser one would send a request that comes back as an error the user cannot see the cause of.
-   */
+  /** The same comparison the server makes, and it has to stay that way. */
   const matches = typed.trim().toLowerCase() === email.trim().toLowerCase()
 
   useEffect(() => {
     const previous = document.activeElement as HTMLElement | null
 
     const onKey = (event: KeyboardEvent) => {
-      /*
-        Escape closes, but not mid-request. The request is already with the server by then and
-        cannot be recalled; closing would only take away the surface that reports what happened.
-      */
+      // Escape closes, but not mid-request: the request cannot be recalled by then.
       if (event.key === 'Escape' && !pending) {
         event.stopPropagation()
         onCancel()
@@ -1011,13 +1081,7 @@ export function DeleteAccountSheet({
     }
   }, [onCancel, pending])
 
-  /**
-   * Focus moves to the *safe* control on every step, not the destructive one.
-   *
-   * Step 3 is the exception and takes the text field instead, because there the destructive
-   * button is unreachable until something has been typed into it — so the field is both the
-   * safe target and the only useful one.
-   */
+  /** Focus moves to the *safe* control on every step, or the field on the last one. */
   useEffect(() => {
     const node = panel.current
     if (!node) return
@@ -1037,45 +1101,33 @@ export function DeleteAccountSheet({
 
   return (
     <div className="absolute inset-0 z-20 flex flex-col justify-end">
-      <button
-        type="button"
-        aria-label="Cancel"
-        tabIndex={-1}
+      <Scrim
         onClick={() => {
           if (!pending) onCancel()
         }}
-        className="absolute inset-0 cursor-default bg-ink/35"
+        label="Cancel"
       />
       <div
         ref={panel}
         role="alertdialog"
         aria-modal="true"
         aria-label={title}
-        className="pop relative max-h-full overflow-y-auto rounded-t-2xl border-t border-border bg-surface-raised px-gutter pb-4 pt-4 shadow-[0_-8px_24px_-12px_var(--color-shadow-strong)]"
+        className={SHEET_PANEL}
       >
-        <div className="flex items-center gap-2.5">
-          <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-danger-muted">
-            <IconAlert className="size-4 text-danger" />
-          </span>
-          <div className="min-w-0">
-            <h2 className="font-display text-lg font-bold tracking-[-0.02em] break-words text-ink">
-              {title}
-            </h2>
-            {/*
-              A step counter, because "how many more of these are there" is the question a
-              multi-step confirmation otherwise leaves the user guessing at — and guessing makes
-              people click faster, which is the opposite of the point.
-            */}
-            <p className="text-xs text-ink-dim">
-              Step {step === 'warn' ? 1 : step === 'detail' ? 2 : 3} of 3
-            </p>
-          </div>
-        </div>
+        <SheetHeading
+          icon={
+            <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-danger-muted">
+              <IconAlert className="size-4 text-danger" />
+            </span>
+          }
+          title={title}
+          subtitle={`Step ${step === 'warn' ? 1 : step === 'detail' ? 2 : 3} of 3`}
+        />
 
         {step === 'warn' && (
-          <div className="mt-3 space-y-2 text-sm leading-relaxed text-ink-muted">
+          <div className="mt-3 space-y-2 text-sm text-ink-muted">
             <p>
-              This deletes <span className="font-semibold text-ink">{email}</span> and everything in
+              This deletes <span className="font-medium text-ink">{email}</span> and everything in
               it, everywhere. It cannot be undone, and we cannot get any of it back for you.
             </p>
             <p>
@@ -1087,7 +1139,7 @@ export function DeleteAccountSheet({
 
         {step === 'detail' && (
           <>
-            <ul className="mt-3 space-y-2 text-sm leading-relaxed text-ink-muted">
+            <ul className="mt-3 space-y-2 text-sm text-ink-muted">
               <DeleteItem>
                 {sourceCount > 0
                   ? `Your ${plural(sourceCount, 'source')} and the original files behind them — résumés, recordings, links, everything uploaded.`
@@ -1109,11 +1161,7 @@ export function DeleteAccountSheet({
               </DeleteItem>
             </ul>
 
-            {/*
-              A real checkbox, not a styled div: it has to be reachable by Tab and toggleable by
-              Space in a dialog whose whole purpose is to be hard to get through without reading.
-            */}
-            <label className="mt-3.5 flex cursor-pointer items-start gap-2.5 rounded-xl border border-border-muted bg-surface p-3">
+            <label className="mt-3.5 flex cursor-pointer items-start gap-2.5 rounded-md border border-border bg-surface p-3">
               <input
                 type="checkbox"
                 checked={understood}
@@ -1129,8 +1177,8 @@ export function DeleteAccountSheet({
 
         {step === 'confirm' && (
           <div className="mt-3">
-            <p className="text-sm leading-relaxed text-ink-muted">
-              Type <span className="font-semibold text-ink">{email}</span> to confirm.
+            <p className="text-sm text-ink-muted">
+              Type <span className="font-medium text-ink">{email}</span> to confirm.
             </p>
             <Input
               type="email"
@@ -1153,15 +1201,10 @@ export function DeleteAccountSheet({
           </p>
         )}
 
-        {/*
-          Grid, not a flex row — `Button block` is `w-full` and `shrink-0`, so two side by side in
-          a flex row each demand the full width and overflow the sheet. Same reason as
-          `ConfirmSheet`, which learned it the hard way.
-        */}
         <div className="mt-4 grid grid-cols-2 gap-2">
           {step === 'warn' ? (
             <>
-              <Button variant="ghost" block onClick={onCancel} data-autofocus>
+              <Button variant="secondary" block onClick={onCancel} data-autofocus>
                 Keep my account
               </Button>
               <Button variant="danger" block onClick={() => setStep('detail')}>
@@ -1170,7 +1213,7 @@ export function DeleteAccountSheet({
             </>
           ) : step === 'detail' ? (
             <>
-              <Button variant="ghost" block onClick={() => setStep('warn')} data-autofocus>
+              <Button variant="secondary" block onClick={() => setStep('warn')} data-autofocus>
                 Back
               </Button>
               <Button
@@ -1184,11 +1227,16 @@ export function DeleteAccountSheet({
             </>
           ) : (
             <>
-              <Button variant="ghost" block onClick={() => setStep('detail')} disabled={pending}>
+              <Button
+                variant="secondary"
+                block
+                onClick={() => setStep('detail')}
+                disabled={pending}
+              >
                 Back
               </Button>
               <Button
-                variant="danger"
+                variant="destructive"
                 block
                 disabled={!matches}
                 loading={pending}
@@ -1216,14 +1264,9 @@ function DeleteItem({ children }: { children: ReactNode }) {
 /**
  * The receipt, shown once the account is gone.
  *
- * Rendered above the signed-in gate rather than inside the panel it came from, because by the
- * time it has anything to say the session is over and the whole signed-in tree has been replaced
- * by the welcome screen. Without that hoist, the moment of success is the moment the dialog
- * reporting it gets unmounted — the user clicks "Delete everything" and lands on a sign-in
- * screen, with no way to tell a completed deletion from a crash.
- *
- * It states counts because they are the only evidence the user will ever be able to get. The
- * account that could answer a follow-up question no longer exists.
+ * Rendered above the signed-in gate: by the time it has anything to say the session is over and
+ * the whole signed-in tree has been replaced by the welcome screen. It states counts because they
+ * are the only evidence the user will ever be able to get.
  */
 export function DeletedFarewell({
   report,
@@ -1233,34 +1276,20 @@ export function DeletedFarewell({
   onDismiss: () => void
 }) {
   return (
-    <div className="flex h-full flex-col items-center justify-center gap-4 bg-surface px-8 text-center">
-      <Mascot size={56} expression="flat" />
+    <div className="flex h-full flex-col items-center justify-center gap-4 bg-surface px-6 text-center">
+      <Mascot size={44} expression="flat" />
       <div>
-        <h1 className="font-display text-xl font-bold tracking-[-0.02em] text-ink">
-          Your account is deleted
-        </h1>
-        <p className="mt-1.5 text-sm leading-relaxed text-ink-muted">
-          Nothing of yours is left on our servers.
-        </p>
+        <h1 className="display text-lg text-ink">Your account is deleted</h1>
+        <p className="mt-1 text-sm text-ink-muted">Nothing of yours is left on our servers.</p>
       </div>
 
-      <ul className="w-full space-y-1.5 rounded-2xl border border-border-muted bg-surface-raised p-3.5 text-left text-sm text-ink-muted">
+      <ul className="w-full space-y-1 rounded-lg border border-border bg-surface-raised p-3 text-left text-sm text-ink-muted">
         <li>
           {report.documents} stored {plural(report.documents, 'document')} deleted
         </li>
         <li>
           {report.files} uploaded {plural(report.files, 'file')} deleted
         </li>
-        {/*
-          Billing gets a line only when there is something reassuring to say, and never a line
-          about our own plumbing.
-
-          `none` prints nothing: telling somebody who never subscribed that they had no
-          subscription to cancel is a sentence that exists purely because the code had a third
-          branch. `pending` promises the outcome rather than describing the fault — the user does
-          not need to hear that a PATCH to our payment provider failed, they need to know they are
-          not going to be charged, and finishing that is our job.
-        */}
         {report.subscription === 'cancelled' && (
           <li>Subscription cancelled — you will not be charged again</li>
         )}
@@ -1269,7 +1298,7 @@ export function DeletedFarewell({
         )}
       </ul>
 
-      <p className="text-xs leading-relaxed text-ink-dim">
+      <p className="text-xs text-ink-dim">
         You are welcome back any time. Signing in again starts a new, empty account.
       </p>
 
@@ -1303,7 +1332,7 @@ export function SegmentedControl<T extends string>({
     <div
       role="tablist"
       aria-label={label}
-      className="flex flex-wrap gap-1 rounded-full border border-border-muted bg-surface-muted p-1"
+      className="flex gap-0.5 rounded-md border border-border-muted bg-surface-muted p-0.5"
     >
       {segments.map((segment) => {
         const selected = segment.key === value
@@ -1314,8 +1343,10 @@ export function SegmentedControl<T extends string>({
             role="tab"
             aria-selected={selected}
             onClick={() => onChange(segment.key)}
-            className={`flex flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-full px-2.5 py-1.5 text-xs font-semibold transition-colors ${
-              selected ? 'bg-surface-raised text-ink shadow-sm' : 'text-ink-muted hover:text-ink'
+            className={`flex h-7 flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-[6px] px-2 text-xs font-medium transition-colors ${
+              selected
+                ? 'bg-surface-raised text-ink shadow-[0_1px_2px_var(--color-shadow)]'
+                : 'text-ink-muted hover:text-ink'
             }`}
           >
             {segment.icon}
@@ -1331,17 +1362,9 @@ export function SegmentedControl<T extends string>({
 
 export function ProBadge({ plan }: { plan: string }) {
   if (plan === 'free') return null
-  const label = plan === 'ultra' ? 'Ultra' : 'Pro'
   return (
-    <span
-      className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-2xs font-bold"
-      style={{
-        background: 'linear-gradient(135deg, var(--color-sparkle), var(--color-accent))',
-        color: 'white',
-      }}
-    >
-      <IconCrown className="size-3" />
-      {label}
+    <span className="inline-flex h-5 items-center rounded-sm bg-accent-muted px-1.5 text-2xs font-semibold text-accent">
+      {plan === 'ultra' ? 'Ultra' : 'Pro'}
     </span>
   )
 }
@@ -1364,26 +1387,25 @@ export function Toggle({
   return (
     <button
       type="button"
+      role="switch"
+      aria-checked={checked}
       onClick={() => onChange(!checked)}
       disabled={disabled}
-      className="flex min-h-row w-full items-center gap-3 px-gutter py-3 text-left transition-colors hover:bg-surface-muted disabled:opacity-50"
+      className="flex min-h-11 w-full items-center gap-3 px-3 py-2 text-left transition-colors hover:bg-surface-muted disabled:opacity-50"
     >
       <span className="min-w-0 flex-1">
-        <span className="block text-base text-ink">{label}</span>
-        {description && <span className="mt-0.5 block text-xs text-ink-dim">{description}</span>}
+        <span className="block text-sm text-ink">{label}</span>
+        {description && <span className="block text-xs text-ink-dim">{description}</span>}
       </span>
       <span
-        role="switch"
-        aria-checked={checked}
-        aria-label={label}
-        tabIndex={0}
-        className={`flex h-6 w-10 shrink-0 cursor-pointer items-center rounded-full px-0.5 transition-[background-color] duration-200 ${
-          checked ? 'bg-accent' : 'bg-surface-muted border border-border'
+        aria-hidden
+        className={`flex h-5 w-[34px] shrink-0 items-center rounded-full p-0.5 transition-colors duration-150 ${
+          checked ? 'bg-accent' : 'bg-border'
         }`}
       >
         <span
-          className={`size-[18px] rounded-full bg-white shadow-[0_1px_3px_rgba(0,0,0,0.2)] transition-transform duration-200 ease-[cubic-bezier(0.34,1.56,0.64,1)] ${
-            checked ? 'translate-x-[18px]' : 'translate-x-0'
+          className={`size-4 rounded-full bg-white shadow-[0_1px_2px_rgba(0,0,0,0.25)] transition-transform duration-150 ${
+            checked ? 'translate-x-[14px]' : 'translate-x-0'
           }`}
         />
       </span>
@@ -1394,16 +1416,11 @@ export function Toggle({
 /* ── Usage bar ────────────────────────────────────────────────────────────── */
 
 /**
- * The month's allowance, said once, in one component.
+ * The allowance, said once, in one component.
  *
- * There were two of these: this one, imported by nothing, and a private `Quota` inside
- * `Profile.tsx` with byte-identical markup and arithmetic. Two copies of a meter is how a meter
- * ends up disagreeing with itself, so `Profile` now uses this and its copy is gone.
- *
- * The long-answer line is deliberately quiet. It is a cost guardrail rather than a feature, sized
- * so that realistic use never reaches it — showing a second bar to everybody would put a number on
- * screen that means nothing to almost anyone and invite them to budget against it. It appears at
- * 60%, which is late enough to be news and early enough to act on.
+ * The long-answer line is always reported: essays are the expensive, difficult work and the
+ * reason to use this over a browser's own autofill, so the count is the headline feature's
+ * meter rather than fine print.
  */
 export function UsageBar({
   used,
@@ -1421,21 +1438,11 @@ export function UsageBar({
   longLimit: number
   plan: string
   resetsAt: string
-  /**
-   * Something to do about the number above, inside the same card.
-   *
-   * A slot rather than a button, because this component must not know what a plan costs. It had a
-   * `plan === 'free'` trial button hardcoded in it once, which is how the account screen ended up
-   * with two of them — the meter grew a CTA while the plan card below it already had one. The
-   * meter reports; the caller decides whether there is an offer and what it says.
-   */
+  /** Something to do about the number above. A slot: the meter reports, the caller offers. */
   footer?: ReactNode
   className?: string
 }) {
-  /**
-   * A free plan is the one-time grant, and the difference is visible in three places on this card:
-   * the subtitle, the reset line, and the exhausted message. Derived once so they cannot disagree.
-   */
+  /** A free plan is the one-time grant. Derived once so three lines cannot disagree. */
   const isGrant = plan === 'free'
   const pct = limit > 0 ? Math.min(100, (used / limit) * 100) : 0
   const left = Math.max(0, limit - used)
@@ -1443,77 +1450,36 @@ export function UsageBar({
   const warning = pct >= 80 && !exhausted
 
   const longLeft = Math.max(0, longLimit - longUsed)
-  /*
-   * Always reported, on every plan.
-   *
-   * This has now been wrong in both directions. It first appeared only past 60% used, on the
-   * grounds that a guardrail which never binds is noise. Then it was hidden on the grant, on the
-   * grounds that nobody is *sold* the grant. Both arguments share a mistake: they treat the long
-   * answer as a restriction to be disclosed late, when it is the thing the product is actually
-   * good at. Essays are the expensive, difficult work — the reason to use this over a browser's
-   * own autofill — so the count is not fine print, it is the headline feature's meter, and the
-   * user should be able to see how much of it they have left without waiting to be warned.
-   */
   const showLong = longLimit > 0 && !(longLeft === 0 && exhausted)
 
   return (
-    <div
-      className={`rounded-2xl border border-border-muted bg-surface-raised p-4 ${className}`.trim()}
-    >
+    <div className={`rounded-lg border border-border bg-surface-raised p-3.5 ${className}`.trim()}>
       {/*
-        No denominator on the grant.
-
-        "99 of 100" asks the reader to do arithmetic to find the number they wanted, and the total
-        is the half that stops mattering the moment they have seen it once — the grant never
-        refills, so "of 100" is a fact about the past. What somebody opening this card wants is how
-        much they have left, so that is the whole number: **99**.
-
-        A monthly plan keeps the fraction, because there the total is the plan they are paying for
-        and "552 of 600" is the only form that says whether that plan is the right size.
+        No denominator on the grant: it never refills, so "of 50" is a fact about the past. A
+        monthly plan keeps the fraction, because there the total is the plan they are paying for.
       */}
-      <p className="font-display text-xl font-bold tracking-[-0.02em] text-ink">
-        <span className={exhausted ? 'text-danger' : ''}>{left}</span>
-        {!isGrant && <span className="text-ink-dim"> of {limit}</span>}
-      </p>
+      <div className="flex items-baseline justify-between gap-2">
+        <p className="tnum text-2xl font-semibold leading-none text-ink">
+          <span className={exhausted ? 'text-danger' : ''}>{left}</span>
+          {!isGrant && <span className="text-base font-normal text-ink-dim"> / {limit}</span>}
+        </p>
+        {!isGrant && !exhausted && (
+          <p className="text-2xs text-ink-dim">Resets {formatResetDate(resetsAt)}</p>
+        )}
+      </div>
       {/*
-        "Auto-fills", not "form fields" and certainly not "AI actions".
-
-        Three attempts at this. "AI actions" was our unit of billing — a person reading "600 AI
-        actions left" cannot tell whether that is one job application or fifty. "Form fields left"
-        fixed the unit and broke the sentence: it reads as a count of fields on some form, so "100
-        form fields left on the free plan" sounds like a limit on how big a form may be, not on how
-        many times the product will work for you.
-
-        An auto-fill is the thing the user pressed the button to get. It needs no glossary, it is
-        the word the product is named after doing, and it counts the same way the meter does.
+        "Auto-fills" on the grant, "form fields" on a paid plan. Not an oversight: "600 form
+        fields a month" is the phrase on the checkout page and in the terms, so a paid meter that
+        renamed the unit would disagree with the contract. See the notes in git history.
       */}
-      {/*
-        "this month" is a lie on a free account.
-
-        The grant is one-time — `periodFor` meters it against a fixed period key, so it never
-        refills — and a meter that says "this month" invites the user to wait for the 1st for
-        something that is not coming. Paid plans do reset, and say so.
-      */}
-      {/*
-        The grant says "auto-fills"; a paid plan still says "form fields".
-
-        Not an oversight. "600 form fields a month" is the phrase on the checkout page, in the live
-        Dodo product description, on the marketing site and in the metering clause of the terms —
-        so a paid meter that renamed the unit would disagree with the contract the user bought
-        under. The grant was never sold to anybody, so it is free to use the plainer word, and no
-        single account ever sees both forms.
-
-        Renaming it everywhere is the better end state and is a coordinated change: site, pricing
-        page, terms, and the product descriptions already live at Dodo.
-      */}
-      <p className="mt-0.5 text-sm text-ink-muted">
+      <p className="mt-1 text-xs text-ink-muted">
         {isGrant
-          ? `auto-${plural(left, 'fill')} left on the free plan`
-          : `form ${plural(limit, 'field')} left to fill this month`}
+          ? `free auto-${plural(left, 'fill')} left`
+          : `form ${plural(limit, 'field')} left this month`}
       </p>
 
       <div
-        className="mt-3 h-2 overflow-hidden rounded-full bg-surface-muted"
+        className="mt-2.5 h-1.5 overflow-hidden rounded-full bg-surface-muted"
         role="progressbar"
         aria-valuenow={used}
         aria-valuemin={0}
@@ -1522,74 +1488,38 @@ export function UsageBar({
       >
         <div
           className={`h-full rounded-full transition-[width] duration-500 ${
-            exhausted ? 'bg-danger' : warning ? 'bg-warning' : ''
+            exhausted ? 'bg-danger' : warning ? 'bg-warning' : 'bg-accent'
           }`}
-          style={{
-            width: `${pct}%`,
-            ...(exhausted || warning
-              ? {}
-              : {
-                  background: 'linear-gradient(90deg, var(--color-sparkle), var(--color-accent))',
-                }),
-          }}
+          style={{ width: `${pct}%` }}
         />
       </div>
 
-      {/*
-        On the free grant this line speaks only when it has news.
-
-        It used to explain the mechanism — "One-off, to try it on a real form — these do not
-        reset" — to somebody who had spent one field out of a hundred. Three clauses of billing
-        theory under a bar that is 1% full, answering a question nobody had yet, and it read as an
-        apology for the thing they had just been given. The grant not resetting matters exactly
-        once: when it runs out, which is when the line appears and says what to do about it.
-
-        Paid plans keep their reset date, because on a monthly allowance the date is the news.
-      */}
-      {(!isGrant || exhausted) && (
+      {(exhausted || (!isGrant && warning)) && (
         <p className="mt-2 text-xs text-ink-dim">
           {isGrant
             ? 'Your free auto-fills are used up. Start your trial to keep going.'
             : exhausted
               ? `Resets ${formatResetDate(resetsAt)}. Move up a plan to keep going now.`
-              : warning
-                ? `Almost there. Resets ${formatResetDate(resetsAt)}.`
-                : `Resets ${formatResetDate(resetsAt)}`}
+              : `Almost there. Resets ${formatResetDate(resetsAt)}.`}
         </p>
       )}
 
       {showLong && (
-        <p className="mt-2.5 border-t border-border-muted pt-2.5 text-xs leading-snug text-ink-dim">
+        <p className="mt-2.5 border-t border-border-muted pt-2.5 text-xs text-ink-dim">
           {longLeft === 0 ? (
-            /*
-              One sentence for both plans, and it is only reachable while something still works.
-
-              It used to read "Short ones still work while your free auto-fills last", which was
-              false in the exact state it was most likely to be read in: a spent grant has zero
-              long answers *and* zero auto-fills, so the card claimed short ones still worked
-              directly under a red zero saying they did not. `showLong` now hides this line once
-              the main allowance is gone too — at that point the headline has already said it.
-            */
             <span className="text-warning">No long answers left. Everything else still works.</span>
           ) : (
             <>
-              <span className="font-bold tabular-nums text-ink-muted">
-                {/* Same rule as the headline: no denominator on a total that never comes back. */}
+              <span className="tnum font-semibold text-ink-muted">
                 {isGrant ? longLeft : `${longLeft} of ${longLimit}`}
               </span>{' '}
-              {/*
-                No trailing explainer. This has been "essays and rewrites" and "the written ones";
-                both were an attempt to define "long answer" in three words, and neither managed
-                it. "20 long answers left" is a sentence anybody parses on sight — the place to
-                explain what one is, if it needs explaining, is where the product writes one.
-              */}
               long {plural(longLeft, 'answer')} left
             </>
           )}
         </p>
       )}
 
-      {footer && <div className="mt-3.5">{footer}</div>}
+      {footer && <div className="mt-3">{footer}</div>}
     </div>
   )
 }
@@ -1607,21 +1537,13 @@ function planRows(plan: 'pro' | 'ultra'): string[] {
   ]
 }
 
-function PerkList({ rows, onDark }: { rows: string[]; onDark?: boolean }) {
+function PerkList({ rows }: { rows: string[] }) {
   return (
-    <ul className="mt-3 space-y-2">
+    <ul className="mt-2.5 space-y-1.5">
       {rows.map((row) => (
-        <li key={row} className="flex items-start gap-2.5">
-          <span
-            className={`mt-px flex size-4 shrink-0 items-center justify-center rounded-full ${
-              onDark ? 'bg-white/25 text-white' : 'bg-positive-muted text-positive'
-            }`}
-          >
-            <IconCheck className="size-2.5" />
-          </span>
-          <span className={`text-sm leading-snug ${onDark ? 'text-white' : 'text-ink-muted'}`}>
-            {row}
-          </span>
+        <li key={row} className="flex items-start gap-2">
+          <IconCheck className="mt-0.5 size-3.5 shrink-0 text-positive" />
+          <span className="text-xs leading-snug text-ink-muted">{row}</span>
         </li>
       ))}
     </ul>
@@ -1631,15 +1553,9 @@ function PerkList({ rows, onDark }: { rows: string[]; onDark?: boolean }) {
 /**
  * The one place the product asks for money.
  *
- * Two modes, because the two audiences need different things said. `trial` is for somebody who has
- * just pressed Fill for the first time: they have already uploaded a résumé and typed their facts,
- * so the job is to say what happens next in plain terms — fourteen days, then $5, cancel whenever.
- * `compare` is for somebody already paying who wants more room, and shows Pro against Ultra.
- *
- * The perk list used to be four hardcoded strings, and they were wrong: it promised "Unlimited form
- * fills every month" against a metered plan and quoted a 30 MB upload limit to everyone regardless
- * of plan. It is now derived from the same constants the server enforces, so the sheet cannot
- * promise something the API will refuse.
+ * Two views in one sheet. `trial` is for somebody who has just pressed Fill for the first time:
+ * fourteen days, then $5, cancel whenever. `compare` shows Pro against Ultra. The perk lists are
+ * derived from the same constants the server enforces.
  */
 export function UpgradeSheet({
   onClose,
@@ -1663,13 +1579,6 @@ export function UpgradeSheet({
     return () => document.removeEventListener('keydown', onKey, true)
   }, [onClose])
 
-  /**
-   * Focus is trapped, which it was not before.
-   *
-   * A modal that lets Tab walk out into the screen behind it is a modal only for people using a
-   * mouse. `ConfirmSheet` already does this; the copy is deliberate rather than shared because
-   * pulling out a hook for two call sites would hide the one line that matters — the wrap-around.
-   */
   useEffect(() => {
     const node = panel.current
     if (!node) return
@@ -1696,152 +1605,105 @@ export function UpgradeSheet({
     return () => node.removeEventListener('keydown', onKey)
   }, [])
 
-  /**
-   * `mode` seeds this; it does not own it.
-   *
-   * The trial and the plan picker were two dead ends: "Start free trial" went straight to a Dodo
-   * checkout for Pro, and the only way to find out Ultra existed was a separate button on the
-   * Account screen. Somebody being asked for money for the first time could not see what the
-   * alternatives were without leaving the offer — so the two views are one sheet with a way
-   * between them, and the checkout is reached from whichever one the user actually chose.
-   */
   const [view, setView] = useState<'trial' | 'compare'>(mode)
   const trial = view === 'trial'
 
   return (
     <div className="absolute inset-0 z-20 flex flex-col justify-end">
-      <button
-        type="button"
-        aria-label="Close"
-        tabIndex={-1}
-        onClick={onClose}
-        className="absolute inset-0 cursor-default bg-ink/35"
-      />
+      <Scrim onClick={onClose} />
       <div
         ref={panel}
         role="dialog"
         aria-modal="true"
         aria-label={trial ? 'Start your free trial' : 'Compare plans'}
-        className="pop relative max-h-full overflow-y-auto rounded-t-2xl border-t border-border bg-surface-raised px-5 pb-5 pt-5 shadow-[0_-8px_24px_-12px_var(--color-shadow-strong)]"
+        className={SHEET_PANEL}
       >
-        <div className="flex items-center gap-2.5">
-          <span
-            className="flex size-9 shrink-0 items-center justify-center rounded-full"
-            style={{ background: SUNSET_GRADIENT }}
-          >
-            <IconCrown className="size-4 text-white" />
-          </span>
-          <div className="min-w-0">
-            <h2 className="font-display text-lg font-bold tracking-[-0.02em] text-ink">
-              {trial ? 'Try it free for 14 days' : 'More room to work'}
-            </h2>
-            <p className="text-xs text-ink-muted">
-              {trial ? 'Then $5 a month. Cancel any time.' : 'Pro is $5, Ultra is $15 a month.'}
-            </p>
-          </div>
-        </div>
+        <SheetHeading
+          icon={
+            <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-accent-muted">
+              <IconCrown className="size-4 text-accent" />
+            </span>
+          }
+          title={trial ? 'Try Pro free for 14 days' : 'More room to work'}
+          subtitle={
+            trial ? 'Then $5 a month. Cancel any time.' : 'Pro is $5, Ultra is $15 a month.'
+          }
+        />
 
-        {reason && <p className="mt-3 text-sm leading-relaxed text-ink-muted">{reason}</p>}
+        {reason && <p className="mt-3 text-sm text-ink-muted">{reason}</p>}
 
         {trial ? (
           <>
-            <div className="mt-4 rounded-2xl border border-border-muted bg-surface p-3.5">
-              <p className="text-sm font-semibold text-ink">Everything in Pro, for 14 days</p>
+            <div className="mt-3.5 rounded-lg border border-border bg-surface p-3">
+              <p className="text-sm font-medium text-ink">Everything in Pro</p>
               <PerkList rows={planRows('pro')} />
             </div>
-            <p className="mt-3 text-xs leading-snug text-ink-dim">
-              Answers written from your own sources, in your words. Fields it already knows from
-              your saved info never count against the total.
+            <p className="mt-2.5 text-xs text-ink-dim">
+              Fields it already knows from your saved info never count against the total.
             </p>
-            {/*
-              Underplayed on purpose. The trial is the recommendation, and a second full-strength
-              button beside it would turn a clear offer back into a decision. This is for the
-              person who wants to know what else there is before saying yes — and its absence is
-              what previously sent them to the Account screen to find out.
-            */}
             <button
               type="button"
               onClick={() => setView('compare')}
-              className="mt-3 w-full rounded-full py-2 text-xs font-semibold text-ink-muted underline decoration-border-muted underline-offset-2 transition-colors hover:text-ink"
+              className="mt-2 w-full rounded-md py-1.5 text-xs font-medium text-ink-muted transition-colors hover:text-ink"
             >
-              See both plans side by side
+              Compare Pro and Ultra
             </button>
           </>
         ) : (
-          <div className="mt-4 space-y-2.5">
-            <div
-              className="rounded-2xl border border-transparent p-3.5 text-white"
-              style={{ background: SUNSET_GRADIENT }}
-            >
-              <p className="text-sm font-bold">Ultra · $15 / month</p>
-              <PerkList rows={planRows('ultra')} onDark />
+          <div className="mt-3.5 space-y-2">
+            <div className="rounded-lg border border-accent bg-surface p-3">
+              <div className="flex items-center justify-between">
+                <p className="text-sm font-medium text-ink">Ultra</p>
+                <p className="tnum text-xs text-ink-muted">$15 / month</p>
+              </div>
+              <PerkList rows={planRows('ultra')} />
             </div>
-            <div className="rounded-2xl border border-border-muted bg-surface p-3.5">
-              <p className="text-sm font-semibold text-ink">Pro · $5 / month</p>
+            <div className="rounded-lg border border-border bg-surface p-3">
+              <div className="flex items-center justify-between">
+                <p className="text-sm font-medium text-ink">Pro</p>
+                <p className="tnum text-xs text-ink-muted">$5 / month</p>
+              </div>
               <PerkList rows={planRows('pro')} />
             </div>
-            {/*
-              Only when the comparison was reached *from* the trial offer. Someone who arrived here
-              already paying has no trial to go back to, and offering one would be an offer we
-              would then have to refuse at checkout.
-            */}
             {mode === 'trial' && (
               <button
                 type="button"
                 onClick={() => setView('trial')}
-                className="w-full rounded-full py-2 text-xs font-semibold text-ink-muted underline decoration-border-muted underline-offset-2 transition-colors hover:text-ink"
+                className="w-full rounded-md py-1.5 text-xs font-medium text-ink-muted transition-colors hover:text-ink"
               >
-                Back to the 14-day free trial
+                Back to the free trial
               </button>
             )}
           </div>
         )}
 
-        <div className="mt-5 flex gap-2">
-          <button
-            type="button"
-            onClick={onClose}
-            className="flex-1 rounded-full border border-border px-gutter py-2.5 text-sm font-semibold text-ink transition-colors hover:bg-surface-muted"
-          >
+        <div className="mt-4 grid grid-cols-2 gap-2">
+          <Button variant="secondary" block onClick={onClose}>
             Not now
-          </button>
-          <button
-            type="button"
+          </Button>
+          <Button
+            variant="primary"
+            block
             onClick={() => {
               void (trial ? openTrial() : openUpgrade())
               onClose()
             }}
-            className="flex-1 rounded-full px-gutter py-2.5 text-sm font-bold text-white transition-[filter] hover:brightness-110 active:brightness-95"
-            style={{ background: SUNSET_GRADIENT }}
           >
             {trial ? 'Start free trial' : 'Change plan'}
-          </button>
+          </Button>
         </div>
       </div>
     </div>
   )
 }
 
-/*
- * `LockedFeature` lived here — a row greyed out with a padlock on the end — and nothing ever
- * imported it. The product does not lock rows: it hides money entirely until somebody tries to
- * fill a form, and then asks once, properly, in `UpgradeSheet`. A padlock decorating a feature
- * list is the version of that conversation that persuades nobody.
- */
-
 /* ── Sections ─────────────────────────────────────────────────────────────── */
 
 /**
  * A named, collapsible group of fields.
  *
- * The whole point. The previous editor rendered every field a person has — identity, links and
- * their own typed facts — into one flat scroll of thirty-odd rows under two headings, and the
- * only way to find anything was to read all of it. A section that says `Address · 2 of 6` and
- * stays shut answers "is my address in here?" without opening anything.
- *
  * `<details>`-backed, so keyboard toggling, find-in-page and screen readers all work without
- * being reimplemented. `open` may be driven from outside — search results expand their
- * sections — in which case pass `onToggle` too.
+ * being reimplemented. `open` may be driven from outside — search results expand their sections.
  */
 export function Section({
   title,
@@ -1858,54 +1720,27 @@ export function Section({
   children: ReactNode
 }) {
   return (
-    /*
-      A card, not a band.
-
-      Six sections divided by hairlines on one flat ground had no separation to speak of — the
-      complaint was that everything ran together, and it did. A raised card with air around it
-      is the separation, and it costs nothing that a border-bottom was buying.
-    */
     <details
       open={open}
-      /*
-        `shrink-0` is load-bearing. The screen body is a column flex container, so every section
-        is a flex item and defaults to `flex-shrink: 1` — six of them in a panel shorter than
-        their total height got squeezed to fit, clipping their own titles mid-glyph instead of
-        letting the body scroll.
-      */
-      className="group shrink-0 overflow-hidden rounded-2xl border border-border bg-surface-raised shadow-[0_1px_2px_var(--color-shadow)]"
-      // `toggle` rather than a click handler on the summary: it is the one event that fires for
-      // a pointer, the keyboard and find-in-page alike.
+      // `shrink-0` is load-bearing: the body is a column flex container, and a section that
+      // shrinks clips its own title instead of letting the body scroll.
+      className="group shrink-0 overflow-hidden rounded-lg border border-border bg-surface-raised"
       onToggle={(event) => onToggle(event.currentTarget.open)}
     >
-      <summary className="flex min-h-row cursor-pointer list-none items-center gap-3 px-4 py-3 transition-colors hover:bg-surface-muted [&::-webkit-details-marker]:hidden">
-        <span className="min-w-0 flex-1 truncate font-display text-base font-bold tracking-[-0.01em] text-ink">
-          {title}
-        </span>
+      <summary className="flex h-9 cursor-pointer list-none items-center gap-2 px-3 transition-colors hover:bg-surface-muted [&::-webkit-details-marker]:hidden">
+        <span className="min-w-0 flex-1 truncate text-sm font-medium text-ink">{title}</span>
         {count && count.total > 0 && (
           <span
-            className={`shrink-0 rounded-full px-2 py-0.5 text-2xs font-bold tabular-nums ${
-              count.filled === 0
-                ? 'bg-surface-muted text-ink-dim'
-                : 'bg-positive-muted text-positive'
+            className={`tnum shrink-0 text-2xs ${
+              count.filled === 0 ? 'text-ink-dim' : 'text-ink-muted'
             }`}
           >
-            {count.filled}/{count.total}
+            {count.filled} of {count.total}
           </span>
         )}
-        <IconChevronDown className="size-4 shrink-0 text-ink-dim transition-transform duration-200 group-open:rotate-180" />
+        <IconChevronDown className="size-4 shrink-0 text-ink-dim transition-transform duration-150 group-open:rotate-180" />
       </summary>
-
-      {/*
-        Two-up past `wide`, one-up below it.
-
-        A fact is a short label over a short value, so at 400px one column is right and at 620px
-        two columns halve the scroll. `items-start` because a field carrying a hint is taller
-        than its neighbour, and stretching both to match would strand an input mid-cell.
-      */}
-      <div className="grid grid-cols-1 items-start gap-x-4 border-t border-border-muted px-4 pb-4 pt-1 wide:grid-cols-2">
-        {children}
-      </div>
+      <div className="divide-y divide-border-muted border-t border-border-muted">{children}</div>
     </details>
   )
 }
@@ -1913,14 +1748,15 @@ export function Section({
 /* ── Field rows ───────────────────────────────────────────────────────────── */
 
 /**
- * One editable fact: label above, full-width control below.
+ * One editable fact, as a row: label on the left, value on the right, editable in place.
  *
- * Label above rather than beside, because the values here run from "M" to a nine-word job
- * title and a two-column row has to pick a width that suits neither.
+ * The previous shape — a label above a bordered input — spent 70px on every fact, so a
+ * profile of forty was six screens of scrolling and the map of what is stored was the thing you
+ * had to scroll to find. A row is 36px, reads as a table of what the tool knows, and becomes an
+ * input only when pointed at.
  *
- * `sensitive` hides the value behind `••••3210` until the eye is pressed. That is about the
- * room, not about storage — a government ID number sitting in plain text in a docked panel is
- * readable by anyone behind the user, on a page they do not control.
+ * `sensitive` hides the value behind dots until the eye is pressed: a government ID number in
+ * plain text in a docked panel is readable by anyone behind the user.
  */
 export function FieldRow({
   label,
@@ -1948,60 +1784,59 @@ export function FieldRow({
 }) {
   const id = useId()
   const [revealed, setRevealed] = useState(false)
+  const [focused, setFocused] = useState(false)
   const hidden = sensitive && !revealed && value.trim() !== ''
 
   return (
-    <div className="py-2">
-      <div className="flex items-center gap-2">
-        <label
-          htmlFor={id}
-          className="min-w-0 flex-1 truncate text-sm font-semibold text-ink-muted"
-        >
+    <div className="px-1.5 py-0.5">
+      <div className="grid min-h-9 grid-cols-[100px_1fr] items-center gap-1">
+        <label htmlFor={id} title={label} className="truncate pl-1.5 text-xs text-ink-muted">
           {label}
         </label>
-        {sensitive && value.trim() !== '' && (
-          <button
-            type="button"
-            onClick={() => setRevealed((v) => !v)}
-            aria-label={revealed ? `Hide ${label}` : `Show ${label}`}
-            aria-pressed={revealed}
-            className="flex size-8 shrink-0 items-center justify-center rounded-full text-ink-dim transition-colors hover:bg-surface-muted hover:text-ink"
-          >
-            {revealed ? <IconEyeOff className="size-4" /> : <IconEye className="size-4" />}
-          </button>
-        )}
-        {onRemove && (
-          <button
-            type="button"
-            aria-label={`Remove ${label}`}
-            onClick={onRemove}
-            className="flex size-8 shrink-0 items-center justify-center rounded-full text-ink-dim transition-colors hover:bg-danger-muted hover:text-danger"
-          >
-            <IconClose className="size-3.5" />
-          </button>
-        )}
+        <div className="flex min-w-0 items-center gap-0.5">
+          <input
+            id={id}
+            // `password` rather than a masked string, so the real value is never in the DOM as
+            // text and the browser will not offer to autofill our own panel.
+            type={hidden ? 'password' : type}
+            value={value}
+            autoFocus={autoFocus}
+            placeholder={placeholder ?? 'Not set'}
+            aria-describedby={hint ? `${id}-hint` : undefined}
+            onChange={(event) => onChange(event.currentTarget.value)}
+            onFocus={() => setFocused(true)}
+            onBlur={() => {
+              setFocused(false)
+              onCommit?.()
+            }}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter') {
+                event.preventDefault()
+                event.currentTarget.blur()
+              }
+            }}
+            className="h-7 w-full min-w-0 rounded-md border border-transparent bg-transparent px-2 text-sm text-ink placeholder:text-ink-dim transition-[background-color,border-color,box-shadow] hover:bg-surface-muted focus:border-accent focus:bg-surface-raised focus:shadow-[0_0_0_3px_var(--color-accent-muted)] focus:outline-none"
+          />
+          {sensitive && value.trim() !== '' && (
+            <IconButton
+              size="sm"
+              label={revealed ? `Hide ${label}` : `Show ${label}`}
+              aria-pressed={revealed}
+              onClick={() => setRevealed((v) => !v)}
+            >
+              {revealed ? <IconEyeOff className="size-3.5" /> : <IconEye className="size-3.5" />}
+            </IconButton>
+          )}
+          {onRemove && (
+            <IconButton size="sm" tone="danger" label={`Remove ${label}`} onClick={onRemove}>
+              <IconClose className="size-3" />
+            </IconButton>
+          )}
+        </div>
       </div>
-      <Input
-        id={id}
-        // `password` rather than a masked string, so the real value is never in the DOM as text
-        // and the browser will not offer to autofill our own panel from someone else's form.
-        type={hidden ? 'password' : type}
-        value={value}
-        autoFocus={autoFocus}
-        placeholder={placeholder ?? 'Not set'}
-        aria-describedby={hint ? `${id}-hint` : undefined}
-        onChange={(event) => onChange(event.currentTarget.value)}
-        onBlur={onCommit}
-        onKeyDown={(event) => {
-          if (event.key === 'Enter') {
-            event.preventDefault()
-            event.currentTarget.blur()
-          }
-        }}
-        className="mt-1.5"
-      />
-      {hint && (
-        <p id={`${id}-hint`} className="mt-1.5 text-xs leading-snug text-ink-dim">
+      {/* The hint only while the row is being edited; forty hints at once is a wall. */}
+      {hint && focused && (
+        <p id={`${id}-hint`} className="pb-1.5 pl-[108px] pr-2 text-2xs text-ink-dim">
           {hint}
         </p>
       )}
@@ -2009,13 +1844,7 @@ export function FieldRow({
   )
 }
 
-/**
- * Adding a fact: a name **and** a value, together, in place.
- *
- * The previous version asked only for a name, then appended an empty row to the bottom of a
- * thirty-row scroll — so the thing you had just made was off-screen, and half-made. A fact is
- * a pair; asking for one half and filing it out of sight is the whole complaint.
- */
+/** Adding a fact: a name and a value, together, in place. */
 export function AddFactForm({
   onAdd,
   onCancel,
@@ -2039,41 +1868,37 @@ export function AddFactForm({
   }
 
   return (
-    <div className="mt-2 rounded-2xl border border-border bg-surface p-3">
+    <div className="rounded-lg border border-accent bg-surface-raised p-3">
       <div className="flex flex-col gap-2.5">
-        <div>
-          <label htmlFor="new-fact-name" className="text-sm font-semibold text-ink-muted">
-            Field name
-          </label>
-          <Input
-            id="new-fact-name"
-            autoFocus
-            value={name}
-            placeholder="e.g. T-shirt size"
-            onChange={(event) => setName(event.currentTarget.value)}
-            onKeyDown={(event) => event.key === 'Escape' && onCancel()}
-            className="mt-1.5"
-          />
-        </div>
-        <div>
-          <label htmlFor="new-fact-value" className="text-sm font-semibold text-ink-muted">
-            Value
-          </label>
-          <Input
-            id="new-fact-value"
-            value={value}
-            placeholder="e.g. Medium"
-            onChange={(event) => setValue(event.currentTarget.value)}
-            onKeyDown={(event) => {
-              if (event.key === 'Enter') {
-                event.preventDefault()
-                commit()
-              }
-              if (event.key === 'Escape') onCancel()
-            }}
-            className="mt-1.5"
-          />
-        </div>
+        <Field label="Field name">
+          {({ id }) => (
+            <Input
+              id={id}
+              autoFocus
+              value={name}
+              placeholder="e.g. T-shirt size"
+              onChange={(event) => setName(event.currentTarget.value)}
+              onKeyDown={(event) => event.key === 'Escape' && onCancel()}
+            />
+          )}
+        </Field>
+        <Field label="Value">
+          {({ id }) => (
+            <Input
+              id={id}
+              value={value}
+              placeholder="e.g. Medium"
+              onChange={(event) => setValue(event.currentTarget.value)}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter') {
+                  event.preventDefault()
+                  commit()
+                }
+                if (event.key === 'Escape') onCancel()
+              }}
+            />
+          )}
+        </Field>
       </div>
 
       {problem && (
@@ -2102,13 +1927,7 @@ export function AddFactForm({
 
 export type SaveStatus = 'idle' | 'saving' | 'saved' | 'error'
 
-/**
- * What happened to the thing you just typed.
- *
- * This replaces the Save button, and the pairing of a Save button in a footer with an Add
- * button in the header — two competing action loci for one screen. Nothing to press means
- * nothing to forget to press; this is the receipt.
- */
+/** What happened to the thing you just typed. There is no Save button; this is the receipt. */
 export function SaveState({
   status,
   error,
@@ -2126,7 +1945,7 @@ export function SaveState({
         type="button"
         onClick={onRetry}
         title={error}
-        className="flex min-h-8 shrink-0 items-center gap-1.5 rounded-full bg-danger-muted px-3 text-2xs font-bold text-danger"
+        className="flex h-6 shrink-0 items-center gap-1 rounded-sm bg-danger-muted px-2 text-2xs font-medium text-danger"
       >
         <IconAlert className="size-3" />
         Not saved · Retry
@@ -2138,7 +1957,7 @@ export function SaveState({
     <span
       role="status"
       aria-live="polite"
-      className={`flex min-h-8 shrink-0 items-center gap-1.5 px-1 text-2xs font-semibold ${
+      className={`flex h-6 shrink-0 items-center gap-1 px-1 text-2xs font-medium ${
         status === 'saved' ? 'animate-fade-in text-positive' : 'text-ink-dim'
       }`}
     >
@@ -2159,13 +1978,7 @@ export function SaveState({
 
 /* ── Status pill ──────────────────────────────────────────────────────────── */
 
-/**
- * A source's state, said once and in colour.
- *
- * It used to be the first clause of a grey metadata line — `Reading… ` or `Could not be read`
- * in the same 12px dim ink as the file size — so the one thing worth knowing about a source
- * looked exactly like the least important.
- */
+/** A source's state, said once and in colour. Ready is the absence of a pill. */
 export function StatusPill({
   tone,
   children,
@@ -2180,7 +1993,7 @@ export function StatusPill({
   }
   return (
     <span
-      className={`inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-2xs font-bold ${tones[tone]}`}
+      className={`inline-flex h-5 shrink-0 items-center gap-1 rounded-sm px-1.5 text-2xs font-medium ${tones[tone]}`}
     >
       {tone === 'busy' && <span className="pulse-dot size-1.5 rounded-full bg-current" />}
       {children}
@@ -2202,29 +2015,28 @@ export function SearchInput({
   onChange: (next: string) => void
   placeholder?: string
   label: string
-  /** Callers sharing a row with an action pass `flex-1 min-w-0` so the action reaches the edge. */
   className?: string
 }) {
   return (
     <div className={`relative ${className}`}>
-      <IconSearch className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-ink-dim" />
+      <IconSearch className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-ink-dim" />
       <input
         type="search"
         aria-label={label}
         value={value}
         placeholder={placeholder}
         onChange={(event) => onChange(event.currentTarget.value)}
-        className="min-h-control w-full rounded-full border border-border-muted bg-surface-muted pl-9 pr-9 text-sm text-ink placeholder:text-ink-dim transition-colors focus:border-accent focus:bg-surface-raised"
+        className={`${CONTROL} pl-8 pr-8 [&::-webkit-search-cancel-button]:hidden`}
       />
       {value && (
-        <button
-          type="button"
-          aria-label="Clear search"
+        <IconButton
+          size="sm"
+          label="Clear search"
           onClick={() => onChange('')}
-          className="absolute right-1.5 top-1/2 flex size-7 -translate-y-1/2 items-center justify-center rounded-full text-ink-dim transition-colors hover:bg-surface-raised hover:text-ink"
+          className="absolute right-1 top-1/2 -translate-y-1/2"
         >
-          <IconClose className="size-3.5" />
-        </button>
+          <IconClose className="size-3" />
+        </IconButton>
       )}
     </div>
   )

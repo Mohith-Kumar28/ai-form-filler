@@ -7,27 +7,25 @@ import { useReviewDraft } from '../../../lib/review-store.js'
 import {
   Button,
   Chip,
-  Mascot,
+  EmptyState,
+  IconButton,
+  ListCard,
   Row,
-  RowGroup,
   Screen,
   ScreenBody,
   ScreenFooter,
   ScreenHeader,
+  SectionLabel,
+  Stat,
 } from '../components.js'
-import { IconAlert, IconCheck, IconSparkle } from '../icons.js'
+import { IconBack, IconCheck, IconChevronDown, IconChevronRight, IconSparkle } from '../icons.js'
 
 /**
  * What the fill did, and a way back to anything worth a second look.
  *
- * **This screen no longer edits answers.** It was a second editor: a textarea per field, option
- * chips, Rewrite, Keep, Save to the page, Undo, Clear — all operating on a copy of an answer
- * whose real home was the form, two feet to the left. Three places held the same text and only
- * one of them could fail to write it, which is what "Save to the page" was apologising for.
- *
- * There is one editor now and it is the answer card, on the page, under the question it belongs
- * to. This screen does the two things a 400px panel beside a form is actually good at: telling
- * the user what happened, and pointing at the things that might need them.
+ * This screen does not edit answers. There is one editor and it is the answer card, on the page,
+ * under the question it belongs to. This does the two things a 400px panel beside a form is
+ * good at: saying what happened, and pointing at the things that might need the person.
  */
 
 type Fill = FillPlan['fills'][number]
@@ -58,6 +56,19 @@ function openOnPage(fieldId: string): void {
   void sendMessage({ type: 'review/open', fieldId })
 }
 
+/** A collapsed group of rows, for the parts of the receipt nobody needs to read every time. */
+function Disclosure({ summary, children }: { summary: string; children: React.ReactNode }) {
+  return (
+    <details className="group">
+      <summary className="flex h-8 cursor-pointer list-none items-center gap-1.5 px-1 text-xs font-medium text-ink-muted transition-colors hover:text-ink [&::-webkit-details-marker]:hidden">
+        <IconChevronDown className="size-3.5 -rotate-90 transition-transform group-open:rotate-0" />
+        {summary}
+      </summary>
+      <div className="mt-1">{children}</div>
+    </details>
+  )
+}
+
 export function Receipt({
   plan,
   report,
@@ -73,7 +84,6 @@ export function Receipt({
 }) {
   const draft = useReviewDraft(tabId)
   const [cursor, setCursor] = useState(0)
-  const [showStated, setShowStated] = useState(false)
 
   const refused = new Set(report?.failed ?? [])
 
@@ -100,14 +110,11 @@ export function Receipt({
       <Screen>
         <ScreenHeader title="Nothing filled" onBack={onBack ?? onDone} />
         <ScreenBody className="flex flex-col">
-          <div className="flex flex-1 flex-col items-center justify-center px-7 py-10 text-center">
-            <Mascot expression="happy" size={52} />
-            <h2 className="mt-4 font-display text-lg font-bold text-ink">Nothing was written</h2>
-            <p className="mt-1.5 max-w-[32ch] text-sm leading-relaxed text-ink-muted">
-              No field here could be answered. Add more about yourself in My info and that will
-              change it.
-            </p>
-          </div>
+          <EmptyState
+            mascot="flat"
+            title="Nothing was written"
+            body="No field here could be answered. Add more about yourself in Profile and that will change."
+          />
         </ScreenBody>
       </Screen>
     )
@@ -115,185 +122,138 @@ export function Receipt({
 
   return (
     <Screen>
-      {/* Not "N need a look". Nothing is wrong, and six pending items read as six errors. */}
       <ScreenHeader
         title={`Filled ${written} ${plural(written, 'field')}`}
         onBack={onBack ?? onDone}
       />
 
-      {/*
-        Plain block flow, not `flex flex-col`.
-
-        As a column flex container, every section became a shrinkable flex item — and the ledger,
-        which clips its own corners with `overflow-hidden`, was squeezed below its content height
-        and quietly ate the last row's detail line. Stacked blocks inside a scrolling body have no
-        such failure mode.
-      */}
-      <ScreenBody>
-        <div className="mx-4 mt-3 overflow-hidden rounded-2xl border border-border-muted">
-          <RowGroup>
-            {/*
-              No chip, no tick, nothing. The Unmarked Fact Rule: an answer that came from what
-              the user told us asks nothing of them, so the interface asks nothing back.
-            */}
-            {stated.length > 0 && (
-              <Row
-                icon={<IconCheck className="size-4 text-positive" />}
-                title={`${stated.length} from what you told us`}
-                {...(stated.length > 0 ? { onClick: () => setShowStated((v) => !v) } : {})}
-                value={showStated ? 'hide' : 'show'}
-              />
-            )}
-            {judged.length > 0 && (
-              <Row
-                icon={<IconSparkle className="size-4 text-accent" />}
-                title={`${judged.length} I judged`}
-                detail={
-                  outstanding.length > 0
-                    ? `${outstanding.length} still to look at`
-                    : 'all looked at'
-                }
-              />
-            )}
-            {plan.skipped.length > 0 && (
-              <Row
-                title={`${plan.skipped.length} left blank`}
-                detail="nothing on file answers it"
-              />
-            )}
-            {refused.size > 0 && (
-              <Row
-                icon={<IconAlert className="size-4" />}
-                tone="danger"
-                title={`${refused.size} the page refused`}
-                detail="nothing was written to these"
-              />
-            )}
-          </RowGroup>
+      <ScreenBody className="px-gutter pb-3">
+        {/* The count of each kind, at a glance. Stated needs nothing from the user, so it is quiet. */}
+        <div className="mt-3 grid grid-cols-3 gap-2">
+          <Stat value={stated.length} label="from your info" tone="positive" />
+          <Stat value={judged.length} label="guessed" tone={judged.length > 0 ? 'accent' : 'dim'} />
+          <Stat
+            value={plan.skipped.length + refused.size}
+            label={refused.size > 0 ? 'blank or refused' : 'left blank'}
+            tone="dim"
+          />
         </div>
 
-        {showStated && stated.length > 0 && (
-          <div className="mx-4 mt-1.5 space-y-1">
-            {stated.map((fill) => (
-              <div
-                key={fill.fieldId}
-                className="rounded-xl border border-border-muted px-gutter py-2.5"
-              >
-                <p className="text-xs font-semibold text-ink-muted">
-                  {fill.label || 'Untitled field'}
-                </p>
-                <p className="mt-1 line-clamp-3 text-sm leading-snug text-ink">
-                  {draft.values[fill.fieldId] ?? fill.value}
-                </p>
-              </div>
-            ))}
-          </div>
-        )}
-
         {judged.length > 0 && (
-          <div className="mx-4 mt-4">
-            <p className="mb-2 text-xs font-semibold text-ink-dim">
-              These I worked out. Open one to change it
-            </p>
-            <div className="overflow-hidden rounded-2xl border border-border-muted">
-              <RowGroup>
-                {judged.map((fill) => {
-                  const verdict = draft.verdicts[fill.fieldId] ?? 'open'
-                  return (
-                    <Row
-                      key={fill.fieldId}
-                      title={fill.label || 'Untitled field'}
-                      detail={
-                        verdict === 'cleared'
-                          ? 'you cleared this'
-                          : (draft.values[fill.fieldId] ?? fill.value)
-                      }
-                      onClick={() => openOnPage(fill.fieldId)}
-                      onHover={() => highlight(fill.fieldId)}
-                      trailing={
-                        verdict !== 'open' ? (
-                          <Chip className="bg-positive-muted text-positive">
-                            <IconCheck className="size-3" />
-                            done
-                          </Chip>
-                        ) : (
-                          <Chip className="bg-accent-muted text-accent">
-                            {fill.inferred ? 'I guessed' : 'not sure'}
-                          </Chip>
-                        )
-                      }
-                    />
-                  )
-                })}
-              </RowGroup>
-            </div>
-          </div>
+          <>
+            <SectionLabel>
+              Check these
+              {outstanding.length > 0 && (
+                <span className="tnum ml-1.5 font-normal normal-case tracking-normal text-ink-dim">
+                  · {outstanding.length} to go
+                </span>
+              )}
+            </SectionLabel>
+            <ListCard>
+              {judged.map((fill) => {
+                const verdict = draft.verdicts[fill.fieldId] ?? 'open'
+                return (
+                  <Row
+                    key={fill.fieldId}
+                    title={fill.label || 'Untitled field'}
+                    detail={
+                      verdict === 'cleared'
+                        ? 'you cleared this'
+                        : (draft.values[fill.fieldId] ?? fill.value)
+                    }
+                    onClick={() => openOnPage(fill.fieldId)}
+                    onHover={() => highlight(fill.fieldId)}
+                    trailing={
+                      verdict !== 'open' ? (
+                        <Chip className="bg-positive-muted text-positive">
+                          <IconCheck className="size-3" />
+                          done
+                        </Chip>
+                      ) : (
+                        <Chip className="bg-accent-muted text-accent">
+                          <IconSparkle className="size-3" />
+                          {fill.inferred ? 'I guessed' : 'not sure'}
+                        </Chip>
+                      )
+                    }
+                  />
+                )
+              })}
+            </ListCard>
+          </>
         )}
 
-        {plan.skipped.length > 0 && (
-          <details className="mx-4 mt-3">
-            <summary className="cursor-pointer rounded-xl px-3 py-2.5 text-sm font-medium text-ink-muted transition-colors hover:bg-surface-muted">
-              Why {plan.skipped.length} {plural(plan.skipped.length, 'field')} stayed blank
-            </summary>
-            <div className="mt-1 space-y-1">
-              {plan.skipped.map((skip) => (
-                <div key={skip.fieldId} className="rounded-xl border border-border-muted px-3 py-2">
-                  <p className="text-xs leading-snug text-ink-dim">
+        <div className="mt-3 space-y-1">
+          {stated.length > 0 && (
+            <Disclosure summary={`${stated.length} from your info`}>
+              <ListCard>
+                {stated.map((fill) => (
+                  <div key={fill.fieldId} className="px-3 py-2">
+                    <p className="text-2xs font-medium text-ink-dim">
+                      {fill.label || 'Untitled field'}
+                    </p>
+                    <p className="line-clamp-2 text-sm text-ink">
+                      {draft.values[fill.fieldId] ?? fill.value}
+                    </p>
+                  </div>
+                ))}
+              </ListCard>
+            </Disclosure>
+          )}
+
+          {plan.skipped.length > 0 && (
+            <Disclosure
+              summary={`Why ${plan.skipped.length} ${plural(plan.skipped.length, 'field')} stayed blank`}
+            >
+              <ListCard>
+                {plan.skipped.map((skip) => (
+                  <p key={skip.fieldId} className="px-3 py-2 text-xs text-ink-muted">
                     {skip.detail ?? SKIP_REASON[skip.reason] ?? 'Left blank'}
                   </p>
-                </div>
-              ))}
-            </div>
-          </details>
-        )}
+                ))}
+              </ListCard>
+            </Disclosure>
+          )}
+
+          {refused.size > 0 && (
+            <p className="px-1 py-1.5 text-xs text-danger">
+              {refused.size} {plural(refused.size, 'field')} refused the value; nothing was written
+              there.
+            </p>
+          )}
+        </div>
       </ScreenBody>
 
-      {/*
-        The stepper. Walks the judgement calls one at a time and opens each on the page, so the
-        panel points and the form edits — rather than both holding a copy of the same answer.
-      */}
+      {/* The stepper walks the guesses one at a time and opens each on the page. */}
       <ScreenFooter>
         {outstanding.length > 0 ? (
-          <div>
-            <div className="flex items-center gap-2">
-              <Button size="sm" variant="ghost" onClick={() => step(-1)} aria-label="Previous">
-                ‹
-              </Button>
-              <span className="flex-1 text-center text-xs font-medium text-ink-muted">
-                {at + 1} of {outstanding.length} to look at
-              </span>
-              <Button size="sm" variant="ghost" onClick={() => step(1)} aria-label="Next">
-                ›
-              </Button>
-            </div>
+          <div className="flex items-center gap-2">
+            <IconButton label="Previous" onClick={() => step(-1)}>
+              <IconBack className="size-4" />
+            </IconButton>
             <Button
               variant="primary"
-              block
-              size="lg"
-              className="mt-2"
+              className="flex-1"
               onClick={() => {
                 const fill = outstanding[at]
                 if (fill) openOnPage(fill.fieldId)
               }}
             >
-              <IconSparkle className="size-4" />
-              Open it on the page
+              Check {at + 1} of {outstanding.length} on the page
             </Button>
-            <p className="mt-2 text-center text-xs text-ink-dim">
-              Or leave them. Submitting the form is still yours to do.
-            </p>
+            <IconButton label="Next" onClick={() => step(1)}>
+              <IconChevronRight className="size-4" />
+            </IconButton>
           </div>
         ) : (
-          <div>
-            <Button variant="primary" block size="lg" onClick={onDone}>
-              <IconCheck className="size-4" />
-              Done
-            </Button>
-            <p className="mt-2 text-center text-xs text-ink-dim">
-              Submitting the form is still yours to do.
-            </p>
-          </div>
+          <Button variant="primary" block onClick={onDone}>
+            <IconCheck className="size-4" />
+            Done
+          </Button>
         )}
+        <p className="mt-2 text-center text-2xs text-ink-dim">
+          Submitting the form is still yours to do.
+        </p>
       </ScreenFooter>
     </Screen>
   )

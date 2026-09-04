@@ -17,6 +17,7 @@ import {
   Button,
   ConfirmSheet,
   EmptyState,
+  ListCard,
   Screen,
   ScreenBody,
   ScreenFooter,
@@ -64,10 +65,10 @@ function Preview({ source }: { source: ProfileSourcesItem }) {
 
   if (source.kind === 'link' && source.url) {
     return (
-      <div className="border-b border-border-muted px-gutter py-4">
-        <p className="text-xs font-semibold uppercase text-ink-dim">Address</p>
-        <p className="mt-1.5 break-all text-sm leading-relaxed text-ink">{source.url}</p>
-        <Button onClick={() => void openSourceInTab(source)} size="sm" className="mt-3">
+      <div className="border-b border-border-muted px-gutter py-3">
+        <p className="text-2xs font-semibold uppercase tracking-[0.06em] text-ink-dim">Address</p>
+        <p className="mt-1 break-all text-sm text-ink">{source.url}</p>
+        <Button onClick={() => void openSourceInTab(source)} size="sm" className="mt-2.5">
           <IconExternal className="size-3.5" />
           Open {hostnameOf(source.url)}
         </Button>
@@ -77,10 +78,10 @@ function Preview({ source }: { source: ProfileSourcesItem }) {
 
   if (!source.hasFile) {
     return (
-      <div className="border-b border-border-muted px-gutter py-4">
-        <p className="text-sm leading-relaxed text-ink-muted">
-          This one was pasted in as text, so there is no original file to show. What it holds is
-          used to answer questions the same way everything else here is.
+      <div className="border-b border-border-muted px-gutter py-3">
+        <p className="text-sm text-ink-muted">
+          Pasted in as text, so there is no original file to show. What it holds answers questions
+          the same way everything else here does.
         </p>
       </div>
     )
@@ -88,8 +89,8 @@ function Preview({ source }: { source: ProfileSourcesItem }) {
 
   if (error) {
     return (
-      <div className="border-b border-border-muted px-gutter py-4">
-        <p className="text-sm leading-snug text-danger" role="alert">
+      <div className="border-b border-border-muted px-gutter py-3">
+        <p className="text-sm text-danger" role="alert">
           {error}
         </p>
       </div>
@@ -101,7 +102,7 @@ function Preview({ source }: { source: ProfileSourcesItem }) {
       <div
         role="status"
         aria-label="Loading preview"
-        className="awaiting h-56 border-b border-border-muted"
+        className="awaiting h-48 border-b border-border-muted"
       />
     )
   }
@@ -111,7 +112,7 @@ function Preview({ source }: { source: ProfileSourcesItem }) {
       <iframe
         src={file.url}
         title={`${source.label} preview`}
-        className="h-72 w-full border-b border-border-muted bg-surface-muted"
+        className="h-64 w-full border-b border-border-muted bg-surface-muted"
       />
     )
   }
@@ -122,7 +123,7 @@ function Preview({ source }: { source: ProfileSourcesItem }) {
         <img
           src={file.url}
           alt={source.label}
-          className="mx-auto max-h-72 w-auto max-w-full rounded-xl object-contain"
+          className="mx-auto max-h-64 w-auto max-w-full rounded-md object-contain"
         />
       </div>
     )
@@ -130,7 +131,7 @@ function Preview({ source }: { source: ProfileSourcesItem }) {
 
   if (file.type.startsWith('audio/')) {
     return (
-      <div className="border-b border-border-muted px-gutter py-4">
+      <div className="border-b border-border-muted px-gutter py-3">
         {/* biome-ignore lint/a11y/useMediaCaption: a voice note the user recorded themselves */}
         <audio controls src={file.url} className="w-full" />
       </div>
@@ -138,11 +139,11 @@ function Preview({ source }: { source: ProfileSourcesItem }) {
   }
 
   return (
-    <div className="border-b border-border-muted px-gutter py-4">
-      <p className="text-sm leading-relaxed text-ink-muted">
+    <div className="border-b border-border-muted px-gutter py-3">
+      <p className="text-sm text-ink-muted">
         No preview for this format. The original is stored and can be opened in a tab.
       </p>
-      <Button onClick={() => void openSourceInTab(source)} size="sm" className="mt-3">
+      <Button onClick={() => void openSourceInTab(source)} size="sm" className="mt-2.5">
         <IconExternal className="size-3.5" />
         Open in a tab
       </Button>
@@ -152,9 +153,9 @@ function Preview({ source }: { source: ProfileSourcesItem }) {
 
 function Entry({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div className="flex items-baseline justify-between gap-3 px-gutter py-2.5">
-      <span className="shrink-0 text-xs font-semibold uppercase text-ink-dim">{label}</span>
-      <span className="min-w-0 truncate text-right text-sm text-ink">{children}</span>
+    <div className="flex h-9 items-center justify-between gap-3 px-3">
+      <span className="shrink-0 text-xs text-ink-muted">{label}</span>
+      <span className="tnum min-w-0 truncate text-right text-sm text-ink">{children}</span>
     </div>
   )
 }
@@ -208,33 +209,33 @@ export function SourceDetail({
       <ScreenBody className="relative">
         <Preview source={source} />
 
-        <div className="divide-y divide-border-muted">
-          <Entry label="Kind">{KIND_NOUN[source.kind] ?? source.kind}</Entry>
-          {source.mediaType && <Entry label="Format">{source.mediaType}</Entry>}
-          {source.sizeBytes !== undefined && (
-            <Entry label="Size">{formatBytes(source.sizeBytes)}</Entry>
-          )}
-          {source.extractedChars !== undefined && (
-            <Entry label="Read">{formatCount(source.extractedChars)} characters</Entry>
-          )}
-          <Entry label="Added">{formatAddedOn(source.createdAt)}</Entry>
-        </div>
+        <div className="px-gutter py-3">
+          <ListCard>
+            <Entry label="Kind">{KIND_NOUN[source.kind] ?? source.kind}</Entry>
+            {source.mediaType && <Entry label="Format">{source.mediaType}</Entry>}
+            {source.sizeBytes !== undefined && (
+              <Entry label="Size">{formatBytes(source.sizeBytes)}</Entry>
+            )}
+            {source.extractedChars !== undefined && (
+              <Entry label="Read">{formatCount(source.extractedChars)} characters</Entry>
+            )}
+            <Entry label="Added">{formatAddedOn(source.createdAt)}</Entry>
+          </ListCard>
 
-        {source.status === 'failed' && source.error && (
-          <p role="alert" className="px-gutter py-3 text-sm leading-snug text-danger">
-            {source.error}
-          </p>
-        )}
+          {source.status === 'failed' && source.error && (
+            <p
+              role="alert"
+              className="mt-3 rounded-md bg-danger-muted px-3 py-2 text-xs text-danger"
+            >
+              {source.error}
+            </p>
+          )}
+        </div>
 
         {confirming && (
           <ConfirmSheet
             title={`Remove ${source.label}?`}
-            body={
-              <>
-                This deletes the stored copy and everything the tool remembers from it. Answers it
-                has already written stay where they are. This cannot be undone.
-              </>
-            }
+            body="This deletes the stored copy and everything the tool remembers from it. Answers it has already written stay where they are. This cannot be undone."
             confirmLabel="Remove"
             pending={remove.isPending}
             error={removeError ?? undefined}
@@ -249,8 +250,9 @@ export function SourceDetail({
 
       <ScreenFooter>
         <Button
-          variant="danger"
+          variant="secondary"
           block
+          className="text-danger"
           onClick={() => {
             setRemoveError(null)
             setConfirming(true)

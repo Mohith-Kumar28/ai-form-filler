@@ -1,10 +1,8 @@
 /**
  * Authored on a 16px grid, one 1.75px stroke, round caps and joins throughout.
  *
- * The round join is the whole character: the previous set was mitred, which reads as
- * engraving — the language of a credential, which this is not. The same geometry rounds off
- * the way an ordinary UI icon does, and the stroke gets a touch bolder so it holds up against
- * the bright palette.
+ * The round join is the whole character: the same geometry rounds off the way an ordinary UI
+ * icon does. The stroke is a touch bolder than a 1.5 so the set holds up at 14px in `inkMuted`.
  */
 
 export interface IconProps {
@@ -376,5 +374,62 @@ export function IconSearch({ className }: IconProps) {
       <circle cx="7" cy="7" r="4.5" />
       <path d="M10.4 10.4 14 14" />
     </Svg>
+  )
+}
+
+export function IconArrowRight(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M3 8h10M9 4l4 4-4 4" />
+    </Svg>
+  )
+}
+
+export function IconStop(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <rect x="3.5" y="3.5" width="9" height="9" rx="1.5" />
+    </Svg>
+  )
+}
+
+export function IconKeyboard(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <rect x="1.75" y="4" width="12.5" height="8.5" rx="1.75" />
+      <path d="M4.5 7h.01M7 7h.01M9.5 7h.01M12 7h.01M5 9.75h6" />
+    </Svg>
+  )
+}
+
+export function IconArrowUpRight(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M4.5 11.5 11.5 4.5M5.5 4.5h6v6" />
+    </Svg>
+  )
+}
+
+/**
+ * Google's mark, for the one button that opens Google. Four flat colours, no stroke: the
+ * brand asset is a filled shape and drawing it as a line icon would misrepresent it.
+ */
+export function IconGoogle({ className }: IconProps) {
+  return (
+    <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false" className={className ?? 'size-4'}>
+      <path
+        fill="#4285F4"
+        d="M15.68 8.18c0-.57-.05-1.11-.15-1.64H8v3.1h4.3a3.68 3.68 0 0 1-1.6 2.42v2h2.6c1.52-1.4 2.38-3.46 2.38-5.88Z"
+      />
+      <path
+        fill="#34A853"
+        d="M8 16c2.16 0 3.97-.72 5.3-1.94l-2.6-2a4.8 4.8 0 0 1-7.15-2.52H.87v2.07A8 8 0 0 0 8 16Z"
+      />
+      <path fill="#FBBC04" d="M3.55 9.54a4.8 4.8 0 0 1 0-3.08V4.4H.87a8 8 0 0 0 0 7.2l2.68-2.06Z" />
+      <path
+        fill="#EA4335"
+        d="M8 3.18c1.18 0 2.23.4 3.06 1.2l2.3-2.3A8 8 0 0 0 .87 4.4l2.68 2.06A4.78 4.78 0 0 1 8 3.18Z"
+      />
+    </svg>
   )
 }

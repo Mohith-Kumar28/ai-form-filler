@@ -6,20 +6,19 @@ import type { Rect } from './scheduler.js'
 /**
  * The launcher — the extension's one persistent presence on a form page.
  *
- * A circle pinned to the right edge with a rail running from it to the edge of the window. The
- * circle is the button; the rail is the one place the launcher says anything, and it says one
- * thing at a time: the keyboard shortcut when idle, what the AI is doing while it thinks, and
- * `done/total` with a stop button while answers land. A dots grabber appears on hover to drag
- * the whole thing up and down that edge.
+ * A dock pinned to the right edge of the window: a raised strip with the mascot tile at its
+ * right end. Everything else the launcher offers lives *inside* that strip and grows it
+ * leftward into the page, where there is always room:
  *
- * The rail replaced two floating satellites — a field-count pill hanging below the circle and a
- * red stop circle hanging below that. Both were centred on a 38px button 16px from the right
- * edge of the window, so both were wider than the thing they hung from and both had to be
- * special-cased not to fall off the screen; the stop button also moved the moment the progress
- * text gained a digit. Running the text sideways into the edge instead means there is no
- * direction left for it to overflow in, and the count that used to be there is now the button's
- * tooltip — a number nobody was acting on, in place of the shortcut, which is a number-free
- * instruction people can act on every time.
+ *   - on approach (hover, or within `NEAR_PAD`): the drag handle, the side-panel button and
+ *     the keyboard shortcut, as one row of small controls;
+ *   - during a fill: the rail — what the AI is doing, then `done/total`, and a stop button —
+ *     with a progress line along the dock's bottom edge;
+ *   - for an account that cannot afford a fill: "Upgrade", kept until they act.
+ *
+ * It replaced a gradient circle with three satellites that appeared on hover in three
+ * directions (a grabber to the left, a "Sidebar" pill above, a key cap below) and a rail whose
+ * text jumped as digits changed. One object, one place to look, tabular digits.
  */
 
 const POSITION_KEY = 'aff:launcherPos'
@@ -111,24 +110,20 @@ export function mountLauncher(options: {
   rail.appendChild(stopBtn)
 
   /**
-   * Open the side panel — a pill above the circle, on hover only.
+   * Open the side panel — an icon button in the extras, on approach only.
    *
-   * A separate control rather than something the circle does, because the circle deliberately
-   * does *not* open the panel: opening it narrows the viewport and relays out the form being
-   * filled, at the moment marks are being drawn against the old geometry. See the long note at
-   * the `mountLauncher` call in content.ts. That reasoning rules out opening the panel *as a
-   * side effect of filling* — it says nothing against opening it on purpose, which until now
-   * meant the toolbar icon and nothing else on the page.
-   *
-   * A real `<button>`, so it needs what the hint does not: `pointer-events: auto` while visible
-   * and `none` while hidden. A transparent control left clickable over someone else's page is a
-   * 100×30 dead zone above the launcher that silently eats their clicks.
+   * A separate control rather than something the tile does, because the tile deliberately does
+   * *not* open the panel: opening it narrows the viewport and relays out the form being filled,
+   * at the moment marks are being drawn against the old geometry. See the long note at the
+   * `mountLauncher` call in content.ts. That rules out opening the panel *as a side effect of
+   * filling*; it says nothing against opening it on purpose.
    */
   const panelBtn = document.createElement('button')
   panelBtn.type = 'button'
   panelBtn.className = 'launcher-panel'
   panelBtn.setAttribute('aria-label', 'Open the Fillaform side panel')
-  panelBtn.innerHTML = `${GLYPH.panel}<span>Sidebar</span>`
+  panelBtn.setAttribute('title', 'Open side panel')
+  panelBtn.innerHTML = GLYPH.panel
   panelBtn.addEventListener('click', (event) => {
     /**
      * Stopped here even though the pill is the button's sibling rather than its child: a click
@@ -141,16 +136,10 @@ export function mountLauncher(options: {
   })
 
   /**
-   * The keyboard shortcut, under the circle, on hover only.
+   * The keyboard shortcut, as a key cap in the extras, on approach only.
    *
-   * It used to live in the rail, which meant a bordered strip ran from the circle to the edge of
-   * the window for the entire life of every form page — permanent chrome over someone else's
-   * layout, saying one static thing. The shortcut is worth teaching but it is not worth a
-   * standing rectangle: it is only useful to a person already reaching for the button, and that
-   * person is hovering. So it appears on approach, in a soft accent fill, and the rail is kept
-   * for what actually needs a running commentary — the stages of a fill, and the stop button.
-   *
-   * A `<kbd>` because it names a key to press. `aria-hidden`: the same binding is already in the
+   * Only useful to a person already reaching for the button, and that person is hovering. A
+   * `<kbd>` because it names a key to press. `aria-hidden`: the same binding is already in the
    * button's own accessible name, and announcing it twice is noise to a screen reader.
    */
   const hint = document.createElement('kbd')
@@ -165,11 +154,24 @@ export function mountLauncher(options: {
   // Six, in two columns of three — the grabber glyph. Three in a line is a kebab menu.
   grabber.innerHTML = '<span></span>'.repeat(6)
 
-  wrap.appendChild(grabber)
-  wrap.appendChild(button)
+  /**
+   * The extras — handle, panel, shortcut — in one container that the CSS grows from nothing on
+   * approach. They sit left of the rail so the reading order across the dock is: extras, what
+   * the fill is doing, the tile. The panel button is deliberately outside `.launcher` (a
+   * sibling, not a child), so its click can never bubble into the tile's own handler.
+   */
+  const extras = document.createElement('div')
+  extras.className = 'launcher-extras'
+  const extrasInner = document.createElement('div')
+  extrasInner.className = 'launcher-extras-inner'
+  extrasInner.appendChild(grabber)
+  extrasInner.appendChild(panelBtn)
+  extrasInner.appendChild(hint)
+  extras.appendChild(extrasInner)
+
+  wrap.appendChild(extras)
   wrap.appendChild(rail)
-  wrap.appendChild(panelBtn)
-  wrap.appendChild(hint)
+  wrap.appendChild(button)
   root.appendChild(wrap)
 
   // ── The rail's one line of text ──────────────────────────────────────────
@@ -232,12 +234,10 @@ export function mountLauncher(options: {
   }
 
   /**
-   * Idle: nothing in the rail at all, so there is nothing but the circle on the page.
+   * Idle: nothing in the rail at all, so the dock is just the tile.
    *
    * The one exception is an account that cannot afford a fill. That is a state the user has to
-   * act on before the button will do anything, so it gets the rail and keeps it — and it reads
-   * as a call to action rather than as chrome because it is filled with the gradient rather
-   * than being a hairline strip. The shortcut, which is merely useful, is on the hover hint.
+   * act on before the button will do anything, so it gets the rail and keeps it, in accent.
    */
   const showIdle = () => {
     if (exhausted) {
@@ -488,6 +488,8 @@ export function mountLauncher(options: {
         wrap.setAttribute('data-filling', 'true')
         rail.removeAttribute('data-exhausted')
         setRail(document.createTextNode(`${done}/${total}`))
+        // The line along the dock's bottom edge. Drawn by CSS from this one number.
+        wrap.style.setProperty('--progress', `${Math.round((done / Math.max(1, total)) * 100)}%`)
         return
       }
 
@@ -542,6 +544,7 @@ export function mountLauncher(options: {
     reset: () => {
       settleLoading()
       wrap.removeAttribute('data-filling')
+      wrap.style.removeProperty('--progress')
       showIdle()
     },
     destroy: () => {

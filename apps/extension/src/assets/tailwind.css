@@ -2,29 +2,12 @@
 
 /*
   Values here are mirrored from src/lib/tokens.ts, which is the authority for both this file
-  and the page overlay's inlined CSS string. `src/lib/tokens.test.ts` fails if they diverge —
-  the previous build kept two hand-maintained palettes and they had already drifted.
+  and the page overlay's inlined CSS string. `src/lib/tokens.test.ts` fails if they diverge.
 
-  Bright and saturated on purpose — a signature sunset gradient (violet → pink → orange) for
-  the hero moments, hot pink for a guessed answer, lime for what it read straight off. Warm
-  neutrals, never pure gray or black.
-
-  The colour carries the personality. The words do not: copy says what the thing does, plainly.
-  See the note in tokens.ts.
+  v3: neutral ground, hairline borders, one violet accent. The mascot is the only thing that
+  carries a gradient. Type is Inter alone, set small and tight — this is a 400px tool docked
+  beside somebody's form, not a landing page.
 */
-
-/*
-  Self-hosted, bundled. Display face carries the personality (a trendy grotesque); body stays
-  neutral and legible. Both variable, both woff2, both loaded from /fonts so there is no
-  network request at runtime.
-*/
-@font-face {
-  font-family: "Bricolage Grotesque";
-  src: url("/fonts/bricolage-grotesque-var.woff2") format("woff2-variations");
-  font-weight: 200 800;
-  font-style: normal;
-  font-display: block;
-}
 
 @font-face {
   font-family: "Inter";
@@ -35,134 +18,122 @@
 }
 
 @theme {
-  /* Surfaces — warm, faintly lilac-tinted, never pure white or gray. */
-  --color-surface: oklch(97.2% 0.006 320);
-  --color-surface-raised: oklch(99.3% 0.003 320);
-  --color-surface-muted: oklch(93.5% 0.007 320);
+  /* Surfaces. */
+  --color-surface: oklch(98.4% 0.002 260);
+  --color-surface-raised: oklch(100% 0 0);
+  --color-surface-muted: oklch(95.6% 0.003 260);
 
   /* Text ramp. Every tier clears 4.5:1 on `surface`. */
-  --color-ink: oklch(20% 0.02 300);
-  --color-ink-muted: oklch(44% 0.02 300);
-  --color-ink-dim: oklch(60% 0.015 300);
+  --color-ink: oklch(18% 0.01 260);
+  --color-ink-muted: oklch(46% 0.012 260);
+  --color-ink-dim: oklch(56% 0.012 260);
 
-  /* The guessed answer — hot pink, always with a sparkle. Never for errors. */
-  --color-accent: oklch(55% 0.24 350);
-  --color-accent-muted: oklch(93% 0.04 350);
+  /* The one colour: actions, focus, and the "judged" mark. Never for errors. */
+  --color-accent: oklch(52% 0.21 285);
+  --color-accent-muted: oklch(95% 0.03 285);
 
-  /* Filled straight off what you told it. The friendly lime. */
-  --color-positive: oklch(58% 0.16 145);
-  --color-positive-muted: oklch(93% 0.055 145);
+  /* Filled straight off what you told it. */
+  --color-positive: oklch(55% 0.15 150);
+  --color-positive-muted: oklch(95% 0.04 150);
 
-  /* Faults and destruction. Coral, deliberately not pink. */
-  --color-danger: oklch(55% 0.22 25);
-  --color-danger-muted: oklch(93% 0.045 25);
+  /* Faults and destruction. */
+  --color-danger: oklch(55% 0.2 25);
+  --color-danger-muted: oklch(95% 0.035 25);
 
-  /* Warnings and heads-ups. */
-  --color-warning: oklch(68% 0.15 80);
-  --color-warning-muted: oklch(94% 0.05 80);
+  /* Heads-ups. */
+  --color-warning: oklch(62% 0.15 75);
+  --color-warning-muted: oklch(95% 0.05 80);
 
-  /* The signature sunset gradient's stops. */
-  --color-sparkle: oklch(52% 0.24 290);
-  --color-sun: oklch(68% 0.18 45);
+  /* The mascot body's two stops. Mascot only. */
+  --color-sparkle: oklch(60% 0.2 290);
+  --color-sun: oklch(70% 0.18 20);
 
   /* Hairlines. */
-  --color-border: oklch(87% 0.008 320);
-  --color-border-muted: oklch(92% 0.006 320);
+  --color-border: oklch(90% 0.004 260);
+  --color-border-muted: oklch(94% 0.003 260);
 
-  /* Elevation — tinted, not black. Only floating things take these. */
-  --color-shadow: oklch(25% 0.02 300 / 0.08);
-  --color-shadow-strong: oklch(25% 0.02 300 / 0.16);
+  /* Elevation. Floating things only. */
+  --color-shadow: oklch(20% 0.01 260 / 0.08);
+  --color-shadow-strong: oklch(20% 0.01 260 / 0.18);
 
-  /* Bubbly radii. */
+  /* Three radii: chips and key caps, controls, containers. */
   --radius-sm: 6px;
-  --radius-md: 12px;
-  --radius-lg: 18px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
   --radius-full: 9999px;
 
   /*
-    The type ramp. Six steps, and no screen may invent a seventh — the previous build had
-    eleven hand-picked arbitrary sizes (11, 10.5, 12, 12.5, 13, 13.5, 15, 16, 18) and that,
-    rather than any one layout, is what read as "crammed".
+    The type ramp. Seven steps, and no screen may invent an eighth.
 
-    Base is 15px, not 14px. This is a 400px panel someone reads mid-task on someone else's
-    site, not a dense table, and every tier below base is metadata by definition.
+    Body is 13px. This surface is read in a docked 400px column beside a form the person is
+    actually working on; a 15px base spent the width on air and pushed every list below the
+    fold. Everything under `sm` is metadata by definition, everything above it is a heading.
   */
-  --text-2xs: 11.5px;
-  --text-2xs--line-height: 1.4;
-  --text-xs: 12.5px;
-  --text-xs--line-height: 1.45;
-  --text-sm: 13.5px;
+  --text-2xs: 11px;
+  --text-2xs--line-height: 1.35;
+  --text-xs: 12px;
+  --text-xs--line-height: 1.4;
+  --text-sm: 13px;
   --text-sm--line-height: 1.5;
-  --text-base: 15px;
-  --text-base--line-height: 1.55;
-  --text-lg: 17px;
+  --text-base: 14px;
+  --text-base--line-height: 1.5;
+  --text-lg: 16px;
   --text-lg--line-height: 1.35;
-  --text-xl: 21px;
-  --text-xl--line-height: 1.25;
-  /* Two places only: the sign-in headline and the voice-note timer. */
-  --text-2xl: 27px;
-  --text-2xl--line-height: 1.1;
+  --text-xl: 18px;
+  --text-xl--line-height: 1.3;
+  --text-2xl: 22px;
+  --text-2xl--line-height: 1.2;
 
   /*
-    The one breakpoint.
-
-    Chrome gives an extension no control over the side panel's width — `chrome.sidePanel` takes
-    `enabled`, `path` and `tabId` and nothing else, and the minimum is hard-coded in the browser.
-    So the panel cannot be made wider from here; what it can do is be worth widening. Past this
-    point a field list goes two-up, which is where dragging the panel edge starts to pay for
-    itself instead of just stretching the same single column.
+    The one breakpoint. Chrome gives an extension no control over the side panel's width; past
+    this point a screen may lay things out side by side.
   */
   --breakpoint-wide: 480px;
 
   /*
     Density. One gutter for every screen edge, one floor for a row, one height for a control.
-    `row` and `control` are deliberately generous: a 28px row in a docked panel is a miss
-    waiting to happen, and this surface is used one-handed on a laptop.
+    Rows are 40px and controls 32px: dense enough that a profile of forty facts is one screen
+    of scrolling, tall enough that nothing is a near-miss with a trackpad.
   */
-  --spacing-gutter: 16px;
-  --spacing-row: 44px;
-  --spacing-control: 40px;
+  --spacing-gutter: 14px;
+  --spacing-row: 40px;
+  --spacing-control: 32px;
 
-  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
-  --font-display: "Bricolage Grotesque", "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, sans-serif;
+  /* Kept as an alias so `font-display` still resolves; there is no second face any more. */
+  --font-display: "Inter", ui-sans-serif, system-ui, -apple-system, sans-serif;
 }
 
 @media (prefers-color-scheme: dark) {
   @theme {
-    /*
-      Not an inversion — a different scene. This person is on a laptop, late, during a job
-      hunt; in that light the surface goes a deep violet-tinted near-black and the brights
-      come up louder off it, the way a neon sign reads brighter in the dark.
-    */
-    --color-surface: oklch(15% 0.022 300);
-    --color-surface-raised: oklch(19.5% 0.024 300);
-    --color-surface-muted: oklch(12% 0.018 300);
+    --color-surface: oklch(16% 0.005 260);
+    --color-surface-raised: oklch(20% 0.006 260);
+    --color-surface-muted: oklch(24.5% 0.006 260);
 
-    --color-ink: oklch(96% 0.008 320);
-    --color-ink-muted: oklch(74% 0.014 320);
-    --color-ink-dim: oklch(58% 0.012 320);
+    --color-ink: oklch(95% 0.004 260);
+    --color-ink-muted: oklch(70% 0.008 260);
+    --color-ink-dim: oklch(56% 0.008 260);
 
-    --color-accent: oklch(70% 0.22 350);
-    --color-accent-muted: oklch(26% 0.06 350);
+    --color-accent: oklch(66% 0.18 285);
+    --color-accent-muted: oklch(28% 0.07 285);
 
-    --color-positive: oklch(72% 0.17 145);
-    --color-positive-muted: oklch(24% 0.05 145);
+    --color-positive: oklch(75% 0.15 150);
+    --color-positive-muted: oklch(26% 0.05 150);
 
-    --color-danger: oklch(70% 0.19 25);
-    --color-danger-muted: oklch(26% 0.05 25);
+    --color-danger: oklch(72% 0.17 25);
+    --color-danger-muted: oklch(27% 0.06 25);
 
     --color-warning: oklch(78% 0.14 80);
-    --color-warning-muted: oklch(26% 0.045 80);
+    --color-warning-muted: oklch(27% 0.05 80);
 
-    --color-sparkle: oklch(70% 0.2 290);
-    --color-sun: oklch(76% 0.16 45);
+    --color-sparkle: oklch(66% 0.18 290);
+    --color-sun: oklch(74% 0.16 20);
 
-    --color-border: oklch(30% 0.02 300);
-    --color-border-muted: oklch(23% 0.018 300);
+    --color-border: oklch(28% 0.006 260);
+    --color-border-muted: oklch(23% 0.006 260);
 
-    /* Much heavier here: a black shadow on a near-black ground separates nothing. */
-    --color-shadow: oklch(0% 0 0 / 0.35);
-    --color-shadow-strong: oklch(0% 0 0 / 0.55);
+    --color-shadow: oklch(0% 0 0 / 0.4);
+    --color-shadow-strong: oklch(0% 0 0 / 0.6);
   }
 }
 
@@ -176,45 +147,44 @@ body {
   background: var(--color-surface);
   color: var(--color-ink);
   font-family: var(--font-sans);
-  font-size: var(--text-base);
-  line-height: 1.55;
+  font-size: var(--text-sm);
+  line-height: 1.5;
+  /* Open digits and a single-storey a: the settings Inter reads best at 13px. */
+  font-feature-settings: "cv11", "ss01", "cv05";
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
 }
 
-/* The display register: big, bouncy, a little loud. For headers and hero moments only. */
-.display {
-  font-family: var(--font-display);
-  font-weight: 700;
-  letter-spacing: -0.02em;
+/* Counters, meters and timers line up when their digits do. */
+.tnum {
+  font-variant-numeric: tabular-nums;
 }
 
-/*
-  The signature sunset gradient, applied as text or as a background. The one place the palette
-  gets to be loud — never behind an answer someone has to read.
-*/
+/* Heading register. One weight, tight tracking, no second face. */
+.display {
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+/* Kept for onboarding, which still reaches for them. Solid accent now; no gradient text. */
 .sunset-text {
-  background: linear-gradient(135deg, var(--color-sparkle), var(--color-accent), var(--color-sun));
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
+  color: var(--color-accent);
 }
 
 .sunset-bg {
-  background: linear-gradient(135deg, var(--color-sparkle), var(--color-accent), var(--color-sun));
+  background: var(--color-accent);
 }
 
 /*
   Motion.
 
-  `pop` is the springy settle — a tiny overshoot, because that is the whole joke.
-  `bounce` is the mascot's idle wiggle. `confetti` is the completion celebration, applied
-  per-piece via a CSS variable for its angle and delay.
+  `pop` is a settle with a hint of spring. `bounce` is a 4px lift for a mascot that has
+  something to say. Everything dies under `prefers-reduced-motion`, at the bottom of this file.
 */
 @keyframes pop {
   from {
     opacity: 0;
-    transform: scale(0.92) translateY(4px);
+    transform: scale(0.96) translateY(3px);
   }
   to {
     opacity: 1;
@@ -223,7 +193,7 @@ body {
 }
 
 .pop {
-  animation: pop 260ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
+  animation: pop 200ms cubic-bezier(0.3, 1.3, 0.5, 1) both;
 }
 
 @keyframes bounce {
@@ -232,12 +202,12 @@ body {
     transform: translateY(0);
   }
   50% {
-    transform: translateY(-14%);
+    transform: translateY(-4px);
   }
 }
 
 .bounce {
-  animation: bounce 1.2s ease-in-out infinite;
+  animation: bounce 1.6s ease-in-out infinite;
 }
 
 @keyframes shimmer {
@@ -258,7 +228,7 @@ body {
   animation: shimmer 1.6s linear infinite;
 }
 
-/* A soft pulse for the "thinking" dot. */
+/* The "thinking" dot. */
 @keyframes pulse-dot {
   0%,
   100% {
@@ -266,7 +236,7 @@ body {
     opacity: 0.5;
   }
   50% {
-    scale: 1.25;
+    scale: 1.2;
     opacity: 1;
   }
 }
@@ -275,15 +245,19 @@ body {
   animation: pulse-dot 1400ms cubic-bezier(0.2, 0, 0, 1) infinite;
 }
 
-/* ── The mascot's tics ──────────────────────────────────────────────────────
- *
- * The face is the brand mark, so it is never quite still. Same set the site uses
- * (`apps/web/src/styles/globals.css`) — the two surfaces share one mark, and a blink that is
- * 5.2s on the site and 3s here reads as two different characters. All of it dies under
- * `prefers-reduced-motion`, at the bottom of this file.
- */
+/* A thin rotating ring for buttons that are working. */
+@keyframes spin {
+  to {
+    rotate: 360deg;
+  }
+}
 
-/* A blink is a fast squash of the eye group, then a long wait. */
+.spin {
+  animation: spin 800ms linear infinite;
+}
+
+/* ── The mascot's tics ──────────────────────────────────────────────────────
+ * The face is the brand mark, so it is never quite still. Same cadence the site uses. */
 @keyframes mascot-blink {
   0%,
   92%,
@@ -307,45 +281,38 @@ body {
     transform: scale(1) rotate(0deg);
   }
   50% {
-    transform: scale(1.045) rotate(-1.5deg);
+    transform: scale(1.02) rotate(-1deg);
   }
 }
 
 .breathe {
-  animation: mascot-breathe 3.6s ease-in-out infinite;
+  animation: mascot-breathe 4s ease-in-out infinite;
 }
 
-/*
-  Onboarding's soft weather.
-
-  Three blurred lozenges drifting behind the mascot, and a slow hue drift on the body. Cheap:
-  transforms and opacity only, nothing that touches layout. `--drift` staggers the phase so
-  three of them never travel in formation.
-*/
+/* Onboarding's soft weather: three blurred lozenges, drifting slowly. Cheap and quiet. */
 @keyframes blob-drift {
   0%,
   100% {
     transform: translate3d(0, 0, 0) scale(1);
   }
   33% {
-    transform: translate3d(14px, -18px, 0) scale(1.08);
+    transform: translate3d(8px, -10px, 0) scale(1.04);
   }
   66% {
-    transform: translate3d(-12px, 12px, 0) scale(0.95);
+    transform: translate3d(-6px, 8px, 0) scale(0.97);
   }
 }
 
 .blob-drift {
-  animation: blob-drift 14s ease-in-out infinite;
+  animation: blob-drift 16s ease-in-out infinite;
   animation-delay: var(--drift, 0s);
 }
 
-/* The step's content, arriving. A little further and a little slower than `pop`, because a
-   whole screen changing wants more travel than a chip appearing. */
+/* A step's content, arriving. */
 @keyframes step-in {
   from {
     opacity: 0;
-    transform: translateY(10px);
+    transform: translateY(6px);
   }
   to {
     opacity: 1;
@@ -354,17 +321,11 @@ body {
 }
 
 .step-in {
-  animation: step-in 340ms cubic-bezier(0.2, 0.9, 0.25, 1) both;
+  animation: step-in 260ms cubic-bezier(0.2, 0.9, 0.25, 1) both;
   animation-delay: var(--in, 0s);
 }
 
-/*
-  A caret typing into a demo field, and the ghost text it leaves.
-
-  The width animation is over a `ch`-based track with `steps()`, so the text appears character by
-  character rather than sliding out from under a mask — which is what a person actually recognises
-  as typing.
-*/
+/* A caret typing into a demo field, character by character. */
 @keyframes type-in {
   from {
     width: 0;
@@ -397,11 +358,11 @@ body {
   animation: caret 1s steps(1, end) infinite;
 }
 
-/* A chip being swallowed by the knowledge base: it drifts in, shrinks and fades into the blob. */
+/* A chip being swallowed by the knowledge base. */
 @keyframes ingest {
   0% {
     opacity: 0;
-    transform: translateY(10px) scale(0.9);
+    transform: translateY(8px) scale(0.94);
   }
   22%,
   62% {
@@ -410,7 +371,7 @@ body {
   }
   100% {
     opacity: 0;
-    transform: translate(var(--to-x, 0), var(--to-y, -34px)) scale(0.55);
+    transform: translate(var(--to-x, 0), var(--to-y, -28px)) scale(0.6);
   }
 }
 
@@ -419,7 +380,7 @@ body {
   animation-delay: var(--in, 0s);
 }
 
-/* The counter that ticks up as a source is read. One long sweep, no bounce. */
+/* The counter that ticks up as a source is read. */
 @keyframes sweep {
   from {
     transform: scaleX(0);
@@ -444,7 +405,7 @@ body {
 }
 
 .animate-fade-in {
-  animation: fade-in 200ms ease-out both;
+  animation: fade-in 160ms ease-out both;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -452,6 +413,7 @@ body {
   .bounce,
   .awaiting,
   .pulse-dot,
+  .spin,
   .animate-fade-in,
   .mascot-eyes,
   .breathe,
@@ -464,12 +426,7 @@ body {
     animation: none;
   }
 
-  /*
-    The typed demo has to be *readable* without its animation, not merely still.
-
-    `type-in` animates from `width: 0`, so switching the animation off alone leaves an empty box
-    where the example answer should be — the one thing the screen exists to show.
-  */
+  /* The typed demo has to be readable without its animation, not merely still. */
   .type-in {
     width: auto;
   }
@@ -481,8 +438,7 @@ body {
   /*
     The one `!important` in the project, and it is load-bearing: the browser applies its own
     default cross-fade to every view-transition pseudo-element from the UA sheet, and an author
-    declaration of equal specificity does not beat it. Without this, screens keep cross-fading
-    for someone who asked the OS for no motion.
+    declaration of equal specificity does not beat it.
   */
   ::view-transition-group(*),
   ::view-transition-old(*),
@@ -499,47 +455,45 @@ body {
 
 *:focus-visible {
   outline: 2px solid var(--color-accent);
-  outline-offset: 2px;
+  outline-offset: 1px;
   border-radius: var(--radius-sm);
 }
 
 /*
-  Screens push and pop as leaves of one document rather than cross-fading.
-
-  This is Chrome-only by construction — it is a Chrome extension — so the View Transitions
-  API is simply available, and it costs nothing next to a 40KB animation runtime.
+  Screens push and pop as leaves of one document rather than cross-fading. Chrome-only by
+  construction, so the View Transitions API is simply available.
 */
 @keyframes leaf-in-forward {
   from {
     opacity: 0;
-    transform: translateX(12px);
+    transform: translateX(10px);
   }
 }
 
 @keyframes leaf-out-forward {
   to {
     opacity: 0;
-    transform: translateX(-8px);
+    transform: translateX(-6px);
   }
 }
 
 @keyframes leaf-in-back {
   from {
     opacity: 0;
-    transform: translateX(-12px);
+    transform: translateX(-10px);
   }
 }
 
 @keyframes leaf-out-back {
   to {
     opacity: 0;
-    transform: translateX(8px);
+    transform: translateX(6px);
   }
 }
 
 ::view-transition-old(screen),
 ::view-transition-new(screen) {
-  animation-duration: 200ms;
+  animation-duration: 180ms;
   animation-timing-function: cubic-bezier(0.2, 0, 0, 1);
   mix-blend-mode: normal;
 }
@@ -560,15 +514,15 @@ html[data-nav="back"]::view-transition-old(screen) {
   animation-name: leaf-out-back;
 }
 
-/* The panel is an app, not a scrolling web page: no rubber-band, no bounce chrome. */
+/* The panel is an app, not a scrolling web page. */
 ::-webkit-scrollbar {
-  width: 10px;
-  height: 10px;
+  width: 8px;
+  height: 8px;
 }
 
 ::-webkit-scrollbar-thumb {
   background: var(--color-border);
-  border: 3px solid transparent;
+  border: 2px solid transparent;
   background-clip: content-box;
   border-radius: var(--radius-full);
 }

@@ -2,15 +2,14 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { getGetAccountQueryKey } from '../../../generated/endpoints/account/account.js'
 import { sendMessage } from '../../../lib/messaging.js'
 import { Button, Mascot } from '../components.js'
+import { IconGoogle } from '../icons.js'
 
 /**
  * One purpose, one action, said plainly.
  *
  * What a person needs here is the shape of the bargain — you give it material about you, it
- * answers forms from that and tells you when it guessed — and one button. The mascot and the
- * gradient carry the personality; the words say what the thing does. It used to open with
- * "forms suck. let's make 'em not." under the wordmark "you fill", which is a mood rather than
- * a product, and did not even match the name on the toolbar icon.
+ * answers forms from that and tells you when it guessed — and one button. Nothing decorative:
+ * the mark, the name, three sentences, the button.
  */
 export function Welcome() {
   const queryClient = useQueryClient()
@@ -28,43 +27,24 @@ export function Welcome() {
   })
 
   return (
-    <div className="relative flex h-full flex-col overflow-hidden bg-surface">
-      {/* The signature gradient bleeds in from the top — the one place it can be loud. */}
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-x-0 top-0 h-56"
-        style={{ background: 'linear-gradient(180deg, var(--color-accent-muted), transparent)' }}
-      />
+    <div className="flex h-full flex-col bg-surface">
+      <div className="flex flex-1 flex-col justify-center px-6">
+        <Mascot expression="happy" size={44} blink />
 
-      <div className="relative flex flex-1 flex-col justify-center px-7">
-        <div className="flex items-center gap-3">
-          <Mascot expression="excited" size={56} className="bounce" />
-          <div>
-            <p className="sunset-text font-display text-xl font-bold leading-none">Fillaform</p>
-            <p className="mt-1 text-xs font-semibold text-ink-muted">
-              Fills forms from your own information
-            </p>
-          </div>
-        </div>
-
-        <h1 className="mt-6 font-display text-2xl font-bold tracking-[-0.02em] text-ink">
-          Fill any form
-          <br />
-          <span className="sunset-text">from what you know.</span>
-        </h1>
-
-        <p className="mt-3 max-w-[34ch] text-base leading-relaxed text-ink-muted">
-          Give it your résumé, your site, a few pasted notes. It answers forms from that, and marks
-          anything it guessed, so you know what to check.
+        <h1 className="display mt-5 text-xl text-ink">Fillaform</h1>
+        <p className="mt-2 max-w-[34ch] text-sm text-ink-muted">
+          Fills job applications and other forms from your résumé, links and notes — in your own
+          words, and marks anything it had to guess.
         </p>
 
         <Button
-          variant="primary"
+          variant="secondary"
           size="lg"
           onClick={() => signIn.mutate()}
           loading={signIn.isPending}
-          className="mt-7"
+          className="mt-6 w-full"
         >
+          <IconGoogle className="size-4" />
           {signIn.isPending ? 'Opening Google…' : 'Continue with Google'}
         </Button>
 
@@ -73,11 +53,11 @@ export function Welcome() {
             {signIn.error.message}
           </p>
         )}
-
-        <p className="mt-6 text-2xs leading-relaxed text-ink-dim">
-          Nothing is read from a page until you ask it to fill one.
-        </p>
       </div>
+
+      <p className="px-6 pb-5 text-2xs text-ink-dim">
+        Nothing on a page is read until you ask it to fill one.
+      </p>
     </div>
   )
 }

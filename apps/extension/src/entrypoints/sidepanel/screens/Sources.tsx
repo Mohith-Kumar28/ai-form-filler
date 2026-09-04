@@ -24,10 +24,12 @@ import {
 } from '../../../lib/source-file.js'
 import {
   Button,
+  Card,
   ConfirmSheet,
   EmptyState,
   ErrorNote,
   Input,
+  ListCard,
   OverflowMenu,
   Screen,
   ScreenBody,
@@ -35,21 +37,9 @@ import {
   SkeletonRow,
   StatusPill,
 } from '../components.js'
-import { IconAlert, IconCrown, IconPlus, IconRefresh } from '../icons.js'
+import { IconAlert, IconPlus, IconRefresh } from '../icons.js'
 import { useNavigation } from '../navigation.js'
 import { InfoTabs } from './info-tabs.js'
-
-/*
- * `KIND_ICON` mapped each source kind to a glyph. The tile shows the file format as text instead —
- * "XLSX" says what a document icon cannot — so the map, and the five icon imports behind it, are
- * gone. Links still show their favicon, which is a real picture of the thing.
- */
-
-/*
- * `KIND_NOUN` mapped each kind to a display word — "Document", "Voice note" — for the `·`-joined
- * metadata string the card used to carry. `formatLabel` names the actual format instead ("PDF",
- * "XLSX", "MP3"), which is both more specific and short enough to sit inside the tile.
- */
 
 /**
  * The extension, upper-cased, as a label for the tile.
@@ -86,21 +76,10 @@ function formatLabel(source: ProfileSourcesItem): string {
 }
 
 /**
- * The card's leading tile.
+ * The row's leading tile: the format name, a favicon for a link, a thumbnail for an image.
  *
- * This was a 20px grey glyph, which is the single biggest reason the list read as a settings table
- * rather than a shelf of things the user handed over. A source is a *file* — it has a shape, a
- * format and often a picture — so the tile is large enough to carry that.
- *
- * The format name stands alone, without a glyph above it. The first version stacked both, and at
- * 48px that is an icon and an 8px label competing in a space too small for either: the label was
- * barely legible and the glyph said less than it did. A document icon is the same picture for a PDF,
- * a spreadsheet and a deck, whereas "XLSX" is the answer. So the informative half stays and the
- * decorative half goes.
- *
- * Only images fetch their bytes. A real thumbnail of a PDF means rendering one, and an `<iframe>`
- * scaled into a 48px box is both expensive on a list of twenty and worse-looking than the format
- * name set properly. Links keep the favicon they already had.
+ * "XLSX" says what a document icon cannot, so the format stands alone as text. Only images
+ * fetch their bytes; a PDF thumbnail means rendering one, which is not worth it in a list.
  */
 export function SourceTile({ source }: { source: ProfileSourcesItem }) {
   const [preview, setPreview] = useState<string | null>(null)
@@ -129,7 +108,7 @@ export function SourceTile({ source }: { source: ProfileSourcesItem }) {
 
   return (
     <span
-      className={`relative flex size-12 shrink-0 items-center justify-center overflow-hidden rounded-xl border ${
+      className={`relative flex size-8 shrink-0 items-center justify-center overflow-hidden rounded-md border ${
         bad ? 'border-danger/30 bg-danger-muted' : 'border-border-muted bg-surface-muted'
       }`}
     >
@@ -140,14 +119,12 @@ export function SourceTile({ source }: { source: ProfileSourcesItem }) {
           src={faviconUrl(source.url)}
           alt=""
           onError={() => setFailed(true)}
-          className="size-5 rounded"
+          className="size-4 rounded-sm"
         />
       ) : (
         <span
-          /* Tracking tightens as the word lengthens, so LINK and EPUB occupy the same tile
-             without either looking cramped or adrift. */
-          className={`font-display font-bold leading-none ${
-            label.length > 3 ? 'text-[10px] tracking-[-0.01em]' : 'text-[11px] tracking-[0.01em]'
+          className={`font-semibold leading-none ${
+            label.length > 3 ? 'text-[9px] tracking-[-0.01em]' : 'text-[10px] tracking-[0.02em]'
           } ${bad ? 'text-danger' : 'text-ink-muted'}`}
         >
           {label}
@@ -157,21 +134,8 @@ export function SourceTile({ source }: { source: ProfileSourcesItem }) {
   )
 }
 
-/**
- * One source, as a card.
- *
- * A card rather than a hairline-divided row because a source is a *thing* the user gave us —
- * a file, a page, a recording — and the previous list read as a settings table, with the one
- * fact worth knowing about it (did we manage to read it?) buried as the first clause of a grey
- * metadata string in the same size and colour as the file size.
- *
- * The rebuild fixes what survived that: a real tile instead of a glyph, one line of hierarchy
- * instead of a `·`-joined run of unrelated facts at equal weight, the date the source was added
- * (which the model has always carried and only the detail screen ever showed), a live shimmer while
- * it is being read rather than a static pill claiming to be busy, and a retry on failure — the
- * previous card announced that something had gone wrong and offered nothing to do about it.
- */
-function SourceCard({
+/** One source, as a row: tile, name, one line of facts, and a pill only when something is up. */
+function SourceRow({
   source,
   onRemove,
   onRename,
@@ -182,7 +146,7 @@ function SourceCard({
   onRemove: () => void
   onRename: (label: string) => void
   onReprocess: () => void
-  /** True while this card's own re-read is in flight, so the row can say so. */
+  /** True while this row's own re-read is in flight, so it can say so. */
   reprocessing: boolean
 }) {
   const nav = useNavigation()
@@ -199,12 +163,9 @@ function SourceCard({
 
   if (renaming) {
     return (
-      <div className="rounded-2xl border border-accent bg-surface-raised p-3">
-        <label htmlFor={`rename-${source.id}`} className="text-sm font-semibold text-ink-muted">
-          Name
-        </label>
+      <div className="p-3">
         <Input
-          id={`rename-${source.id}`}
+          aria-label="Name"
           autoFocus
           value={draft}
           onChange={(event) => setDraft(event.currentTarget.value)}
@@ -215,11 +176,10 @@ function SourceCard({
               setRenaming(false)
             }
           }}
-          className="mt-1.5"
         />
-        <div className="mt-3 flex gap-2">
+        <div className="mt-2 flex gap-1.5">
           <Button size="sm" variant="primary" onClick={commit}>
-            Save name
+            Save
           </Button>
           <Button
             size="sm"
@@ -249,36 +209,23 @@ function SourceCard({
             ? [{ label: 'Open in a tab', onSelect: () => void openSourceInTab(source) }]
             : []),
         ]),
-    /*
-      "Read again", not "Reprocess".
-
-      It is the same endpoint, and reprocess is what the route is called, but a menu is read by
-      somebody deciding whether to press it — and what they want to know is what happens to their
-      document, not what the server does to a row. "Read again" also names the thing that actually
-      changes: a link whose page has been rewritten, or a résumé whose phone number the first pass
-      missed, gets read as it is now.
-
-      Hidden while the card is busy: pressing it during an in-flight re-read would spend a second
-      action for the same answer.
-    */
+    // "Read again", not "Reprocess": what changes is the document, as it is now.
     ...(busy ? [] : [{ label: 'Read again', onSelect: onReprocess }]),
     { label: 'Remove', onSelect: onRemove, tone: 'danger' as const },
   ]
 
-  /**
-   * The second line: what it is, and how much of it we read.
-   *
-   * Held to two facts. The old string could reach four — kind, size, character count and a
-   * hostname — all in the same 12px grey, which is a sentence nobody finishes reading.
-   */
-  const detail =
-    source.kind === 'link' && source.url
-      ? hostnameOf(source.url)
-      : [formatBytes(source.sizeBytes), formatAddedOn(source.createdAt)].filter(Boolean).join(' · ')
+  /** The second line: what it is, and how much of it we read. Two facts, no more. */
+  const detail = [
+    source.kind === 'link' && source.url ? hostnameOf(source.url) : formatBytes(source.sizeBytes),
+    !busy && source.extractedChars ? `${formatCount(source.extractedChars)} read` : null,
+    formatAddedOn(source.createdAt),
+  ]
+    .filter(Boolean)
+    .join(' · ')
 
   return (
-    <div className="overflow-hidden rounded-2xl border border-border-muted bg-surface-raised transition-colors hover:border-border">
-      <div className="flex items-start gap-3 p-3">
+    <div>
+      <div className="flex items-center gap-2.5 py-2 pl-3 pr-1.5">
         <button
           type="button"
           disabled={busy}
@@ -287,45 +234,26 @@ function SourceCard({
               ? () => void openSourceInTab(source)
               : () => nav.push({ name: 'sourceDetail', sourceId: source.id })
           }
-          className="flex min-w-0 flex-1 items-start gap-3 text-left"
+          className="flex min-w-0 flex-1 items-center gap-2.5 text-left"
         >
           <SourceTile source={source} />
-          <span className="min-w-0 flex-1 pt-0.5">
-            <span className="block truncate text-base font-semibold text-ink">{source.label}</span>
-            <span className="mt-0.5 block truncate text-xs text-ink-dim">{detail}</span>
-            {/*
-              A pill only when something is happening, or has gone wrong.
-
-              Every card used to wear a green "Ready", which is the same claim on every row of a
-              list whose rows are, overwhelmingly, ready — so it said nothing and drew the eye away
-              from the two rows that did. The same rule the field marks follow: a fact asks nothing
-              of the user, so it is not decorated. Ready is the absence of a pill.
-            */}
-            {(busy || source.status === 'failed' || source.extractedChars) && (
-              <span className="mt-1.5 flex flex-wrap items-center gap-1.5">
-                {busy ? (
-                  <StatusPill tone="busy">{reprocessing ? 'Reading again' : 'Reading'}</StatusPill>
-                ) : source.status === 'failed' ? (
-                  <StatusPill tone="bad">Couldn’t read</StatusPill>
-                ) : null}
-                {!busy && source.extractedChars ? (
-                  <span className="truncate text-xs text-ink-dim">
-                    {formatCount(source.extractedChars)} read
-                  </span>
-                ) : null}
-              </span>
-            )}
+          <span className="min-w-0 flex-1">
+            <span className="flex items-center gap-1.5">
+              <span className="truncate text-sm font-medium text-ink">{source.label}</span>
+              {/* A pill only when something is happening, or has gone wrong. Ready is silence. */}
+              {busy ? (
+                <StatusPill tone="busy">{reprocessing ? 'Reading again' : 'Reading'}</StatusPill>
+              ) : source.status === 'failed' ? (
+                <StatusPill tone="bad">Couldn’t read</StatusPill>
+              ) : null}
+            </span>
+            <span className="block truncate text-xs text-ink-dim">{detail}</span>
           </span>
         </button>
         <OverflowMenu items={items} label={`Actions for ${source.label}`} />
       </div>
 
-      {/*
-        Reading is work in progress, so it looks like it.
-
-        The pill alone was a label that never changed, on a card that sat still for the ten or
-        twenty seconds an ingest takes — indistinguishable from a card that had quietly stalled.
-      */}
+      {/* Reading is work in progress, so it looks like it. */}
       {busy && <div className="awaiting h-0.5 w-full" aria-hidden="true" />}
 
       {source.status === 'failed' && (
@@ -336,15 +264,6 @@ function SourceCard({
               <span>{source.error}</span>
             </p>
           )}
-          {/*
-            The footer now retries the thing that failed, instead of restarting the user.
-
-            It used to push them back to the file picker — the comment on the old `onRetry` was
-            honest that this was a workaround for there being no reingest endpoint, and that the
-            dead source would sit there occupying a slot until they removed it by hand. There is
-            an endpoint now, so the button does what it says: reads the stored original again,
-            keeping the row, the slot and the file.
-          */}
           <Button size="sm" variant="secondary" className="mt-2" onClick={onReprocess}>
             <IconRefresh className="size-3.5" />
             Read it again
@@ -365,18 +284,13 @@ export function Sources({ profile }: { profile: Profile | undefined }) {
 
   const [pendingRemoval, setPendingRemoval] = useState<ProfileSourcesItem | null>(null)
   const [removeError, setRemoveError] = useState<string | null>(null)
-  /** Which source is being re-read, so only its own card goes busy. */
+  /** Which source is being re-read, so only its own row goes busy. */
   const [rereading, setRereading] = useState<string | null>(null)
   const [rereadError, setRereadError] = useState<string | null>(null)
 
   /*
-   * `updated.profile`, not `updated`.
-   *
-   * Rename, re-read and remove answer with `{ profile }`, whereas `GET /profile` answers with the
-   * profile itself — so writing the envelope into the profile cache slot replaced the whole
-   * profile with `{ profile: ... }`. Every read off it (`profile.sources`, the identity fields,
-   * the fact count) then came back undefined, and the panel looked like every source and every
-   * fact had just been deleted until a refetch put it back.
+   * `updated.profile`, not `updated`: rename, re-read and remove answer with `{ profile }`,
+   * whereas `GET /profile` answers with the profile itself.
    */
   const rename = useRenameSource({
     mutation: {
@@ -384,12 +298,7 @@ export function Sources({ profile }: { profile: Profile | undefined }) {
     },
   })
 
-  /**
-   * Re-reading spends an action, so the account has to be refetched afterwards.
-   *
-   * Same reason a fill does it: the meter on Account is the only place the number is shown now,
-   * and a stale one there is worse than none — it is a number the user has no reason to distrust.
-   */
+  /** Re-reading spends an action, so the account has to be refetched afterwards. */
   const reprocess = useReprocessSource({
     mutation: {
       onSuccess: (updated) => {
@@ -415,30 +324,28 @@ export function Sources({ profile }: { profile: Profile | undefined }) {
   })
 
   const sources = profile?.sources ?? []
-  const ready = sources.filter((source) => source.status === 'ready').length
   const atLimit = sources.length >= sourceLimit
 
   return (
     <Screen>
       <ScreenHeader
-        title="Your info"
-        right={<InfoTabs view="sources" />}
+        title="Profile"
+        tabs={<InfoTabs view="sources" />}
         /* The measure on the left, the action on the right — the same row Facts puts them on. */
         search={
           <div className="flex items-center gap-2">
-            <p className="min-w-0 flex-1 truncate text-xs text-ink-dim">
+            <p className="tnum min-w-0 flex-1 truncate text-xs text-ink-dim">
               {profile === undefined
                 ? ''
-                : `${sources.length} of ${sourceLimit} ${plural(sourceLimit, 'source')}${ready > 0 ? ` · ${ready} ready` : ''}`}
+                : `${sources.length} of ${sourceLimit} ${plural(sourceLimit, 'source')}`}
             </p>
             <Button
-              size="sm"
-              variant="primary"
+              variant="secondary"
               disabled={atLimit}
               onClick={() => nav.push({ name: 'addInfo', initial: 'upload' })}
             >
               <IconPlus className="size-3.5" />
-              Add source
+              Add
             </Button>
           </div>
         }
@@ -446,7 +353,7 @@ export function Sources({ profile }: { profile: Profile | undefined }) {
 
       <ScreenBody className="relative">
         {profile === undefined ? (
-          <div role="status" aria-busy="true" aria-label="Loading sources">
+          <div role="status" aria-busy="true" aria-label="Loading sources" className="py-2">
             <SkeletonRow />
             <SkeletonRow />
             <SkeletonRow />
@@ -454,8 +361,8 @@ export function Sources({ profile }: { profile: Profile | undefined }) {
         ) : sources.length === 0 ? (
           <EmptyState
             title="Nothing to read yet"
-            mascot="happy"
-            body="Add a résumé, a link, a note, or a voice recording. It answers forms out of whatever is here."
+            mascot="think"
+            body="Add a résumé, a link, a note or a voice recording. It answers forms from whatever is here."
             action={
               <Button
                 variant="primary"
@@ -468,47 +375,35 @@ export function Sources({ profile }: { profile: Profile | undefined }) {
           />
         ) : (
           <div className="flex flex-col gap-2.5 px-gutter py-3">
-            {/*
-              A failed re-read is reported once, at the top, rather than per card.
-
-              The card it belongs to is back to whatever it was before — nothing was changed by a
-              request that did not land — so putting the message inside it would be claiming a new
-              state the source is not in. The likely message is a quota one, which is about the
-              account and not about this file at all.
-            */}
+            {/* A failed re-read is reported once, at the top: the row is back to what it was. */}
             {rereadError && <ErrorNote>{rereadError}</ErrorNote>}
-            {sources.map((source) => (
-              <SourceCard
-                key={source.id}
-                source={source}
-                onRename={(label) => rename.mutate({ id: source.id, data: { label } })}
-                onRemove={() => {
-                  setRemoveError(null)
-                  setPendingRemoval(source)
-                }}
-                reprocessing={rereading === source.id}
-                onReprocess={() => {
-                  setRereadError(null)
-                  setRereading(source.id)
-                  reprocess.mutate({ id: source.id })
-                }}
-              />
-            ))}
+            <ListCard>
+              {sources.map((source) => (
+                <SourceRow
+                  key={source.id}
+                  source={source}
+                  onRename={(label) => rename.mutate({ id: source.id, data: { label } })}
+                  onRemove={() => {
+                    setRemoveError(null)
+                    setPendingRemoval(source)
+                  }}
+                  reprocessing={rereading === source.id}
+                  onReprocess={() => {
+                    setRereadError(null)
+                    setRereading(source.id)
+                    reprocess.mutate({ id: source.id })
+                  }}
+                />
+              ))}
+            </ListCard>
 
-            {/*
-              The other moment worth asking at.
-
-              The product says nothing about money until somebody wants something it cannot give
-              them — and asking for a sixth source is exactly that, in the same way pressing Fill
-              is. So the offer appears here too, and it is the trial rather than a plan picker,
-              because anyone still at five sources has not paid for anything yet.
-            */}
+            {/* Asking for a sixth source is the same kind of moment as pressing Fill. */}
             {atLimit && (
-              <div className="rounded-2xl border border-border-muted bg-surface p-3">
-                <p className="text-sm font-semibold text-ink">
+              <Card className="p-3">
+                <p className="text-sm font-medium text-ink">
                   All {sourceLimit} source slots are full
                 </p>
-                <p className="mt-1 text-xs leading-snug text-ink-muted">
+                <p className="mt-0.5 text-xs text-ink-muted">
                   {plan === 'free'
                     ? `Remove one to add another, or start the free trial for ${PLAN_SOURCE_LIMITS.pro} of them.`
                     : 'Remove one to add another, or move up a plan.'}
@@ -522,10 +417,9 @@ export function Sources({ profile }: { profile: Profile | undefined }) {
                     void (plan === 'free' ? openTrial() : openUpgrade())
                   }}
                 >
-                  <IconCrown className="size-3.5" />
                   {plan === 'free' ? 'Start free trial' : 'Compare plans'}
                 </Button>
-              </div>
+              </Card>
             )}
           </div>
         )}
@@ -533,12 +427,7 @@ export function Sources({ profile }: { profile: Profile | undefined }) {
         {pendingRemoval && (
           <ConfirmSheet
             title={`Remove ${pendingRemoval.label}?`}
-            body={
-              <>
-                This deletes the stored copy and everything the tool remembers from it. Answers it
-                has already written stay where they are. This cannot be undone.
-              </>
-            }
+            body="This deletes the stored copy and everything the tool remembers from it. Answers it has already written stay where they are. This cannot be undone."
             confirmLabel="Remove"
             pending={remove.isPending}
             error={removeError ?? undefined}

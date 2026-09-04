@@ -14,8 +14,8 @@ import { AddSource } from '../src/entrypoints/sidepanel/screens/AddSource.js'
 import { Facts } from '../src/entrypoints/sidepanel/screens/Facts.js'
 import { Filling } from '../src/entrypoints/sidepanel/screens/Filling.js'
 import { Home } from '../src/entrypoints/sidepanel/screens/Home.js'
-import { Profile } from '../src/entrypoints/sidepanel/screens/Profile.js'
 import { Receipt } from '../src/entrypoints/sidepanel/screens/Receipt.js'
+import { Settings } from '../src/entrypoints/sidepanel/screens/Settings.js'
 import { SourceDetail } from '../src/entrypoints/sidepanel/screens/SourceDetail.js'
 import { Sources } from '../src/entrypoints/sidepanel/screens/Sources.js'
 import { Welcome } from '../src/entrypoints/sidepanel/screens/Welcome.js'
@@ -158,7 +158,7 @@ function SheetHost({ mode }: { mode: 'trial' | 'compare' }) {
 function DeleteSheetHost() {
   return (
     <div className="relative h-full">
-      <Profile account={ACCOUNT} />
+      <Settings account={ACCOUNT} />
       <DeleteAccountSheet
         email={ACCOUNT.email}
         sourceCount={5}
@@ -252,7 +252,7 @@ function Gallery() {
           </Frame>
 
           <Frame label="Account" note="dragged wider" width={620}>
-            <Profile account={ACCOUNT} />
+            <Settings account={ACCOUNT} />
           </Frame>
 
           <Frame label="Facts" note="duplicated and messy — must show one row per fact">
@@ -280,7 +280,7 @@ function Gallery() {
           </Frame>
 
           <Frame label="Account">
-            <Profile account={ACCOUNT} />
+            <Settings account={ACCOUNT} />
           </Frame>
 
           {/*
@@ -301,23 +301,23 @@ function Gallery() {
           </Frame>
 
           <Frame label="Account" note="free grant, barely touched — one CTA, no lecture">
-            <Profile account={ACCOUNT_FREE_GRANT} sourceCount={2} />
+            <Settings account={ACCOUNT_FREE_GRANT} sourceCount={2} />
           </Frame>
 
           <Frame label="Account" note="free grant spent — now the meter speaks">
-            <Profile account={ACCOUNT_FREE_SPENT} sourceCount={2} />
+            <Settings account={ACCOUNT_FREE_SPENT} sourceCount={2} />
           </Frame>
 
           <Frame label="Account" note="onboarding — no billing section">
-            <Profile account={ACCOUNT_ONBOARDING} />
+            <Settings account={ACCOUNT_ONBOARDING} />
           </Frame>
 
           <Frame label="Account" note="out of long answers">
-            <Profile account={ACCOUNT_NO_LONGFORM} />
+            <Settings account={ACCOUNT_NO_LONGFORM} />
           </Frame>
 
           <Frame label="Account" note="payment failed">
-            <Profile account={ACCOUNT_ON_HOLD} />
+            <Settings account={ACCOUNT_ON_HOLD} />
           </Frame>
 
           <Frame label="Delete account" note="three gates — click through all of them">

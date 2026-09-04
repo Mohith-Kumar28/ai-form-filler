@@ -11,6 +11,9 @@ bundle, Worker boots and serves every implemented route.
 
 ---
 
+
+> **Design system:** the extension's look is v3 (neutral + one violet accent, Inter only) — see `DESIGN.md`, which is the current authority again. `apps/web` and `store-assets/` have not been brought in step yet.
+
 ## 1. What this product is
 
 Fills any web form — job applications, Google Forms, event registrations, ATS portals — from

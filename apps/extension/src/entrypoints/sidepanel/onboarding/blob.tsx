@@ -109,7 +109,7 @@ export function BlobMascot({
       <defs>
         <MascotGradient id={grad} extent={100} />
         <radialGradient id={glow}>
-          <stop stopColor="var(--color-accent)" stopOpacity="0.28" />
+          <stop stopColor="var(--color-accent)" stopOpacity="0.14" />
           <stop offset="1" stopColor="var(--color-accent)" stopOpacity="0" />
         </radialGradient>
       </defs>
@@ -158,15 +158,15 @@ export function BlobBackdrop({ className = '' }: { className?: string }) {
       className={`pointer-events-none absolute inset-0 overflow-hidden ${className}`}
     >
       <div
-        className="blob-drift absolute -left-10 -top-14 size-48 rounded-full opacity-30 blur-2xl"
+        className="blob-drift absolute -left-10 -top-14 size-48 rounded-full opacity-[0.14] blur-2xl"
         style={{ background: 'var(--color-sparkle)', '--drift': '0s' } as React.CSSProperties}
       />
       <div
-        className="blob-drift absolute -right-14 top-10 size-44 rounded-full opacity-25 blur-2xl"
+        className="blob-drift absolute -right-14 top-10 size-44 rounded-full opacity-[0.12] blur-2xl"
         style={{ background: 'var(--color-accent)', '--drift': '-4.5s' } as React.CSSProperties}
       />
       <div
-        className="blob-drift absolute -left-6 top-40 size-40 rounded-full opacity-20 blur-2xl"
+        className="blob-drift absolute -left-6 top-40 size-40 rounded-full opacity-[0.1] blur-2xl"
         style={{ background: 'var(--color-sun)', '--drift': '-9s' } as React.CSSProperties}
       />
     </div>

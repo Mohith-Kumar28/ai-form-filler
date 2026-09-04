@@ -71,6 +71,7 @@ if (suggestOnly) {
 }
 
 const launcher = mountLauncher({
+  onOpenPanel: () => undefined,
   onOpen: () => undefined,
   onStop: () => undefined,
 })

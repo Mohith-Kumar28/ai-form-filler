@@ -27,8 +27,8 @@ import { AddSource } from './screens/AddSource.js'
 import { Facts } from './screens/Facts.js'
 import { Filling } from './screens/Filling.js'
 import { Home } from './screens/Home.js'
-import { Profile } from './screens/Profile.js'
 import { Receipt } from './screens/Receipt.js'
+import { Settings } from './screens/Settings.js'
 import { SourceDetail } from './screens/SourceDetail.js'
 import { Sources } from './screens/Sources.js'
 import { Welcome } from './screens/Welcome.js'
@@ -162,7 +162,10 @@ function Stack({ onAccountDeleted }: { onAccountDeleted: (report: DeletionReport
       <Screen>
         <ScreenHeader title="Fillaform" />
         <ScreenBody className="flex items-center justify-center px-6">
-          <p className="text-center text-xs leading-relaxed text-danger" role="alert">
+          <p
+            className="rounded-md bg-danger-muted px-3 py-2 text-center text-xs text-danger"
+            role="alert"
+          >
             {account.error?.message ?? 'Could not load your account.'}
           </p>
         </ScreenBody>
@@ -202,7 +205,7 @@ function Stack({ onAccountDeleted }: { onAccountDeleted: (report: DeletionReport
     switch (screen.name) {
       case 'account':
         return (
-          <Profile
+          <Settings
             account={accountData}
             sourceCount={profile.data?.sources?.length ?? 0}
             onReplayTour={onboarding.restart}

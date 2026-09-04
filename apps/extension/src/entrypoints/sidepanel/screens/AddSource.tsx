@@ -65,9 +65,9 @@ export function AddSource({ initial }: { initial?: Mode }) {
 
   return (
     <Screen>
-      <ScreenHeader title="Add to your info" />
+      <ScreenHeader title="Add to profile" />
 
-      <div className="shrink-0 px-gutter py-3">
+      <div className="shrink-0 px-gutter pt-3 pb-1">
         <SegmentedControl segments={MODES} value={mode} onChange={setMode} label="Kind of source" />
       </div>
 
@@ -93,7 +93,7 @@ function Submit({
   return (
     <ScreenFooter>
       {error != null && (
-        <p className="mb-2 text-xs leading-snug text-danger" role="alert">
+        <p className="mb-2 text-xs text-danger" role="alert">
           {(error as Error).message}
         </p>
       )}
@@ -137,7 +137,7 @@ function UploadMode({ onDone }: { onDone: () => Promise<void> }) {
         save.mutate()
       }}
     >
-      <ScreenBody className="flex flex-col gap-4 p-4">
+      <ScreenBody className="flex flex-col gap-4 px-gutter py-3">
         {/* biome-ignore lint/a11y/noStaticElementInteractions: the inner input is the control */}
         <div
           onDragOver={(event) => {
@@ -150,16 +150,16 @@ function UploadMode({ onDone }: { onDone: () => Promise<void> }) {
             setDragging(false)
             accept(event.dataTransfer.files[0] ?? null)
           }}
-          className={`rounded-2xl border border-dashed px-gutter py-8 text-center transition-colors ${
-            dragging ? 'border-accent bg-accent-muted' : 'border-border-muted bg-surface-raised'
+          className={`rounded-lg border border-dashed px-gutter py-6 text-center transition-colors ${
+            dragging ? 'border-accent bg-accent-muted' : 'border-border bg-surface-raised'
           }`}
         >
           <IconUpload className="mx-auto size-5 text-ink-dim" />
-          <p className="mt-2 text-sm font-semibold text-ink">
+          <p className="mt-2 truncate text-sm font-medium text-ink">
             {file ? file.name : 'Drop a file here, or choose one'}
           </p>
-          <p className="mt-1 text-xs text-ink-dim">
-            {file ? formatBytes(file.size) : `PDF, Word, slides, images, audio, up to ${maxMB} MB`}
+          <p className="mt-0.5 text-xs text-ink-dim">
+            {file ? formatBytes(file.size) : `PDF, Word, slides, images, audio · up to ${maxMB} MB`}
           </p>
           {/*
             Our own button, with the native control hidden inside it.
@@ -177,7 +177,7 @@ function UploadMode({ onDone }: { onDone: () => Promise<void> }) {
             on its behalf, which `display: none` would have thrown away along with the
             keyboard's ability to reach it at all.
           */}
-          <label className="mt-3 inline-flex min-h-8 cursor-pointer items-center rounded-full border border-border bg-surface-raised px-3.5 text-xs font-semibold text-ink transition-colors hover:border-ink/30 hover:bg-surface-muted focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-accent">
+          <label className="mt-3 inline-flex h-7 cursor-pointer items-center rounded-md border border-border bg-surface-raised px-2.5 text-xs font-medium text-ink shadow-[0_1px_2px_var(--color-shadow)] transition-colors hover:bg-surface-muted focus-within:outline focus-within:outline-2 focus-within:outline-offset-1 focus-within:outline-accent">
             {file ? 'Choose another' : 'Choose file'}
             <input
               type="file"
@@ -233,7 +233,7 @@ function LinkMode({ onDone }: { onDone: () => Promise<void> }) {
         save.mutate()
       }}
     >
-      <ScreenBody className="flex flex-col gap-4 p-4">
+      <ScreenBody className="flex flex-col gap-4 px-gutter py-3">
         <Field
           label="Address"
           error={
@@ -266,8 +266,8 @@ function LinkMode({ onDone }: { onDone: () => Promise<void> }) {
           )}
         </Field>
 
-        <p className="text-xs leading-relaxed text-ink-dim">
-          The page is read for you, and re-read as it changes.
+        <p className="text-xs text-ink-dim">
+          The page is read now, and read again when it changes.
         </p>
       </ScreenBody>
 
@@ -297,7 +297,7 @@ function TextMode({ onDone }: { onDone: () => Promise<void> }) {
         save.mutate()
       }}
     >
-      <ScreenBody className="flex flex-col gap-4 p-4">
+      <ScreenBody className="flex flex-col gap-4 px-gutter py-3">
         <Field
           label="Anything about you"
           hint="No name needed. The first line becomes the label."
@@ -342,18 +342,18 @@ function VoiceMode({ onDone }: { onDone: () => Promise<void> }) {
         save.mutate()
       }}
     >
-      <ScreenBody className="flex flex-col gap-4 p-4">
-        <div className="rounded-2xl border border-border-muted bg-surface-raised px-gutter py-6 text-center">
-          <p className="font-display text-2xl font-bold leading-none text-ink">
+      <ScreenBody className="flex flex-col gap-4 px-gutter py-3">
+        <div className="rounded-lg border border-border bg-surface-raised px-gutter py-5 text-center">
+          <p className="tnum text-2xl font-semibold leading-none text-ink">
             {String(Math.floor(voice.seconds / 60)).padStart(2, '0')}:
             {String(voice.seconds % 60).padStart(2, '0')}
           </p>
-          <p className="mt-2 text-xs text-ink-dim">
+          <p className="mt-1.5 text-xs text-ink-dim">
             {voice.recording ? 'Recording' : voice.blob ? 'Ready to save' : 'Talk about yourself'}
           </p>
 
           <Button
-            variant={voice.recording ? 'danger' : 'secondary'}
+            variant={voice.recording ? 'destructive' : 'secondary'}
             onClick={voice.recording ? voice.stop : () => void voice.start()}
             className="mt-3"
           >
