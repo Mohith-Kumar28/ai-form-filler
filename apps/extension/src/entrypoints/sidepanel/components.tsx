@@ -1800,6 +1800,7 @@ export function FieldRow({
             // text and the browser will not offer to autofill our own panel.
             type={hidden ? 'password' : type}
             value={value}
+            // biome-ignore lint/a11y/noAutofocus: a row the user just created asks to be typed into
             autoFocus={autoFocus}
             placeholder={placeholder ?? 'Not set'}
             aria-describedby={hint ? `${id}-hint` : undefined}

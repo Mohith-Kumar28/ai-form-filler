@@ -236,7 +236,7 @@ function SourcesDemo() {
 /**
  * Two answers, marked differently, because they are different kinds of thing.
  *
- * Lime for what it read off your own info; pink and sparkled for what it wrote. No animation:
+ * Green for what it read off your own info; violet and sparkled for what it wrote. No animation:
  * this screen is a legend, and a legend that moves is harder to read than one that does not.
  */
 function HonestyDemo() {
@@ -312,7 +312,7 @@ export const STORY: StoryStep[] = [
     key: 'honesty',
     expression: 'think',
     title: 'And I tell you when I guessed',
-    body: 'Green means I read it off your info. Pink with a sparkle means I wrote it.',
+    body: 'Green means I read it off your info. Violet with a sparkle means I wrote it.',
     demo: <HonestyDemo />,
   },
 ]
