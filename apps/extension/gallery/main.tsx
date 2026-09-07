@@ -5,23 +5,20 @@ import './gallery.css'
 import {
   DeleteAccountSheet,
   DeletedFarewell,
-  TabBar,
   UpgradeSheet,
 } from '../src/entrypoints/sidepanel/components.js'
 import { NavigationProvider } from '../src/entrypoints/sidepanel/navigation.js'
-import { Onboarding } from '../src/entrypoints/sidepanel/onboarding/index.js'
-import { AddSource } from '../src/entrypoints/sidepanel/screens/AddSource.js'
-import { Facts } from '../src/entrypoints/sidepanel/screens/Facts.js'
-import { Filling } from '../src/entrypoints/sidepanel/screens/Filling.js'
-import { Home } from '../src/entrypoints/sidepanel/screens/Home.js'
-import { Receipt } from '../src/entrypoints/sidepanel/screens/Receipt.js'
+import { AddDocument } from '../src/entrypoints/sidepanel/screens/AddDocument.js'
+import { Document } from '../src/entrypoints/sidepanel/screens/Document.js'
+import { Knowledge } from '../src/entrypoints/sidepanel/screens/Knowledge.js'
+import { Page } from '../src/entrypoints/sidepanel/screens/Page.js'
 import { Settings } from '../src/entrypoints/sidepanel/screens/Settings.js'
-import { SourceDetail } from '../src/entrypoints/sidepanel/screens/SourceDetail.js'
-import { Sources } from '../src/entrypoints/sidepanel/screens/Sources.js'
 import { Welcome } from '../src/entrypoints/sidepanel/screens/Welcome.js'
+import { Setup } from '../src/entrypoints/sidepanel/setup/index.js'
 import { getGetAccountQueryKey } from '../src/generated/endpoints/account/account.js'
 import { getGetProfileQueryKey } from '../src/generated/endpoints/profile/profile.js'
 import { cssName, DARK, LIGHT, TOKEN_NAMES } from '../src/lib/tokens.js'
+import type { FillState } from '../src/lib/use-fill.js'
 import './stub-chrome.js'
 import {
   ACCOUNT,
@@ -32,10 +29,10 @@ import {
   ACCOUNT_ON_HOLD,
   ACCOUNT_ONBOARDING,
   EMPTY_PROFILE,
+  FORM,
   MESSY_PROFILE,
   PLAN,
   PROFILE,
-  PROFILE_UNEXTRACTED,
   REPORT,
 } from './fixtures.js'
 
@@ -50,48 +47,55 @@ document.body.style.background = scheme.surface
 const queryClient = new QueryClient({
   defaultOptions: { queries: { retry: false, staleTime: Number.POSITIVE_INFINITY } },
 })
-
-/*
-  The fixtures, pre-loaded into the cache the hooks read.
-
-  Most frames take their data as props, but the first-run flow does not: its source step owns its own
-  `useGetProfile` so it can poll while a source is being read, and its upload limit comes from
-  `useGetAccount`. Seeding the cache is what lets those render the fixture account offline instead of
-  an error state — and it costs nothing, because `retry: false` plus an infinite `staleTime` means
-  nothing is ever fetched here.
-*/
 queryClient.setQueryData(getGetProfileQueryKey(), PROFILE)
 queryClient.setQueryData(getGetAccountQueryKey(), ACCOUNT)
+
+const WIDTH = Number(new URLSearchParams(location.search).get('width') ?? 360)
 
 const PAGE_WITH_FORM = {
   status: 'ready' as const,
   tabId: 1,
   origin: 'boards.greenhouse.io',
-  fieldCount: 12,
-  form: null,
+  fieldCount: FORM.fields.length,
+  form: FORM,
+  refresh: () => undefined,
 }
-
 const PAGE_WITHOUT_FORM = {
   status: 'ready' as const,
   tabId: 1,
   origin: 'en.wikipedia.org',
   fieldCount: 0,
   form: null,
+  refresh: () => undefined,
 }
-
-/** A `chrome://` page or the Web Store — no content script, so no origin either. */
 const PAGE_UNAVAILABLE = {
   status: 'unavailable' as const,
   tabId: 1,
   origin: null,
   fieldCount: 0,
   form: null,
+  refresh: () => undefined,
 }
+
+const IDLE: FillState = { status: 'idle' }
+const RUNNING: FillState = {
+  status: 'running',
+  stage: 'generating',
+  stageDone: 0,
+  stageTotal: 12,
+  tabId: 1,
+}
+const FAILED: FillState = {
+  status: 'error',
+  error: { code: 'INTERNAL', message: 'The fill was interrupted. Try again.' },
+  tabId: 1,
+}
+const DONE: FillState = { status: 'done', plan: PLAN, report: REPORT, tabId: 1 }
 
 function Frame({
   label,
   note,
-  width = 400,
+  width = WIDTH,
   children,
 }: {
   label: string
@@ -108,318 +112,257 @@ function Frame({
         {note && <span className="ml-2 text-2xs text-ink-dim">{note}</span>}
       </figcaption>
       <div
-        className="h-[720px] overflow-hidden rounded-xl border border-border-muted bg-surface"
+        className="h-[680px] overflow-hidden rounded-xl border border-border-muted bg-surface"
         style={{ width }}
       >
-        <NavigationProvider>{children}</NavigationProvider>
+        <NavigationProvider>
+          <div className="relative h-full">{children}</div>
+        </NavigationProvider>
       </div>
     </figure>
   )
 }
 
-/**
- * The sheet needs a positioned ancestor and a screen behind it.
- *
- * `UpgradeSheet` is `absolute inset-0` — in the panel it renders inside `Screen`, over whatever the
- * user was looking at. Rendering it bare in a frame would collapse it, so this reproduces the
- * arrangement it is designed for.
- */
-function SheetHost({ mode }: { mode: 'trial' | 'compare' }) {
-  return (
-    <div className="relative h-full">
-      <Home
-        account={mode === 'trial' ? ACCOUNT_ONBOARDING : ACCOUNT_LOW_QUOTA}
-        profile={PROFILE}
-        page={PAGE_WITH_FORM}
-        hasLastFill={false}
-        onFill={() => undefined}
-      />
-      <UpgradeSheet
-        mode={mode}
-        onClose={() => undefined}
-        reason={
-          mode === 'trial'
-            ? 'Start the trial and it will answer this form from the 5 sources you added.'
-            : "You've filled all 600 fields your plan covers this month. They reset on the 1st."
-        }
-      />
-    </div>
-  )
-}
-
-/**
- * The deletion dialog, over the screen it is opened from.
- *
- * One frame rather than three, even though there are three steps: the sheet owns its own step
- * state, so a reviewer clicks through it here exactly as a user would. That is the point of
- * having it in the gallery at all — the question is not what step 2 looks like in isolation, it
- * is whether getting to step 3 feels like enough work.
- */
-function DeleteSheetHost() {
-  return (
-    <div className="relative h-full">
-      <Settings account={ACCOUNT} />
-      <DeleteAccountSheet
-        email={ACCOUNT.email}
-        sourceCount={5}
-        hasSubscription
-        onConfirm={() => undefined}
-        onCancel={() => undefined}
-      />
-    </div>
-  )
-}
+const noop = () => undefined
 
 function Gallery() {
   return (
     <QueryClientProvider client={queryClient}>
       <div className="min-h-screen bg-surface p-8">
         <div className="flex flex-wrap items-start gap-x-8 gap-y-10">
-          <Frame label="Welcome" note="signed out, first run">
+          <Frame label="Welcome" note="signed out">
             <Welcome />
           </Frame>
 
-          <Frame label="Home" note="form detected">
-            <Home
+          <Frame label="Page" note="before a fill — the ledger">
+            <Page
               account={ACCOUNT}
               profile={PROFILE}
               page={PAGE_WITH_FORM}
-              hasLastFill
-              onFill={() => undefined}
+              fill={IDLE}
+              onFill={noop}
+              onReset={noop}
             />
           </Frame>
 
-          <Frame label="Home" note="no form, quota nearly out">
-            <Home
-              account={ACCOUNT_LOW_QUOTA}
+          <Frame label="Page" note="filling">
+            <Page
+              account={ACCOUNT}
+              profile={PROFILE}
+              page={PAGE_WITH_FORM}
+              fill={RUNNING}
+              onFill={noop}
+              onReset={noop}
+            />
+          </Frame>
+
+          <Frame label="Page" note="failed">
+            <Page
+              account={ACCOUNT}
+              profile={PROFILE}
+              page={PAGE_WITH_FORM}
+              fill={FAILED}
+              onFill={noop}
+              onReset={noop}
+            />
+          </Frame>
+
+          <Frame label="Page" note="after a fill — the receipt">
+            <Page
+              account={ACCOUNT}
+              profile={PROFILE}
+              page={PAGE_WITH_FORM}
+              fill={DONE}
+              onFill={noop}
+              onReset={noop}
+            />
+          </Frame>
+
+          <Frame label="Page" note="nothing saved yet — nothing known">
+            <Page
+              account={ACCOUNT_ONBOARDING}
+              profile={EMPTY_PROFILE}
+              page={PAGE_WITH_FORM}
+              fill={IDLE}
+              onFill={noop}
+              onReset={noop}
+            />
+          </Frame>
+
+          <Frame label="Page" note="free grant spent">
+            <Page
+              account={ACCOUNT_FREE_SPENT}
+              profile={PROFILE}
+              page={PAGE_WITH_FORM}
+              fill={IDLE}
+              onFill={noop}
+              onReset={noop}
+            />
+          </Frame>
+
+          <Frame label="Page" note="no form here">
+            <Page
+              account={ACCOUNT}
               profile={PROFILE}
               page={PAGE_WITHOUT_FORM}
-              hasLastFill={false}
-              onFill={() => undefined}
+              fill={IDLE}
+              onFill={noop}
+              onReset={noop}
             />
           </Frame>
 
-          <Frame label="Home" note="page cannot be read">
-            <Home
+          <Frame label="Page" note="page cannot be read">
+            <Page
               account={ACCOUNT}
               profile={PROFILE}
               page={PAGE_UNAVAILABLE}
-              hasLastFill={false}
-              onFill={() => undefined}
+              fill={IDLE}
+              onFill={noop}
+              onReset={noop}
             />
           </Frame>
 
-          <Frame label="Home" note="nothing on file yet">
-            <Home
-              account={{ ...ACCOUNT, profileReady: false }}
-              profile={EMPTY_PROFILE}
-              page={PAGE_WITH_FORM}
-              hasLastFill={false}
-              onFill={() => undefined}
-            />
-          </Frame>
-
-          <Frame label="Filling" note="mid-run">
-            <Filling
-              state={{ status: 'running', stage: 'applying', stageDone: 7, stageTotal: 12 }}
-              fieldCount={12}
-              onCancel={() => undefined}
-            />
-          </Frame>
-
-          <Frame label="Filling" note="failed">
-            <Filling
-              state={{
-                status: 'error',
-                stage: 'generating',
-                error: { code: 'UPSTREAM_ERROR', message: 'The model did not answer in time.' },
-              }}
-              fieldCount={12}
-              onCancel={() => undefined}
-            />
-          </Frame>
-
-          <Frame label="Receipt" note="a ledger, and a stepper for the judgement calls">
-            <Receipt plan={PLAN} report={REPORT} tabId={1} onDone={() => undefined} />
-          </Frame>
-
-          <Frame label="Facts" note="grouped into sections">
-            <Facts profile={PROFILE} />
-          </Frame>
-
-          <Frame label="Facts" note="dragged wider — two-up past 480px" width={620}>
-            <Facts profile={PROFILE} />
-          </Frame>
-
-          <Frame label="Account" note="dragged wider" width={620}>
-            <Settings account={ACCOUNT} />
-          </Frame>
-
-          <Frame label="Facts" note="duplicated and messy — must show one row per fact">
-            <Facts profile={MESSY_PROFILE} />
-          </Frame>
-
-          <Frame label="Facts" note="nothing on file yet">
-            <Facts profile={EMPTY_PROFILE} />
-          </Frame>
-
-          <Frame label="Sources" note="one ready, one reading, one failed">
-            <Sources profile={PROFILE} />
-          </Frame>
-
-          <Frame label="Sources" note="empty">
-            <Sources profile={EMPTY_PROFILE} />
-          </Frame>
-
-          <Frame label="Add source" note="file mode">
-            <AddSource />
-          </Frame>
-
-          <Frame label="Source detail" note="pdf, no preview offline">
-            <SourceDetail sourceId="src_1" profile={PROFILE} />
-          </Frame>
-
-          <Frame label="Account">
-            <Settings account={ACCOUNT} />
-          </Frame>
-
-          {/*
-            The states that had no frame at all, which is why several of them were wrong.
-
-            An onboarding account is the one the panel must say nothing about money in — no meter,
-            no badge, no plan card — so it is worth being able to see that emptiness on purpose
-            rather than discovering it in the extension.
-          */}
-          <Frame label="Home" note="onboarding — nothing about money yet">
-            <Home
-              account={ACCOUNT_ONBOARDING}
+          <Frame label="Page" note="narrowest Chrome allows" width={320}>
+            <Page
+              account={ACCOUNT}
               profile={PROFILE}
               page={PAGE_WITH_FORM}
-              hasLastFill={false}
-              onFill={() => undefined}
+              fill={DONE}
+              onFill={noop}
+              onReset={noop}
             />
           </Frame>
 
-          <Frame label="Account" note="free grant, barely touched — one CTA, no lecture">
-            <Settings account={ACCOUNT_FREE_GRANT} sourceCount={2} />
+          <Frame label="Knowledge" note="sources">
+            <Knowledge profile={PROFILE} />
           </Frame>
 
-          <Frame label="Account" note="free grant spent — now the meter speaks">
-            <Settings account={ACCOUNT_FREE_SPENT} sourceCount={2} />
+          <Frame label="Knowledge" note="facts — the whole catalogue, grouped">
+            <Knowledge profile={PROFILE} initialView="facts" />
           </Frame>
 
-          <Frame label="Account" note="onboarding — no billing section">
-            <Settings account={ACCOUNT_ONBOARDING} />
+          <Frame label="Knowledge" note="facts — duplicated and messy">
+            <Knowledge profile={MESSY_PROFILE} initialView="facts" />
           </Frame>
 
-          <Frame label="Account" note="out of long answers">
-            <Settings account={ACCOUNT_NO_LONGFORM} />
+          <Frame label="Knowledge" note="empty">
+            <Knowledge profile={EMPTY_PROFILE} />
           </Frame>
 
-          <Frame label="Account" note="payment failed">
-            <Settings account={ACCOUNT_ON_HOLD} />
+          <Frame label="Add a document">
+            <AddDocument />
           </Frame>
 
-          <Frame label="Delete account" note="three gates — click through all of them">
-            <DeleteSheetHost />
+          <Frame label="Document" note="pdf, no preview offline">
+            <Document id={(PROFILE.sources ?? [])[0]?.id ?? ''} profile={PROFILE} />
           </Frame>
 
-          <Frame label="Deleted" note="the receipt, shown after the session is already gone">
+          <Frame label="Settings" note="mid-trial">
+            <Settings account={ACCOUNT} onReplaySetup={noop} />
+          </Frame>
+
+          <Frame label="Settings" note="onboarding — no money yet">
+            <Settings account={ACCOUNT_ONBOARDING} onReplaySetup={noop} />
+          </Frame>
+
+          <Frame label="Settings" note="free grant, barely touched">
+            <Settings account={ACCOUNT_FREE_GRANT} onReplaySetup={noop} />
+          </Frame>
+
+          <Frame label="Settings" note="free grant spent">
+            <Settings account={ACCOUNT_FREE_SPENT} onReplaySetup={noop} />
+          </Frame>
+
+          <Frame label="Settings" note="quota nearly out">
+            <Settings account={ACCOUNT_LOW_QUOTA} onReplaySetup={noop} />
+          </Frame>
+
+          <Frame label="Settings" note="out of long answers">
+            <Settings account={ACCOUNT_NO_LONGFORM} onReplaySetup={noop} />
+          </Frame>
+
+          <Frame label="Settings" note="payment failed">
+            <Settings account={ACCOUNT_ON_HOLD} onReplaySetup={noop} />
+          </Frame>
+
+          <Frame label="Delete account" note="three gates — click through them">
+            <Settings account={ACCOUNT} />
+            <DeleteAccountSheet
+              email={ACCOUNT.email}
+              documentCount={5}
+              hasSubscription
+              onConfirm={noop}
+              onCancel={noop}
+            />
+          </Frame>
+
+          <Frame label="Deleted" note="the receipt">
             <DeletedFarewell
-              report={{ documents: 7, files: 3, subscription: 'cancelled' }}
-              onDismiss={() => undefined}
+              report={{ documents: 14, files: 3, subscription: 'cancelled' }}
+              onDismiss={noop}
             />
           </Frame>
 
-          <Frame label="Upgrade sheet" note="trial, from a first fill attempt">
-            <SheetHost mode="trial" />
-          </Frame>
-
-          <Frame label="Upgrade sheet" note="compare, from a spent allowance">
-            <SheetHost mode="compare" />
-          </Frame>
-
-          {/*
-            First run, one frame per step.
-
-            Eight screens is a lot to hold in your head, and the sequence is the design: five that
-            explain, two that ask for work, one that shows what the work bought. Laid out side by
-            side because that is the only way to see whether it reads as one flow rather than eight
-            screens that happen to share a header.
-          */}
-          {[0, 1, 2, 3, 4].map((step) => (
-            <Frame key={step} label="First run" note={`story ${step + 1} of 5`}>
-              <Onboarding
-                account={ACCOUNT_ONBOARDING}
-                profile={PROFILE}
-                step={step}
-                onStep={() => undefined}
-                onFinish={() => undefined}
-              />
-            </Frame>
-          ))}
-
-          <Frame label="First run" note="the basics — five to continue">
-            <Onboarding
+          <Frame label="Offer" note="trial, from a first fill">
+            <Page
               account={ACCOUNT_ONBOARDING}
-              profile={PROFILE}
-              step={5}
-              onStep={() => undefined}
-              onFinish={() => undefined}
-            />
-          </Frame>
-
-          <Frame label="First run" note="sources — one ready, one reading, one failed">
-            <Onboarding
-              account={ACCOUNT_ONBOARDING}
-              profile={PROFILE}
-              step={6}
-              onStep={() => undefined}
-              onFinish={() => undefined}
-            />
-          </Frame>
-
-          <Frame label="First run" note="what they built">
-            <Onboarding
-              account={ACCOUNT_ONBOARDING}
-              profile={PROFILE}
-              step={7}
-              onStep={() => undefined}
-              onFinish={() => undefined}
-            />
-          </Frame>
-
-          <Frame label="First run" note="a source we extracted nothing from — no zero tile">
-            <Onboarding
-              account={ACCOUNT_ONBOARDING}
-              profile={PROFILE_UNEXTRACTED}
-              step={7}
-              onStep={() => undefined}
-              onFinish={() => undefined}
-            />
-          </Frame>
-
-          <Frame label="Home" note="free grant — upgrade in the header">
-            <Home
-              account={ACCOUNT_FREE_GRANT}
               profile={PROFILE}
               page={PAGE_WITH_FORM}
-              hasLastFill={false}
-              onFill={() => undefined}
+              fill={IDLE}
+              onFill={noop}
+              onReset={noop}
+            />
+            <UpgradeSheet
+              mode="trial"
+              onClose={noop}
+              reason="Your answers are ready. Start the trial and it fills this form."
             />
           </Frame>
 
-          {/*
-            The tab bar had no frame, which is why its icons went unreviewed.
+          <Frame label="Offer" note="compare, from a spent allowance">
+            <Page
+              account={ACCOUNT_LOW_QUOTA}
+              profile={PROFILE}
+              page={PAGE_WITH_FORM}
+              fill={IDLE}
+              onFill={noop}
+              onReset={noop}
+            />
+            <UpgradeSheet
+              mode="compare"
+              onClose={noop}
+              reason="You've filled all 600 fields your plan covers this month."
+            />
+          </Frame>
 
-            It lives in `App.tsx` rather than in any screen, so every frame here rendered the panel
-            without its own navigation. Three glyphs at 20px are exactly the kind of thing that
-            needs looking at rather than reasoning about.
-          */}
-          <Frame label="Tab bar" note="the three roots">
-            <div className="flex h-full flex-col justify-end">
-              <TabBar />
-            </div>
+          <Frame label="Setup" note="1 of 2 — nothing added yet">
+            <Setup
+              account={ACCOUNT_ONBOARDING}
+              profile={EMPTY_PROFILE}
+              step={0}
+              onStep={noop}
+              onFinish={noop}
+            />
+          </Frame>
+
+          <Frame label="Setup" note="1 of 2 — a résumé added">
+            <Setup
+              account={ACCOUNT_ONBOARDING}
+              profile={PROFILE}
+              step={0}
+              onStep={noop}
+              onFinish={noop}
+            />
+          </Frame>
+
+          <Frame label="Setup" note="2 of 2 — the basics">
+            <Setup
+              account={ACCOUNT_ONBOARDING}
+              profile={PROFILE}
+              step={1}
+              onStep={noop}
+              onFinish={noop}
+            />
           </Frame>
         </div>
       </div>
@@ -427,7 +370,9 @@ function Gallery() {
   )
 }
 
-createRoot(document.getElementById('root') as HTMLElement).render(
+const container = document.getElementById('root')
+if (!container) throw new Error('gallery root is missing')
+createRoot(container).render(
   <StrictMode>
     <Gallery />
   </StrictMode>,

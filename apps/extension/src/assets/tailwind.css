@@ -4,9 +4,9 @@
   Values here are mirrored from src/lib/tokens.ts, which is the authority for both this file
   and the page overlay's inlined CSS string. `src/lib/tokens.test.ts` fails if they diverge.
 
-  v3: neutral ground, hairline borders, one violet accent. The mascot is the only thing that
-  carries a gradient. Type is Inter alone, set small and tight — this is a 400px tool docked
-  beside somebody's form, not a landing page.
+  Neutral ground, hairline borders, one violet accent. The mascot is the only thing that carries
+  a gradient. Type is Inter alone, set small and tight — this is a tool docked beside somebody's
+  form, not a landing page.
 */
 
 @font-face {
@@ -65,9 +65,9 @@
   /*
     The type ramp. Seven steps, and no screen may invent an eighth.
 
-    Body is 13px. This surface is read in a docked 400px column beside a form the person is
-    actually working on; a 15px base spent the width on air and pushed every list below the
-    fold. Everything under `sm` is metadata by definition, everything above it is a heading.
+    Body is 13px. This surface is read in a docked column beside a form the person is actually
+    working on, and Chrome decides how wide that column is — every screen is laid out for 320px
+    first. Everything under `sm` is metadata by definition, everything above it is a heading.
   */
   --text-2xs: 11px;
   --text-2xs--line-height: 1.35;
@@ -85,12 +85,6 @@
   --text-2xl--line-height: 1.2;
 
   /*
-    The one breakpoint. Chrome gives an extension no control over the side panel's width; past
-    this point a screen may lay things out side by side.
-  */
-  --breakpoint-wide: 480px;
-
-  /*
     Density. One gutter for every screen edge, one floor for a row, one height for a control.
     Rows are 40px and controls 32px: dense enough that a profile of forty facts is one screen
     of scrolling, tall enough that nothing is a near-miss with a trackpad.
@@ -100,8 +94,6 @@
   --spacing-control: 32px;
 
   --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, sans-serif;
-  /* Kept as an alias so `font-display` still resolves; there is no second face any more. */
-  --font-display: "Inter", ui-sans-serif, system-ui, -apple-system, sans-serif;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -160,54 +152,68 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
-/* Heading register. One weight, tight tracking, no second face. */
-.display {
-  font-weight: 600;
-  letter-spacing: -0.01em;
-}
-
-/* Kept for onboarding, which still reaches for them. Solid accent now; no gradient text. */
-.sunset-text {
-  color: var(--color-accent);
-}
-
-.sunset-bg {
-  background: var(--color-accent);
-}
-
 /*
-  Motion.
-
-  `pop` is a settle with a hint of spring. `bounce` is a 4px lift for a mascot that has
-  something to say. Everything dies under `prefers-reduced-motion`, at the bottom of this file.
+  Motion. Four verbs, all short: things pop in, fade in, slide up, or shimmer while waiting.
+  Everything dies under `prefers-reduced-motion`, at the bottom of this file.
 */
-@keyframes pop {
+@keyframes pop-in {
   from {
     opacity: 0;
-    transform: scale(0.96) translateY(3px);
+    scale: 0.97;
   }
   to {
     opacity: 1;
-    transform: none;
+    scale: 1;
   }
 }
 
-.pop {
-  animation: pop 200ms cubic-bezier(0.3, 1.3, 0.5, 1) both;
+.pop-in {
+  animation: pop-in 160ms cubic-bezier(0.3, 1.3, 0.5, 1) both;
 }
 
-@keyframes bounce {
-  0%,
-  100% {
-    transform: translateY(0);
+@keyframes fade-in {
+  from {
+    opacity: 0;
   }
-  50% {
-    transform: translateY(-4px);
+  to {
+    opacity: 1;
   }
 }
 
-.bounce {
-  animation: bounce 1.6s ease-in-out infinite;
+.fade-in {
+  animation: fade-in 160ms ease-out both;
+}
+
+@keyframes sheet-in {
+  from {
+    opacity: 0;
+    translate: 0 12px;
+  }
+  to {
+    opacity: 1;
+    translate: 0 0;
+  }
+}
+
+.sheet-in {
+  animation: sheet-in 220ms cubic-bezier(0.2, 0, 0, 1) both;
+}
+
+/* Rows arriving in a list. `--in` staggers them. */
+@keyframes rise {
+  from {
+    opacity: 0;
+    translate: 0 4px;
+  }
+  to {
+    opacity: 1;
+    translate: 0 0;
+  }
+}
+
+.rise {
+  animation: rise 240ms cubic-bezier(0.2, 0, 0, 1) both;
+  animation-delay: var(--in, 0ms);
 }
 
 @keyframes shimmer {
@@ -228,7 +234,7 @@ body {
   animation: shimmer 1.6s linear infinite;
 }
 
-/* The "thinking" dot. */
+/* The "working" dot beside a stage that is running. */
 @keyframes pulse-dot {
   0%,
   100% {
@@ -256,8 +262,7 @@ body {
   animation: spin 800ms linear infinite;
 }
 
-/* ── The mascot's tics ──────────────────────────────────────────────────────
- * The face is the brand mark, so it is never quite still. Same cadence the site uses. */
+/* The face is the brand mark, so it is never quite still. Same cadence the site uses. */
 @keyframes mascot-blink {
   0%,
   92%,
@@ -275,160 +280,16 @@ body {
   animation: mascot-blink 5.2s ease-in-out infinite;
 }
 
-@keyframes mascot-breathe {
-  0%,
-  100% {
-    transform: scale(1) rotate(0deg);
-  }
-  50% {
-    transform: scale(1.02) rotate(-1deg);
-  }
-}
-
-.breathe {
-  animation: mascot-breathe 4s ease-in-out infinite;
-}
-
-/* Onboarding's soft weather: three blurred lozenges, drifting slowly. Cheap and quiet. */
-@keyframes blob-drift {
-  0%,
-  100% {
-    transform: translate3d(0, 0, 0) scale(1);
-  }
-  33% {
-    transform: translate3d(8px, -10px, 0) scale(1.04);
-  }
-  66% {
-    transform: translate3d(-6px, 8px, 0) scale(0.97);
-  }
-}
-
-.blob-drift {
-  animation: blob-drift 16s ease-in-out infinite;
-  animation-delay: var(--drift, 0s);
-}
-
-/* A step's content, arriving. */
-@keyframes step-in {
-  from {
-    opacity: 0;
-    transform: translateY(6px);
-  }
-  to {
-    opacity: 1;
-    transform: none;
-  }
-}
-
-.step-in {
-  animation: step-in 260ms cubic-bezier(0.2, 0.9, 0.25, 1) both;
-  animation-delay: var(--in, 0s);
-}
-
-/* A caret typing into a demo field, character by character. */
-@keyframes type-in {
-  from {
-    width: 0;
-  }
-  to {
-    width: var(--chars, 20ch);
-  }
-}
-
-.type-in {
-  display: inline-block;
-  overflow: hidden;
-  white-space: nowrap;
-  vertical-align: bottom;
-  animation: type-in 1.4s steps(var(--steps, 20), end) infinite alternate;
-}
-
-@keyframes caret {
-  0%,
-  49% {
-    opacity: 1;
-  }
-  50%,
-  100% {
-    opacity: 0;
-  }
-}
-
-.caret {
-  animation: caret 1s steps(1, end) infinite;
-}
-
-/* A chip being swallowed by the knowledge base. */
-@keyframes ingest {
-  0% {
-    opacity: 0;
-    transform: translateY(8px) scale(0.94);
-  }
-  22%,
-  62% {
-    opacity: 1;
-    transform: none;
-  }
-  100% {
-    opacity: 0;
-    transform: translate(var(--to-x, 0), var(--to-y, -28px)) scale(0.6);
-  }
-}
-
-.ingest {
-  animation: ingest 4.2s cubic-bezier(0.4, 0, 0.2, 1) infinite;
-  animation-delay: var(--in, 0s);
-}
-
-/* The counter that ticks up as a source is read. */
-@keyframes sweep {
-  from {
-    transform: scaleX(0);
-  }
-  to {
-    transform: scaleX(1);
-  }
-}
-
-.sweep {
-  transform-origin: left;
-  animation: sweep 2.4s cubic-bezier(0.3, 0, 0.2, 1) infinite;
-}
-
-@keyframes fade-in {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
-}
-
-.animate-fade-in {
-  animation: fade-in 160ms ease-out both;
-}
-
 @media (prefers-reduced-motion: reduce) {
-  .pop,
-  .bounce,
+  .pop-in,
+  .fade-in,
+  .sheet-in,
+  .rise,
   .awaiting,
   .pulse-dot,
   .spin,
-  .animate-fade-in,
-  .mascot-eyes,
-  .breathe,
-  .blob-drift,
-  .step-in,
-  .type-in,
-  .caret,
-  .ingest,
-  .sweep {
+  .mascot-eyes {
     animation: none;
-  }
-
-  /* The typed demo has to be readable without its animation, not merely still. */
-  .type-in {
-    width: auto;
   }
 
   .awaiting {
@@ -491,26 +352,26 @@ body {
   }
 }
 
-::view-transition-old(screen),
-::view-transition-new(screen) {
+::view-transition-old(root),
+::view-transition-new(root) {
   animation-duration: 180ms;
   animation-timing-function: cubic-bezier(0.2, 0, 0, 1);
   mix-blend-mode: normal;
 }
 
-html[data-nav="forward"]::view-transition-new(screen) {
+html[data-nav="forward"]::view-transition-new(root) {
   animation-name: leaf-in-forward;
 }
 
-html[data-nav="forward"]::view-transition-old(screen) {
+html[data-nav="forward"]::view-transition-old(root) {
   animation-name: leaf-out-forward;
 }
 
-html[data-nav="back"]::view-transition-new(screen) {
+html[data-nav="back"]::view-transition-new(root) {
   animation-name: leaf-in-back;
 }
 
-html[data-nav="back"]::view-transition-old(screen) {
+html[data-nav="back"]::view-transition-old(root) {
   animation-name: leaf-out-back;
 }
 

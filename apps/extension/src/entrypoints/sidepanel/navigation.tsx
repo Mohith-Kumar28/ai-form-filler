@@ -9,61 +9,36 @@ import {
 } from 'react'
 
 /**
- * A tiny navigation model: three root tabs and a stack of screens that push on top of them.
+ * A stack of screens with one root: the page the person is on.
  *
- * The panel is a docked control surface, not a website, so there are no URLs to parse. The
- * three tabs are the whole app — Fill, My info, Account — and everything else (filling in
- * progress, a receipt, adding a source, a source's detail) pushes on top of whichever tab is
- * current and pops back to it.
+ * There are no tabs. The panel is a control surface for the form beside it, and everything
+ * else — what it knows about you, settings — is somewhere you go and come back from. A pushed
+ * screen has a Back; the root has none. No URLs, because a docked panel is not a website.
  */
 
-export type TabName = 'home' | 'yourInfo' | 'account'
-
-/** What kind of thing the "Add to your info" screen should start on. */
-export type AddKind = 'upload' | 'link' | 'text' | 'voice'
+export type DocumentMode = 'upload' | 'link' | 'text' | 'voice'
 
 export type Screen =
-  | { name: 'home' }
-  /**
-   * Which half of "Your info" is showing.
-   *
-   * On the screen rather than in the screen's own state so that pushing "Add a source" and
-   * coming back lands on Sources, not on Facts.
-   */
-  | { name: 'yourInfo'; view?: 'facts' | 'sources' }
-  | { name: 'account' }
-  | { name: 'filling' }
-  | { name: 'receipt' }
-  | { name: 'addInfo'; initial?: AddKind }
-  | { name: 'sourceDetail'; sourceId: string }
+  | { name: 'page' }
+  | { name: 'knowledge'; view?: 'sources' | 'facts' }
+  | { name: 'settings' }
+  | { name: 'addDocument'; initial?: DocumentMode }
+  | { name: 'document'; id: string }
 
 export type ScreenName = Screen['name']
 
-/** Root tab order, used to pick a slide direction when switching tabs. */
-const TAB_ORDER: TabName[] = ['home', 'yourInfo', 'account']
-
-function isTab(screen: Screen): screen is { name: TabName } {
-  return TAB_ORDER.includes(screen.name as TabName)
-}
-
 interface NavigationValue {
   screen: Screen
-  /** Which root tab is underneath, or `null` while a pushed screen is on top. */
-  tab: TabName | null
   depth: number
   push: (screen: Screen) => void
-  /** Swaps the top of the stack, so Back skips the screen being left behind. */
-  replace: (screen: Screen) => void
   back: () => void
-  /** Switches root tabs. */
-  goToTab: (tab: TabName) => void
-  /** Unwinds to the Fill tab. */
+  /** Unwinds to the page. */
   home: () => void
 }
 
 const NavigationContext = createContext<NavigationValue | null>(null)
 
-const HOME: Screen = { name: 'home' }
+const ROOT: Screen = { name: 'page' }
 
 /**
  * Direction is written to the document element, not held in React state.
@@ -74,12 +49,10 @@ const HOME: Screen = { name: 'home' }
  */
 function runTransition(direction: 'forward' | 'back', commit: () => void): void {
   const root = document.documentElement
-
   if (!document.startViewTransition || matchMedia('(prefers-reduced-motion: reduce)').matches) {
     commit()
     return
   }
-
   root.dataset.nav = direction
   const transition = document.startViewTransition(commit)
   void transition.finished.finally(() => {
@@ -88,15 +61,9 @@ function runTransition(direction: 'forward' | 'back', commit: () => void): void 
 }
 
 export function NavigationProvider({ children }: { children: ReactNode }) {
-  const [stack, setStack] = useState<Screen[]>([HOME])
+  const [stack, setStack] = useState<Screen[]>([ROOT])
 
-  /**
-   * Guards against a second transition starting inside the first.
-   *
-   * `startViewTransition` throws if one is already running, and a double-tap on a row is
-   * enough to produce that — which would leave `data-nav` set and every later push animating
-   * in the wrong direction.
-   */
+  /** `startViewTransition` throws if one is already running; a double-tap is enough. */
   const transitioning = useRef(false)
 
   const navigate = useCallback(
@@ -111,30 +78,18 @@ export function NavigationProvider({ children }: { children: ReactNode }) {
     [],
   )
 
-  const value = useMemo<NavigationValue>(() => {
-    const screen = stack[stack.length - 1] ?? HOME
-    const tab = isTab(screen) ? screen.name : (stack.findLast(isTab)?.name ?? 'home')
-
-    return {
-      screen,
-      tab,
+  const value = useMemo<NavigationValue>(
+    () => ({
+      screen: stack[stack.length - 1] ?? ROOT,
       depth: stack.length - 1,
       push: (next) => navigate('forward', (prev) => [...prev, next]),
-      replace: (next) => navigate('forward', (prev) => [...prev.slice(0, -1), next]),
       back: () => navigate('back', (prev) => (prev.length > 1 ? prev.slice(0, -1) : prev)),
-      goToTab: (next) =>
-        navigate(TAB_ORDER.indexOf(next) > TAB_ORDER.indexOf(tab) ? 'forward' : 'back', () => [
-          screenForTab(next),
-        ]),
-      home: () => navigate('back', () => [HOME]),
-    }
-  }, [stack, navigate])
+      home: () => navigate('back', () => [ROOT]),
+    }),
+    [stack, navigate],
+  )
 
   return <NavigationContext.Provider value={value}>{children}</NavigationContext.Provider>
-}
-
-function screenForTab(tab: TabName): Screen {
-  return { name: tab }
 }
 
 export function useNavigation(): NavigationValue {

@@ -1,4 +1,4 @@
-import type { ApplyReport, FillPlan } from '@aff/shared'
+import type { ApplyReport, FillPlan, FormSchema } from '@aff/shared'
 import { PLAN_LIMITS, PLAN_LONGFORM_LIMITS } from '@aff/shared/constants'
 import type { Account, Profile } from '../src/generated/model/index.js'
 
@@ -340,4 +340,61 @@ export const REPORT: ApplyReport = {
 export const PROFILE_UNEXTRACTED: Profile = {
   ...PROFILE,
   sources: [{ ...(PROFILE.sources ?? [])[0], extractedChars: 0 }],
+}
+
+/**
+ * The form on the page, as the content script would report it.
+ *
+ * Field ids match `PLAN` so the receipt can name what it skipped, and the pre-fill ledger has
+ * something to say about each question: two answer from saved details, one already has a value,
+ * one asks for a detail nothing is saved under, and the rest are written.
+ */
+export const FORM: FormSchema = {
+  origin: 'https://boards.greenhouse.io',
+  path: '/aldermanroe/jobs/4471',
+  pageTitle: 'Senior Backend Engineer — Alderman & Roe',
+  adapter: 'greenhouse',
+  fields: [
+    { id: 'f_name', kind: 'text', label: 'Full name', required: true, autocomplete: 'name' },
+    { id: 'f_email', kind: 'email', label: 'Email', required: true, autocomplete: 'email' },
+    { id: 'f_phone', kind: 'tel', label: 'Phone', required: false, currentValue: '+44' },
+    {
+      id: 'f_port',
+      kind: 'url',
+      label: 'Portfolio',
+      required: false,
+      currentValue: 'https://ifeomabalogun.com',
+    },
+    { id: 'f_notice', kind: 'text', label: 'Notice period', required: false },
+    { id: 'f_start', kind: 'date', label: 'Earliest start date', required: false },
+    { id: 'f_ctc', kind: 'text', label: 'Current CTC', required: false },
+    {
+      id: 'f_hear',
+      kind: 'select',
+      label: 'How did you hear about this role?',
+      required: false,
+      options: [
+        { value: 'li', label: 'LinkedIn' },
+        { value: 'ref', label: 'Referral' },
+      ],
+    },
+    {
+      id: 'f_auth',
+      kind: 'radio',
+      label: 'Are you legally authorised to work in the UK?',
+      required: true,
+      options: [
+        { value: 'y', label: 'Yes' },
+        { value: 'n', label: 'No' },
+      ],
+    },
+    { id: 'f_salary', kind: 'text', label: 'What are your salary expectations?', required: false },
+    {
+      id: 'f_why',
+      kind: 'longtext',
+      label: 'Why do you want to work at Alderman & Roe?',
+      required: true,
+    },
+    { id: 'f_ref', kind: 'text', label: 'Reference: name and relationship', required: false },
+  ],
 }

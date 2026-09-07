@@ -1,94 +1,124 @@
-# Fillaform — design system (v3)
+# Fillaform — side panel and overlay
 
-The authority for the extension's look is `apps/extension/src/lib/tokens.ts`, mirrored into
-`src/assets/tailwind.css` (the side panel) and inlined into the overlay's shadow root
-(`src/overlay/host.ts`). `tokens.test.ts` fails the build if the two drift. This document is the
-reasoning behind those values and the rules that are not expressible as a token.
+The panel is about the form beside it. That is the whole structure.
 
-## The bet
+## Structure
 
-Neutral ground, hairline borders, one violet accent. The tool sits in a 400px column beside
-somebody's job application; it should read like a good utility (a password manager, an issue
-tracker) rather than an "AI product". The mascot is the brand mark and keeps its gradient
-body; nothing else on screen carries a gradient, a glow or a bounce.
+```
+Welcome                signed out
+Setup                  first run: Add your résumé → Check the basics
+Page                   the root, and the only screen about the form
+  ├─ Knowledge base    tabs: Sources · Facts
+  │    ├─ Add a document   File / Link / Note / Voice
+  │    └─ Document         preview · facts · remove
+  └─ Settings          Account · Plan (once money has been met) · On the page · Delete
+```
 
-## Colour
+No tab bar. The page is the root; everything else is somewhere you go and come back from with
+Back. The header on the root carries the mark on the left and the two places to go on the right.
 
-| token | light | dark | used for |
-|---|---|---|---|
-| `surface` | 98.4% | 16% | app ground |
-| `surface-raised` | white | 20% | cards, sheets, menus, controls at rest |
-| `surface-muted` | 95.6% | 24.5% | hover grounds, insets, key caps (lighter than surface in dark) |
-| `ink` / `ink-muted` / `ink-dim` | 18 / 46 / 56% | 95 / 70 / 56% | text ramp; every tier ≥ 4.5:1 on surface |
-| `accent` / `accent-muted` | violet 52% / 95% | violet 66% / 28% | primary action, focus ring, the "judged" mark, selected state |
-| `positive` | green | | stated answers, saved |
-| `danger` | red | | faults and destruction — never the accent |
-| `warning` | amber | | heads-ups |
-| `sparkle` / `sun` | violet / coral | | **mascot body only** |
-| `border` / `border-muted` | 90 / 94% | 28 / 23% | hairlines; dark separates with these, not shadows |
-| `shadow` / `shadow-strong` | | | floating things only: menus, overlay cards, the launcher dock |
+### Page — the ledger
 
-Rules: one accent per screen (a primary button *or* a highlighted mark, never both competing);
-an error is red, a guess is violet, and the two never share a colour; `accent-muted` grounds a
-chip or a selected option, never a whole card.
+One screen, one list, three moments:
 
-## Type
+- **Before a fill.** Site card (favicon, host, "12 questions · 5 from your details") and the one
+  primary button. Under it, every question grouped by what Fill will do: *From your details*
+  (matched locally by `matchFact`, value shown, free), *It will write* (the model), *Already
+  answered* (left alone). A question that asks for a catalogue detail nothing is saved under gets
+  an inline **Add** that saves straight to the profile — the form tells you what to save.
+- **While filling.** The card shows the stage and a progress bar; Fill becomes Stop; the ledger
+  dims. Stages are smoothed by `stage-walk` so a fast fill still reads as a sequence.
+- **After a fill.** The card becomes the receipt ("Filled 6 of 12 questions · 3 to check"), the
+  groups become *Check these* (judgement calls with verdict tags, hover highlights the field,
+  click opens its card on the page), *From your details*, *Left blank* (with the reason). The
+  footer walks the open judgement calls one at a time on the page, then offers Fill again / Done.
 
-Inter only, self-hosted. Body 13px. Ramp: `2xs 11 / xs 12 / sm 13 / base 14 / lg 16 / xl 18 /
-2xl 22`. Headings are 15–18px semibold with `-0.01em` tracking (`.display`); there is no display
-face. Counters, meters, timers and `done/total` use `.tnum` (tabular numerals). The overlay uses
-the system UI face at the same sizes — an injected widget should look like the other injected
-widgets on the page.
+The grouping is pure (`lib/ledger.ts`, tested) so the screen is only a renderer.
 
-## Shape and density
+### Knowledge base
 
-- Radii: `sm 6` chips and key caps · `md 8` buttons and inputs · `lg 12` cards, sheets, menus,
-  the launcher dock. Pills are for chips only.
-- Density: gutter 14, row 40, control 32. Buttons 28 / 32 / 36. A fact is a 36px row.
-- Panel primitives live in `src/entrypoints/sidepanel/components.tsx`: `ScreenHeader` (with
-  `tabs` and `search` slots), `TabBar`, `Button` (`primary | secondary | ghost | danger |
-  destructive`), `IconButton`, `Kbd`, `Card`, `ListCard`, `SectionLabel`, `Row`, `Section` +
-  `FieldRow` (label-left / value-right, editable in place), `Toggle`, `UsageBar`, the three
-  sheets, `EmptyState`, `Stat`, `Chip`, `Mascot`.
+Two halves, on two tabs, because they are two different jobs and mixing them into one scroll
+made both harder to see.
 
-## The three rules that survive every re-skin
+- **Sources** (first, and the default) — what it *reads*: a résumé, a link, a pasted note, a
+  voice recording. First because they are what make the answers good, and because somebody
+  arriving with an empty account has to add one before anything else matters. Row: 28px tile ·
+  name · status tag · meta · ⋯ menu (Rename / Preview or Open / Read again / Remove).
+- **Facts** — the short answers it copies into a field exactly, laid out as **the whole
+  catalogue**: About you, Address, IDs, Work, Links, then Extra fields for your own. Every
+  section starts collapsed with a *filled of total* count on its header, so the tab opens as six
+  lines you can read at a glance rather than thirty-eight rows to scroll past.
 
-1. **The Unmarked Fact Rule.** An answer read straight off the profile ends with *no mark at
-   all*. The absence is the notation; marking everything flattens the only contrast that
-   matters. (`overlay/markers.ts`)
-2. **Settle-and-clear vs persist-until-acted.** A stated or failed mark settles and clears on
-   its own. A judged mark and its tab stay until the person keeps, edits or clears the answer.
-3. **Standalone `translate` is placement.** Everything the scheduler anchors is positioned with
-   the `translate` property; animations use `scale`, `rotate` and `opacity` only, and never
-   `transform`. `overlay/host.test.ts` enforces it.
+The empty boxes are the point. A list of only what happens to be filled tells you nothing you
+did not already know; seeing every row a form can ask for is how you learn what to save without
+waiting for a bad fill to teach you. Searching filters across every section at once and opens
+whatever it hits. Anything the catalogue does not cover is a named field of your own under
+Extra, and it can be renamed later.
 
-## The overlay, state by state
+Every screen that edits facts goes through `lib/profile-editor.ts`: a draft that settles after
+1.5s, flushes on blur or Enter, and never queues more than one PATCH behind the one in flight.
 
-- **Launcher dock** (`overlay/launcher.ts`): a raised strip pinned to the right edge, 36px
-  tall, the mascot tile at its right end. On approach it grows leftward to show the drag
-  handle, the side-panel button and the shortcut key cap. During a fill the rail says what is
-  happening, then `done/total` with a stop button, and a 2px progress line runs along the
-  bottom edge. An exhausted account keeps "Upgrade" in the rail. Working = a thin ring turning
-  around the tile; the face never spins.
-- **Field trigger** (`content.ts`): a 24px raised square beside a focused field — mascot glyph
-  to fill, pen to rewrite; a ring while it works.
-- **Marks** (`overlay/markers.ts`): active 2px accent ring; stated 1.5px green, clears; judged
-  1.5px accent, stays; failed red, clears.
-- **Provenance tab**: a raised chip beside the field — sparkle, "I guessed" / "not sure", a
-  tick and a cross. Placement is `placeTab`; height is `TAB_HEIGHT`.
-- **Cards** (`overlay/card.ts`): suggestion = one row (face, value, `Enter`, ×); answer card =
-  reason chip + question, textarea or options, Tone/Length chips, an instruction box with an
-  accent send button, Keep (accent) / Undo / Clear; menu = items + a note.
-- **Learning chip**: raised, transient, tints its icon by state; `learned` fills accent.
+### Setup
 
-## Copy
+Two steps, both made of the real screens' parts: add a document (skippable), then check the
+five basics seeded from the Google account. It ends one button short of the first fill, so
+nothing in it mentions money.
 
-Plain, short, no persona. Say what the thing does ("Fill this form", "12 fields found",
-"Nothing to read yet"). The product's two words for a judged answer are "I guessed" and "not
-sure" — the site's demo mirrors them verbatim. Money is not mentioned until the first fill
-attempt (`usePaywallSeen`), and stays visible once it has been.
+## Rules that do not move
+
+- **A stated answer and a judgement call never look the same.** Green dot = from your details.
+  Violet dot = written. A violet "I guessed" / "not sure" tag = wants a look. The wording is
+  verbatim on the page's provenance tab and in the panel, and the site demo mirrors it.
+- **No money before the first fill attempt.** Nothing about plans, prices or meters until Fill
+  is pressed (or the page asks). Once met, it stays visible under Settings → Plan.
+- **The limit is the moment.** Asking for a sixth document or a twenty-sixth custom detail gets
+  the same quiet offer, in place, not a lecture.
+- **Deciding to pay ends the conversation.** A button somebody presses *because they want to
+  upgrade* goes straight to checkout — Settings' trial and Compare plans both do. `UpgradeSheet`
+  is only for the paywall moments, where it explains an interruption; it is never a toll gate in
+  front of a person who has already decided.
+- **Submitting is theirs.** Every receipt says so.
+
+## System
+
+- **Colour.** True neutrals, hairline borders, one violet accent for actions, focus and the
+  written mark. Green for stated, red for faults, amber for heads-ups. The mascot body is the
+  only gradient. Values live in `src/lib/tokens.ts`, mirrored byte-for-byte into
+  `src/assets/tailwind.css` (`tokens.test.ts`) and inlined into the overlay.
+- **Type.** Inter only. 13px body, 12 meta, 11 tags, 14–18 headings. Tabular numerals on every
+  counter.
+- **Shape.** Radii 6 / 8 / 12. Controls 32px, rows 40px, gutter 14px. Dark mode separates with
+  hairlines, not shadows; shadows are for things that float (menus, sheets).
+- **Width.** Chrome decides how wide the panel is. Everything is laid out for 320px first;
+  there is no breakpoint.
+- **Parts.** `components.tsx` is deliberately small: Screen / Header / Body / Footer, Button,
+  IconButton, Kbd, Group, Row, Tag, Dot, Input, Textarea, Field, Toggle, Segmented, Note,
+  Empty, Skeleton, Menu, Sheet (+ Confirm, Upgrade, DeleteAccount), Meter. Screens compose
+  these and carry no styling of their own beyond spacing.
+- **Motion.** Four verbs: pop in, fade in, slide up, shimmer. Screens push and pop as leaves
+  through the View Transitions API. Everything stops under reduced motion.
+
+## On the page (overlay)
+
+The dock carries **Stop from the first stage**, not just once fields start landing: the flag the
+stop button hangs off used to be set only in the branch that has a `done/total` count, which is
+`applying` — the last and shortest phase. For the ten to twenty seconds of detecting, reading and
+generating there was no way to call off a fill started by mistake, which is exactly the window in
+which somebody wants to.
+
+Otherwise unchanged in this pass. A dock pinned to the right edge (tile + rail; drag handle, side-panel
+button and shortcut key cap fold out on hover), a 24px field trigger, coloured field marks with
+a provenance tab, and the suggest / answer / menu cards. Styles are the inlined string in
+`src/overlay/host.ts`; placement uses standalone `translate` only, and no keyframe on an
+anchored element animates `translate` (`host.test.ts`).
+
+## Review
+
+`pnpm --filter @aff/extension gallery` builds every screen in every fixture state to
+`apps/extension/.gallery/index.html` (`?scheme=dark`, `?width=320`). It is the only way to see
+the whole panel at once; review there before reviewing in Chrome.
 
 ## Not in step yet
 
-`apps/web` (site palette, display font, and `ExtensionDemo.tsx`, which replicates the overlay)
-and `store-assets/` screenshots still show the previous generation.
+- `apps/web` and `store-assets/` still show the previous panel and palette.
+- `ExtensionDemo.tsx` on the site mirrors the overlay, not the panel, and is unaffected.

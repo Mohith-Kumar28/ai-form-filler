@@ -1,8 +1,8 @@
-import { readdir, unlink } from 'node:fs/promises'
-import path from 'node:path'
-import { EXTENSION_PUBLIC_KEY } from '@aff/shared/deployment'
-import tailwindcss from '@tailwindcss/vite'
-import { defineConfig } from 'wxt'
+import { readdir, unlink } from "node:fs/promises";
+import path from "node:path";
+import { EXTENSION_PUBLIC_KEY } from "@aff/shared/deployment";
+import tailwindcss from "@tailwindcss/vite";
+import { defineConfig } from "wxt";
 
 /**
  * True only for `pnpm zip` — the artifact that gets uploaded to the Chrome Web Store.
@@ -15,11 +15,11 @@ import { defineConfig } from 'wxt'
  * Two fields below are stripped when this is set. Both are *rejected or wrong* in a published
  * listing but *required or useful* locally, which is why they cannot simply be deleted.
  */
-const STORE_BUILD = process.env.STORE_BUILD === '1'
+const STORE_BUILD = process.env.STORE_BUILD === "1";
 
 export default defineConfig({
-  srcDir: 'src',
-  modules: ['@wxt-dev/module-react'],
+  srcDir: "src",
+  modules: ["@wxt-dev/module-react"],
 
   /**
    * `build/`, not WXT's default `.output/`.
@@ -33,7 +33,7 @@ export default defineConfig({
    * as gone: remove it at chrome://extensions and load `build/chrome-mv3-dev` once more. The
    * `key` below pins the ID, so nothing else — sign-in included — is affected by the move.
    */
-  outDir: 'build',
+  outDir: "build",
 
   /**
    * The upload artifact: `build/fillaform-0.0.1-chrome.zip`.
@@ -48,8 +48,8 @@ export default defineConfig({
    * and it is the one to upload.
    */
   zip: {
-    name: 'fillaform',
-    artifactTemplate: '{{name}}-{{version}}-{{browser}}.zip',
+    name: "fillaform",
+    artifactTemplate: "{{name}}-{{version}}-{{browser}}.zip",
   },
 
   /**
@@ -62,12 +62,14 @@ export default defineConfig({
    * its own copy of everything already uploaded.
    */
   hooks: {
-    'zip:start': async (wxt) => {
-      const dir = wxt.config.outBaseDir
-      const stale = (await readdir(dir).catch(() => [])).filter((f) => f.endsWith('.zip'))
+    "zip:start": async (wxt) => {
+      const dir = wxt.config.outBaseDir;
+      const stale = (await readdir(dir).catch(() => [])).filter((f) =>
+        f.endsWith(".zip"),
+      );
       for (const file of stale) {
-        await unlink(path.resolve(dir, file))
-        wxt.logger.info(`Removed previous artifact: ${file}`)
+        await unlink(path.resolve(dir, file));
+        wxt.logger.info(`Removed previous artifact: ${file}`);
       }
     },
   },
@@ -110,7 +112,7 @@ export default defineConfig({
     ...(STORE_BUILD
       ? {}
       : {
-          version_name: `0.1.0+${new Date().toISOString().replace(/\D/g, '').slice(4, 12)}`,
+          version_name: `0.1.0+${new Date().toISOString().replace(/\D/g, "").slice(4, 12)}`,
         }),
     /**
      * Name and description are store-search surface, not just branding.
@@ -123,10 +125,10 @@ export default defineConfig({
      * Limits Chrome enforces: name 75 chars (~45 visible in search), description 132.
      * The longer listing copy these two summarise lives in `store-assets/LISTING.md`.
      */
-    name: 'FillaForm | AI Form Filler',
+    name: "FillaForm | AI Form Filler",
     description:
-      'AI form filler for any web form. Answers come from your own knowledge base, in your own writing voice.',
-    version: '0.0.4',
+      "AI form filler for any web form. Answers come from your own knowledge base, in your own writing voice.",
+    version: "0.0.5",
 
     /**
      * Every entry here has to be justified to a Web Store reviewer one by one, and an unused
@@ -142,10 +144,10 @@ export default defineConfig({
      */
     permissions: [
       // Auth token, cached plan, and the in-flight fill that has to survive the panel closing.
-      'storage',
+      "storage",
       // Google sign-in via `chrome.identity.launchWebAuthFlow`. Background script only.
-      'identity',
-      'sidePanel',
+      "identity",
+      "sidePanel",
       /**
        * Kept despite `host_permissions` below already covering every site.
        *
@@ -154,16 +156,16 @@ export default defineConfig({
        * is what still gets us the current tab when they do — so the extension degrades to
        * click-to-run instead of silently failing on every page.
        */
-      'activeTab',
+      "activeTab",
       // Serves `/_favicon/` so a saved link shows the site's own mark from Chrome's cache,
       // rather than the extension fetching favicons from every site in someone's list.
-      'favicon',
+      "favicon",
     ],
 
     // Broad host access is what a general-purpose form filler needs, but it is also the
     // single scariest line in the manifest for a Web Store reviewer. The content script
     // below only observes; nothing is transmitted until the user clicks fill.
-    host_permissions: ['<all_urls>'],
+    host_permissions: ["<all_urls>"],
 
     /**
      * Pins the unpacked build's ID to the **published** one — locally only.
@@ -212,14 +214,14 @@ export default defineConfig({
      * the mouth disappears entirely if you simply downsample the large one.
      */
     icons: {
-      16: 'icon/16.png',
-      32: 'icon/32.png',
-      48: 'icon/48.png',
-      128: 'icon/128.png',
+      16: "icon/16.png",
+      32: "icon/32.png",
+      48: "icon/48.png",
+      128: "icon/128.png",
     },
 
-    side_panel: { default_path: 'sidepanel.html' },
-    action: { default_title: 'Fillaform — AI form filler' },
+    side_panel: { default_path: "sidepanel.html" },
+    action: { default_title: "Fillaform — AI form filler" },
 
     /**
      * Fill without reaching for the mouse.
@@ -242,9 +244,9 @@ export default defineConfig({
      * isn't one. Rebinding lives at chrome://extensions/shortcuts, and the label follows.
      */
     commands: {
-      'fill-form': {
-        suggested_key: { default: 'Alt+F' },
-        description: 'Fill this form',
+      "fill-form": {
+        suggested_key: { default: "Alt+F" },
+        description: "Fill this form",
       },
     },
   },
@@ -252,4 +254,4 @@ export default defineConfig({
   vite: () => ({
     plugins: [tailwindcss()],
   }),
-})
+});

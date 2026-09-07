@@ -221,12 +221,41 @@ describe('the rail', () => {
     handle.destroy()
   })
 
-  it('says what it is doing while there is no count yet', async () => {
+  it('says what it is doing while there is no count yet, and shows no count', async () => {
     const handle = mount()
     await flush()
     handle.setStage('generating', 0, 7)
     expect(rail(handle)?.textContent).toContain('Writing your answers')
-    expect(handle.element.getAttribute('data-filling')).toBeNull()
+    expect(rail(handle)?.textContent).not.toContain('0/7')
+    // The bar is width: var(--progress, 0%), so an unset value draws nothing.
+    expect(handle.element.style.getPropertyValue('--progress')).toBe('')
+    handle.destroy()
+  })
+
+  /*
+    The stop button is displayed by `[data-filling="true"] .launcher-stop`, and the flag used
+    to be set only in the branch that has a count — which is `applying`, the last and shortest
+    stage. For the ten to twenty seconds of detecting, reading and generating, a fill started
+    by mistake could not be called off from the page.
+  */
+  it('offers stop from the first stage, long before there is a count', async () => {
+    const handle = mount()
+    await flush()
+    for (const stage of ['detecting', 'reading', 'generating']) {
+      handle.setStage(stage, 0, 7)
+      expect(handle.element.getAttribute('data-filling')).toBe('true')
+    }
+    handle.destroy()
+  })
+
+  it('stops the fill when the stop button is pressed', async () => {
+    const handle = mount()
+    await flush()
+    handle.setStage('detecting', 0, 7)
+    const stop = handle.element.querySelector<HTMLButtonElement>('.launcher-stop')
+    expect(stop).not.toBeNull()
+    stop?.click()
+    expect(calls.stop).toBe(1)
     handle.destroy()
   })
 

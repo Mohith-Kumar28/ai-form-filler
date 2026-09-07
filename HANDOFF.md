@@ -12,7 +12,7 @@ bundle, Worker boots and serves every implemented route.
 ---
 
 
-> **Design system:** the extension's look is v3 (neutral + one violet accent, Inter only) — see `DESIGN.md`, which is the current authority again. `apps/web` and `store-assets/` have not been brought in step yet.
+> **Panel structure and design system:** the side panel was rebuilt from scratch on 2026-09-05 — no tab bar, the page ledger is the root, About you (Details + Documents) and Settings are pushed screens, first run is a two-step setup. `DESIGN.md` is the authority for structure and tokens; the screen-by-screen notes below that name Facts/Sources/Home/Receipt describe the previous generation. `apps/web` and `store-assets/` have not been brought in step yet.
 
 ## 1. What this product is
 

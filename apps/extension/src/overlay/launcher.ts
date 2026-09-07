@@ -483,9 +483,18 @@ export function mountLauncher(options: {
      * happening instead, and show a count only once there is one.
      */
     setStage: (stage, done, total) => {
+      /*
+        A fill is in flight from the first stage, so the stop button exists from the first
+        stage. `data-filling` used to be set only in the `done > 0` branch — reached only
+        during `applying`, the last and shortest phase — so through the ten to twenty seconds
+        of detecting, reading and generating there was no way to call off a fill started by
+        mistake. The one control with a deadline was missing for the whole of the wait that
+        makes people want it.
+      */
+      wrap.setAttribute('data-filling', 'true')
+
       if (done > 0) {
         settleLoading()
-        wrap.setAttribute('data-filling', 'true')
         rail.removeAttribute('data-exhausted')
         setRail(document.createTextNode(`${done}/${total}`))
         // The line along the dock's bottom edge. Drawn by CSS from this one number.
@@ -493,7 +502,9 @@ export function mountLauncher(options: {
         return
       }
 
-      wrap.removeAttribute('data-filling')
+      // No count yet: say what is happening, and leave the progress line at zero width
+      // rather than showing a bar left over from the fill before this one.
+      wrap.style.removeProperty('--progress')
       button.classList.add('launcher--loading')
       stageWalk.report(stage)
     },

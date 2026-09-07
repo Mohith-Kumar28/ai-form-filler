@@ -13,29 +13,25 @@ import { onSessionEnded } from '../../lib/session.js'
 import { useActivePage } from '../../lib/use-active-page.js'
 import { useFill } from '../../lib/use-fill.js'
 import {
+  Body,
   DeletedFarewell,
+  Header,
+  Note,
   Screen,
-  ScreenBody,
-  ScreenHeader,
-  SkeletonRow,
-  TabBar,
+  SkeletonRows,
   UpgradeSheet,
 } from './components.js'
 import { NavigationProvider, useNavigation } from './navigation.js'
-import { Onboarding } from './onboarding/index.js'
-import { AddSource } from './screens/AddSource.js'
-import { Facts } from './screens/Facts.js'
-import { Filling } from './screens/Filling.js'
-import { Home } from './screens/Home.js'
-import { Receipt } from './screens/Receipt.js'
+import { AddDocument } from './screens/AddDocument.js'
+import { Document } from './screens/Document.js'
+import { Knowledge } from './screens/Knowledge.js'
+import { Page } from './screens/Page.js'
 import { Settings } from './screens/Settings.js'
-import { SourceDetail } from './screens/SourceDetail.js'
-import { Sources } from './screens/Sources.js'
 import { Welcome } from './screens/Welcome.js'
+import { Setup } from './setup/index.js'
 
 function useSignedIn() {
   const queryClient = useQueryClient()
-
   useEffect(
     () =>
       onSessionEnded(() => {
@@ -44,56 +40,24 @@ function useSignedIn() {
       }),
     [queryClient],
   )
-
   return useQuery({ queryKey: ['session'], queryFn: hasSession })
-}
-
-function useFillNavigation(status: string) {
-  const nav = useNavigation()
-  const previous = useRef(status)
-
-  useEffect(() => {
-    const was = previous.current
-    previous.current = status
-
-    if (status === was) return
-
-    if (status === 'running' && nav.screen.name !== 'filling') {
-      nav.push({ name: 'filling' })
-      return
-    }
-
-    if (status === 'done' && (nav.screen.name === 'filling' || nav.screen.name === 'home')) {
-      nav.replace({ name: 'receipt' })
-    }
-  }, [status, nav])
 }
 
 /**
  * The offer, when the *page* asked for it.
  *
  * Pressing the launcher on a form with nothing left to spend opens this panel and leaves a note
- * saying which offer to show; this renders it over whatever screen the panel happened to be on.
- * It lives here rather than in `Home` because the panel does not necessarily open on Home, and a
- * refusal that opens the panel to silence is worse than the small card it replaced.
+ * saying which offer to show; this renders it over whatever screen the panel is on. Meeting it
+ * marks the paywall as seen, exactly as pressing Fill in here does.
  *
- * Meeting it marks the paywall as seen, exactly as pressing Fill in here does — from this point the
- * account screen carries a permanent way back to it.
+ * `suppressed` takes the note and drops it: somebody in the middle of first-run setup who
+ * reached over and pressed the launcher should not be interrupted with a price.
  */
 function PageRequestedPaywall({
   account,
   suppressed = false,
 }: {
   account: Account
-  /**
-   * Take the note and drop it, showing nothing.
-   *
-   * For the one screen where the offer must not land: somebody in the middle of first-run setup who
-   * reached over and pressed the launcher on their form. Interrupting the setup with a price is
-   * both the wrong moment and the wrong order — the panel opening on their own half-finished
-   * profile is answer enough, and the offer arrives at their first real Fill. Consuming the note
-   * rather than ignoring it is what stops the sheet appearing minutes later, out of nowhere.
-   */
   suppressed?: boolean
 }) {
   const { pending, clear } = usePendingPaywall()
@@ -104,7 +68,6 @@ function PageRequestedPaywall({
   }, [pending, suppressed, markSeen])
 
   if (!pending || suppressed) return null
-
   const { limit } = account.quota
 
   return (
@@ -122,18 +85,15 @@ function PageRequestedPaywall({
 
 function Stack({ onAccountDeleted }: { onAccountDeleted: (report: DeletionReport) => void }) {
   const nav = useNavigation()
-  const account = useGetAccount({
-    query: { refetchInterval: 5000 },
-  })
+  const account = useGetAccount({ query: { refetchInterval: 5000 } })
   const profile = useGetProfile()
   const page = useActivePage()
   const fill = useFill()
 
   /**
    * Whether this account has anything in it, which is how a new user is told from an old one.
-   *
-   * `undefined` until the profile has loaded, which holds the first-run flow at `loading` rather
-   * than letting it flash onto the screen of somebody with twelve sources. See `useOnboarding`.
+   * `undefined` until the profile has loaded, so first-run setup cannot flash onto the screen
+   * of somebody with twelve documents.
    */
   const hasContent =
     profile.data === undefined
@@ -141,16 +101,26 @@ function Stack({ onAccountDeleted }: { onAccountDeleted: (report: DeletionReport
       : (profile.data.sources ?? []).length > 0 || factCount(reconcile(profile.data)) > 0
   const onboarding = useOnboarding(hasContent)
 
-  useFillNavigation(fill.state.status)
+  /*
+    A fill that finishes while the person is elsewhere in the panel brings them back to the
+    page: the receipt is the reason the fill was started. A fill in progress does not.
+  */
+  const navRef = useRef(nav)
+  navRef.current = nav
+  const status = fill.state.status
+  useEffect(() => {
+    if (status === 'done' && navRef.current.screen.name !== 'page') navRef.current.home()
+  }, [status])
 
   if (account.isPending) {
     return (
       <Screen>
-        <ScreenHeader title="Fillaform" />
-        <ScreenBody aria-busy>
-          <SkeletonRow />
-          <SkeletonRow />
-        </ScreenBody>
+        <Header title="Fillaform" />
+        <Body className="px-gutter pt-1">
+          <div className="overflow-hidden rounded-lg border border-border bg-surface-raised">
+            <SkeletonRows count={2} />
+          </div>
+        </Body>
       </Screen>
     )
   }
@@ -160,15 +130,10 @@ function Stack({ onAccountDeleted }: { onAccountDeleted: (report: DeletionReport
   if (account.isError || !account.data) {
     return (
       <Screen>
-        <ScreenHeader title="Fillaform" />
-        <ScreenBody className="flex items-center justify-center px-6">
-          <p
-            className="rounded-md bg-danger-muted px-3 py-2 text-center text-xs text-danger"
-            role="alert"
-          >
-            {account.error?.message ?? 'Could not load your account.'}
-          </p>
-        </ScreenBody>
+        <Header title="Fillaform" />
+        <Body className="px-gutter pt-1">
+          <Note tone="danger">{account.error?.message ?? 'Could not load your account.'}</Note>
+        </Body>
       </Screen>
     )
   }
@@ -176,17 +141,14 @@ function Stack({ onAccountDeleted }: { onAccountDeleted: (report: DeletionReport
   const accountData = account.data
 
   /*
-    First run takes the whole panel, tab bar included.
-
-    Deliberately not a screen in the navigation stack: it is a sequence with its own progress and
-    its own back button, and putting it on the stack would give it a second one — plus three tabs
-    inviting the user out of the middle of it. It also renders before `Home` can, which matters,
-    because Home's one button does nothing worth seeing on an empty account.
+    First run takes the whole panel. Deliberately not a screen in the stack: it is a sequence
+    with its own progress and its own Back, and it renders before the page can, because the
+    page's one button does nothing worth seeing on an empty account.
   */
   if (onboarding.status === 'running') {
     return (
-      <>
-        <Onboarding
+      <div className="relative h-full">
+        <Setup
           account={accountData}
           profile={profile.data}
           step={onboarding.step}
@@ -194,95 +156,51 @@ function Stack({ onAccountDeleted }: { onAccountDeleted: (report: DeletionReport
           onFinish={onboarding.finish}
         />
         <PageRequestedPaywall account={accountData} suppressed />
-      </>
+      </div>
     )
   }
 
   const screen = nav.screen
-  const isRoot = nav.tab !== null
 
   function render() {
     switch (screen.name) {
-      case 'account':
+      case 'knowledge':
+        return <Knowledge profile={profile.data} initialView={screen.view} />
+      case 'settings':
         return (
           <Settings
             account={accountData}
-            sourceCount={profile.data?.sources?.length ?? 0}
-            onReplayTour={onboarding.restart}
+            documentCount={profile.data?.sources?.length ?? 0}
+            onReplaySetup={() => {
+              nav.home()
+              onboarding.restart()
+            }}
             onDeleted={onAccountDeleted}
           />
         )
-
-      case 'yourInfo':
-        // Facts is the default half: what it knows is what people come here to check.
-        return screen.view === 'sources' ? (
-          <Sources profile={profile.data} />
-        ) : (
-          <Facts profile={profile.data} />
-        )
-
-      case 'addInfo':
-        return <AddSource initial={screen.initial} />
-
-      case 'sourceDetail':
-        return <SourceDetail sourceId={screen.sourceId} profile={profile.data} />
-
-      case 'filling':
-        return (
-          <Filling
-            state={fill.state}
-            fieldCount={page.fieldCount}
-            onCancel={() => {
-              fill.reset()
-              nav.home()
-            }}
-          />
-        )
-
-      case 'receipt':
-        return fill.state.plan ? (
-          <Receipt
-            plan={fill.state.plan}
-            report={fill.state.report}
-            tabId={fill.state.tabId ?? page.tabId}
-            onBack={() => {
-              fill.reset()
-              nav.home()
-            }}
-            onDone={() => {
-              fill.reset()
-              window.close()
-            }}
-          />
-        ) : (
-          <Home
-            account={accountData}
-            profile={profile.data}
-            page={page}
-            hasLastFill={false}
-            onFill={() => void fill.start({ overwriteExisting: false })}
-          />
-        )
-
+      case 'addDocument':
+        return <AddDocument initial={screen.initial} />
+      case 'document':
+        return <Document id={screen.id} profile={profile.data} />
       default:
         return (
-          <Home
+          <Page
             account={accountData}
             profile={profile.data}
             page={page}
-            hasLastFill={fill.state.status === 'done' && fill.state.plan !== undefined}
+            fill={fill.state}
             onFill={() => void fill.start({ overwriteExisting: false })}
+            onReset={fill.reset}
           />
         )
     }
   }
 
   return (
-    <Screen>
+    <div className="relative h-full">
       {render()}
-      {isRoot && <TabBar />}
       <PageRequestedPaywall account={accountData} />
-    </Screen>
+    </div>
   )
 }
 
@@ -290,16 +208,9 @@ export function App() {
   const session = useSignedIn()
 
   /**
-   * The deletion receipt, held here and nowhere lower down.
-   *
-   * A finished deletion clears the session token, which every context watching that key reads as
-   * the session ending — so the signed-in tree, including the dialog that asked for the deletion,
-   * is replaced by `Welcome` in the same tick the request succeeds. `App` survives that swap
-   * because it is the component doing the swapping, which makes it the only place a message about
-   * what just happened can outlive the thing that caused it.
-   *
-   * Checked before the signed-out branch on purpose: by the time there is a report to show, the
-   * session is already gone, so a `Welcome` screen returned first would win every time.
+   * The deletion receipt, held here and nowhere lower down: a finished deletion clears the
+   * session, so the signed-in tree — including the dialog that asked — is replaced by Welcome
+   * in the same tick. `App` survives that swap because it is the component doing the swapping.
    */
   const [farewell, setFarewell] = useState<DeletionReport | null>(null)
 
